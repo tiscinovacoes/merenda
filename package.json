@@ -1,0 +1,24 @@
+{
+  "name": "saged-prototype-tests",
+  "version": "1.0.0",
+  "description": "Testes automatizados do protótipo SAGED - Sistema de Gestão da Alimentação Escolar",
+  "scripts": {
+    "serve": "npx serve prototype -l 8080 --no-clipboard",
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:ui": "npx playwright test --ui",
+    "test:gestor": "npx playwright test tests/gestor.spec.js",
+    "test:nutricionista": "npx playwright test tests/nutricionista.spec.js",
+    "test:escola": "npx playwright test tests/escola.spec.js",
+    "test:cooperativa": "npx playwright test tests/cooperativa.spec.js",
+    "test:agricultor": "npx playwright test tests/agricultor.spec.js",
+    "test:screenshots": "npx playwright test tests/capture-all-screens.spec.js",
+    "report": "npx playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0",
+    "serve": "^14.2.4"
+  },
+  "author": "SEMED Campo Grande - MS",
+  "license": "UNLICENSED"
+}
