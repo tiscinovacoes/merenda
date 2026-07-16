@@ -5,30 +5,79 @@
    ============================================ */
 
 // ============================
+// MODAL SYSTEM
+// ============================
+window.showModal = (title, content) => {
+  let modal = document.getElementById('global-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'global-modal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    
+    const modalContent = document.createElement('div');
+    modalContent.className = 'card';
+    modalContent.style.cssText = 'width:90%;max-width:500px;background:var(--bg);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-lg);';
+    
+    const header = document.createElement('div');
+    header.className = 'card-header';
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+    
+    const titleEl = document.createElement('h3');
+    titleEl.id = 'global-modal-title';
+    titleEl.style.margin = '0';
+    
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '✕';
+    closeBtn.style.cssText = 'background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-secondary);';
+    closeBtn.onclick = closeModal;
+    
+    const body = document.createElement('div');
+    body.className = 'card-body';
+    body.id = 'global-modal-body';
+    
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
+    modalContent.appendChild(header);
+    modalContent.appendChild(body);
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+  }
+  
+  document.getElementById('global-modal-title').innerText = title;
+  document.getElementById('global-modal-body').innerHTML = content;
+  modal.style.display = 'flex';
+};
+
+window.closeModal = () => {
+  const modal = document.getElementById('global-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+window.showToast = (msg, type='success') => {
+  let toast = document.createElement('div');
+  toast.innerText = msg;
+  toast.style.cssText = `position:fixed;bottom:20px;right:20px;background:var(--${type});color:white;padding:12px 24px;border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:10000;font-weight:600;opacity:0;transition:opacity 0.3s;`;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.style.opacity = '1', 10);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
+};
+
+// ============================
 // MOCK DATA
 // ============================
 const DATA = {
   schools: [
-    { id: 1, name: 'EM Arlindo Lima', region: 'Anhanduizinho', director: 'Maria Santos', students: 620, stockStatus: 'ok', lastDelivery: '2026-06-20', stockPct: 82 },
-    { id: 2, name: 'EM Elpídio Reis', region: 'Bandeira', director: 'João Oliveira', students: 480, stockStatus: 'warning', lastDelivery: '2026-06-15', stockPct: 38 },
-    { id: 3, name: 'EM Franklin Roosevelt', region: 'Centro', director: 'Ana Costa', students: 750, stockStatus: 'ok', lastDelivery: '2026-06-22', stockPct: 91 },
-    { id: 4, name: 'EM Hércules Maymone', region: 'Imbirussu', director: 'Carlos Pereira', students: 560, stockStatus: 'danger', lastDelivery: '2026-06-08', stockPct: 15 },
-    { id: 5, name: 'EM José Rodrigues Benfica', region: 'Lagoa', director: 'Fernanda Lima', students: 410, stockStatus: 'ok', lastDelivery: '2026-06-21', stockPct: 75 },
-    { id: 6, name: 'EM Kamé Adania', region: 'Prosa', director: 'Roberto Alves', students: 520, stockStatus: 'ok', lastDelivery: '2026-06-19', stockPct: 88 },
-    { id: 7, name: 'EM Licurgo de Oliveira Bastos', region: 'Segredo', director: 'Patricia Souza', students: 380, stockStatus: 'warning', lastDelivery: '2026-06-12', stockPct: 42 },
-    { id: 8, name: 'EM Professora Gonçalina Faustina', region: 'Anhanduizinho', director: 'Marcos Silva', students: 690, stockStatus: 'ok', lastDelivery: '2026-06-23', stockPct: 95 },
-    { id: 9, name: 'EM Nerone Maiolino', region: 'Bandeira', director: 'Luciana Ferreira', students: 430, stockStatus: 'danger', lastDelivery: '2026-06-05', stockPct: 12 },
-    { id: 10, name: 'EM Plínio Mendes dos Santos', region: 'Centro', director: 'Adriana Rocha', students: 540, stockStatus: 'ok', lastDelivery: '2026-06-22', stockPct: 79 },
-    { id: 11, name: 'EM Padre Tomaz Ghirardelli', region: 'Imbirussu', director: 'Luis Martins', students: 370, stockStatus: 'warning', lastDelivery: '2026-06-14', stockPct: 35 },
-    { id: 12, name: 'EM Rita Cáceres Mendonça', region: 'Lagoa', director: 'Silvia Campos', students: 510, stockStatus: 'ok', lastDelivery: '2026-06-20', stockPct: 72 },
-    { id: 13, name: 'EM Nagib Raslan', region: 'Prosa', director: 'Eduardo Nunes', students: 460, stockStatus: 'ok', lastDelivery: '2026-06-21', stockPct: 85 },
-    { id: 14, name: 'EM Nazira Anache', region: 'Segredo', director: 'Renata Vieira', students: 590, stockStatus: 'ok', lastDelivery: '2026-06-18', stockPct: 68 },
-    { id: 15, name: 'EM Professor Arassuay G. de Castro', region: 'Anhanduizinho', director: 'Pedro Barbosa', students: 640, stockStatus: 'warning', lastDelivery: '2026-06-10', stockPct: 30 },
-    { id: 16, name: 'EM Sulivan Silvestre Oliveira', region: 'Bandeira', director: 'Claudia Moraes', students: 350, stockStatus: 'ok', lastDelivery: '2026-06-22', stockPct: 90 },
-    { id: 17, name: 'EM Irmã Edith Coelho Netto', region: 'Centro', director: 'Fábio Cardoso', students: 480, stockStatus: 'ok', lastDelivery: '2026-06-23', stockPct: 87 },
-    { id: 18, name: 'EM Elízio Ramirez Vieira', region: 'Imbirussu', director: 'Juliana Melo', students: 530, stockStatus: 'danger', lastDelivery: '2026-06-03', stockPct: 8 },
-    { id: 19, name: 'EM Professora Arlene M. Almeida', region: 'Lagoa', director: 'Ricardo Pinto', students: 470, stockStatus: 'ok', lastDelivery: '2026-06-19', stockPct: 76 },
-    { id: 20, name: 'EM Acadêmico Antônio Delfino Pereira', region: 'Prosa', director: 'Beatriz Ramos', students: 600, stockStatus: 'ok', lastDelivery: '2026-06-21', stockPct: 83 },
+    { id: 1, name: 'EM ADV. DEMOSTHENES MARTINS', region: 'Segredo', director: 'Maria Santos', students: 454, stockStatus: 'ok', lastDelivery: '2026-07-10', stockPct: 82 },
+    { id: 2, name: 'EM PROF. ANTÔNIO LOPES LINS', region: 'Lagoa', director: 'João Oliveira', students: 1698, stockStatus: 'warning', lastDelivery: '2026-07-05', stockPct: 38 },
+    { id: 3, name: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', region: 'Rural', director: 'Ana Costa', students: 436, stockStatus: 'ok', lastDelivery: '2026-07-12', stockPct: 91 },
+    { id: 4, name: 'EMTI PROFª IRACEMA MARIA VICENTE', region: 'Bandeira', director: 'Carlos Pereira', students: 539, stockStatus: 'danger', lastDelivery: '2026-06-28', stockPct: 15 },
+    { id: 5, name: 'EMEI CLEOMAR BAPTISTA DOS SANTOS', region: 'Anhanduizinho', director: 'Fernanda Lima', students: 128, stockStatus: 'ok', lastDelivery: '2026-07-11', stockPct: 75 },
+    { id: 6, name: 'EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA', region: 'Prosa', director: 'Roberto Alves', students: 191, stockStatus: 'ok', lastDelivery: '2026-07-09', stockPct: 88 },
+    { id: 7, name: 'EMEI CLOTILDE CHAIA', region: 'Imbirussu', director: 'Patricia Souza', students: 192, stockStatus: 'warning', lastDelivery: '2026-07-02', stockPct: 42 },
+    { id: 8, name: 'EMEI ELEODES ESTEVAN', region: 'Centro', director: 'Marcos Silva', students: 354, stockStatus: 'ok', lastDelivery: '2026-07-14', stockPct: 95 },
   ],
   products: [
     { id: 1, name: 'Arroz Tipo 1', category: 'Grãos', unit: 'kg', stock: 12500, avgConsume: 850, daysLeft: 14, familyFarm: false },
@@ -51,6 +100,11 @@ const DATA = {
     { id: 18, name: 'Melancia', category: 'Frutas', unit: 'kg', stock: 900, avgConsume: 450, daysLeft: 2, familyFarm: true },
     { id: 19, name: 'Farinha de Trigo', category: 'Grãos', unit: 'kg', stock: 5200, avgConsume: 280, daysLeft: 18, familyFarm: false },
     { id: 20, name: 'Leite em Pó', category: 'Laticínios', unit: 'kg', stock: 1800, avgConsume: 150, daysLeft: 12, familyFarm: false },
+    { id: 21, name: 'Fórmula infantil (Partida)', category: 'Especiais', unit: 'Lata', stock: 2000, avgConsume: 150, daysLeft: 13, familyFarm: false },
+    { id: 22, name: 'Fórmula infantil (Seguimento)', category: 'Especiais', unit: 'Lata', stock: 0, avgConsume: 100, daysLeft: 0, familyFarm: false },
+    { id: 23, name: 'Carne Bovina - Patinho', category: 'Proteínas', unit: 'kg', stock: 1500, avgConsume: 300, daysLeft: 5, familyFarm: false },
+    { id: 24, name: 'Carne Bovina - Músculo', category: 'Proteínas', unit: 'kg', stock: 2500, avgConsume: 400, daysLeft: 6, familyFarm: false },
+    { id: 25, name: 'Filé de Tilápia', category: 'Proteínas', unit: 'kg', stock: 450, avgConsume: 100, daysLeft: 4, familyFarm: false },
   ],
   cooperatives: [
     { id: 1, name: 'COOPAGRAN', farmers: 28, orders: 47, delivered: 42, rate: 89, value: 1450000 },
@@ -79,8 +133,8 @@ const DATA = {
   contracts: [
     { id: 1, number: 'ATA-2026/001', start: '2026-01-15', end: '2026-12-31', supplier: 'COOPAGRAN', globalValue: 5200000, executedValue: 2860000, status: 'Vigente' },
     { id: 2, number: 'ATA-2026/002', start: '2026-02-01', end: '2026-12-31', supplier: 'COOPRAN / COOPAERGS', globalValue: 4800000, executedValue: 2160000, status: 'Vigente' },
-    { id: 3, number: 'ATA-2025/018', start: '2025-07-01', end: '2026-06-30', supplier: 'Diversos (Pregão)', globalValue: 6500000, executedValue: 5850000, status: 'Vigente' },
-    { id: 4, number: 'CP-2026/003', start: '2026-03-01', end: '2027-02-28', supplier: 'COOPASUL / COOPERVIDA', globalValue: 1800000, executedValue: 540000, status: 'Vigente' },
+    { id: 3, number: 'ATA-2025/049', start: '2025-05-10', end: '2026-05-09', supplier: 'COMERCIAL LOTUS LTDA', globalValue: 13141.78, executedValue: 2000, status: 'Vigente' },
+    { id: 4, number: 'ATA-2026/018', start: '2026-02-10', end: '2027-02-09', supplier: 'POLARIS COMÉRCIO DE ALIMENTOS LTDA', globalValue: 10817277.56, executedValue: 4250000, status: 'Vigente' },
   ],
   orders: [
     { id: 1, school: 'EM Hércules Maymone', date: '2026-06-24', status: 'Pendente', coop: 'COOPAGRAN', value: 8500 },
@@ -91,6 +145,32 @@ const DATA = {
     { id: 6, school: 'EM Prof. Arassuay G. de Castro', date: '2026-06-22', status: 'Entregue', coop: 'COOPERVIDA', value: 7600 },
     { id: 7, school: 'EM Padre Tomaz Ghirardelli', date: '2026-06-21', status: 'Entregue', coop: 'COOPRAN', value: 4900 },
     { id: 8, school: 'EM Arlindo Lima', date: '2026-06-20', status: 'Entregue', coop: 'COOPAERGS', value: 8200 },
+  ],
+  ataProducts: [
+    { id: 1, ataId: 3, name: 'Fórmula infantil - Tipo partida (Aptamil)', unit: 'Lata', maxQtd: 140800, unitPrice: 0.04, globalValue: 5632, executedValue: 2000, stockProductId: 21 },
+    { id: 2, ataId: 3, name: 'Fórmula infantil - Seguimento (Nestogeno)', unit: 'Lata', maxQtd: 250326, unitPrice: 0.03, globalValue: 7509.78, executedValue: 0, stockProductId: 22 },
+    { id: 3, ataId: 4, name: 'Carne Bovina - Patinho em cubos (Talismã)', unit: 'Kg', maxQtd: 117436, unitPrice: 23.85, globalValue: 2800848.60, executedValue: 1200000, stockProductId: 23 },
+    { id: 4, ataId: 4, name: 'Carne Bovina - Músculo Moído (Talismã)', unit: 'Kg', maxQtd: 421457, unitPrice: 16.88, globalValue: 7114194.16, executedValue: 3000000, stockProductId: 24 },
+    { id: 5, ataId: 4, name: 'Filé de Tilápia (Bello)', unit: 'Kg', maxQtd: 25852, unitPrice: 34.90, globalValue: 902234.80, executedValue: 50000, stockProductId: 25 }
+  ],
+  lots: [
+    { id: 1, productId: 23, number: 'L-PAT-001', entryDate: '2026-06-15', expirationDate: '2026-09-15', qtd: 1500 },
+    { id: 2, productId: 1, number: 'L-ARR-092', entryDate: '2026-05-10', expirationDate: '2026-12-15', qtd: 12500 }
+  ],
+  separation_orders: [
+    { id: 1, pedidoId: 301, school: 'EM Arlindo Lima', items: [{ productId: 1, requested: 120, lotSugg: 'L-ARR-092', scanned: 0 }], status: 'Pendente' }
+  ],
+  empenhos: [
+    { id: 1, ataId: 4, numero: 'EMP-2026/045', date: '2026-06-15', totalValue: 120000, executedValue: 120000, status: 'Liquidado', items: [{ productId: 3, qtd: 5031, value: 120000, delivered: 5031 }] },
+    { id: 2, ataId: 4, numero: 'EMP-2026/102', date: '2026-06-20', totalValue: 50000, executedValue: 20000, status: 'Parcial', items: [{ productId: 5, qtd: 1432, value: 50000, delivered: 573 }] }
+  ],
+  nf_history: [
+    { id: 1, empenhoId: 1, date: '2026-06-18', numero: 'NF-1023', items: [{ productId: 3, qtd: 5031, value: 120000 }] },
+    { id: 2, empenhoId: 2, date: '2026-06-25', numero: 'NF-1089', items: [{ productId: 5, qtd: 573, value: 20000 }] }
+  ],
+  ata_pedidos: [
+    { id: 1, empenhoId: 1, date: '2026-06-16', qtd: 5031, value: 120000 },
+    { id: 2, empenhoId: 2, date: '2026-06-22', qtd: 1432, value: 50000 }
   ],
   regions: ['Anhanduizinho', 'Bandeira', 'Centro', 'Imbirussu', 'Lagoa', 'Prosa', 'Segredo'],
   monthlyConsumption: [42000, 38500, 45200, 41800, 43900, 39700, 44100, 40300, 46500, 43200, 41600, 44800],
@@ -126,12 +206,11 @@ const PROFILES = {
       { id: 'dashboard', icon: '📊', label: 'Dashboard Nutricional', badge: null },
       { id: 'fichas', icon: '📝', label: 'Fichas Técnicas', badge: null },
       { id: 'produtos', icon: '🥕', label: 'Produtos', badge: null },
-      { id: 'cardapios', icon: '🍽️', label: 'Cardápios', badge: null },
+      { id: 'cardapios', icon: '🍽️', label: 'Cardápios (Viewer, PDF, Romaneio)', badge: null },
       { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
       { id: 'escolas', icon: '🏫', label: 'Escolas', badge: null },
       { id: 'consumo', icon: '📈', label: 'Consumo', badge: null },
       { id: 'desperdicios', icon: '🗑️', label: 'Desperdícios', badge: null },
-      { id: 'simulacoes', icon: '🔬', label: 'Simulações', badge: null },
       { id: 'relatorios', icon: '📊', label: 'Relatórios', badge: null },
       { id: 'ia', icon: '🤖', label: 'IA Nutricional', badge: null },
     ]
@@ -188,16 +267,17 @@ const PROFILES = {
       { id: 'perfil', icon: '👤', label: 'Perfil', badge: null },
     ]
   },
-  almoxarifado: {
+  estoque: {
     name: 'Roberto Lima',
-    role: 'Almoxarifado Central',
+    role: 'Central de Distribuição (Estoque)',
     initials: 'RL',
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard Operacional', badge: null },
-      { id: 'escolas', icon: '🏫', label: 'Escolas / Destinos', badge: null },
-      { id: 'separacao', icon: '📦', label: 'Separação de Pedidos', badge: '2' },
-      { id: 'carregamento', icon: '🚚', label: 'Carregamento', badge: null },
-      { id: 'estoque', icon: '📋', label: 'Lotes & Validade', badge: null },
+      { id: 'inventario', icon: '🏢', label: 'Posição de Estoque', badge: null },
+      { id: 'entradas', icon: '📥', label: 'Entradas (NF)', badge: '2' },
+      { id: 'separacao', icon: '📦', label: 'Ordens de Separação', badge: '3' },
+      { id: 'carregamento', icon: '🚚', label: 'Carregamento (Bipagem)', badge: null },
+      { id: 'lotes', icon: '📋', label: 'Controle de Lotes', badge: null },
     ]
   },
   motorista: {
@@ -223,6 +303,227 @@ let state = {
   charts: {},
   sidebarCollapsed: false,
 };
+
+// ============================
+// SHARED STATE
+// ---------------------------
+// Estado interligado entre todos os perfis. Persistido em localStorage
+// para que mudanças feitas por um perfil apareçam quando qualquer outro
+// perfil abrir a tela correspondente.
+//
+// Entidades:
+// - menus         → cardápios publicados/em elaboração (Nutricionista → Escola/Gestor)
+// - weeklyMenus   → cardápios semanais por escola (Nutricionista → Escola/Cooperativa/Agricultor)
+// - fichas        → fichas técnicas (Nutricionista → Escola/Gestor)
+// - orders        → pedidos de abastecimento (Escola → Cooperativa/Agricultor/Almoxarifado/Gestor)
+// - deliveries    → entregas em andamento e realizadas (Motorista/Cooperativa → Escola/Gestor)
+// - incidents     → ocorrências (Motorista → Gestor/Escola)
+// - productions   → atualizações de produção (Agricultor → Cooperativa/Gestor)
+// - stockAdjust   → ajustes de estoque por escola (Escola/Almoxarifado → Gestor)
+// ============================
+const SHARED_STATE_KEY = 'saged_shared_state_v1';
+
+const SharedState = {
+  _data: null,
+  _listeners: [],
+
+  _defaults() {
+    return {
+      menus: [
+        { id: 'menu-jun-reg',   nome: 'Cardápio Junho/2026 — Regular',  periodo: '01/06 a 30/06', escolas: 152, status: 'Publicado',    tipo: 'Regular',  autor: 'Dra. Camila Andrade', criadoEm: '2026-05-25' },
+        { id: 'menu-jun-int',   nome: 'Cardápio Junho/2026 — Integral', periodo: '01/06 a 30/06', escolas: 31,  status: 'Publicado',    tipo: 'Integral', autor: 'Dra. Camila Andrade', criadoEm: '2026-05-25' },
+        { id: 'menu-jul-reg',   nome: 'Cardápio Julho/2026 — Regular',  periodo: '01/07 a 31/07', escolas: 0,   status: 'Em Elaboração', tipo: 'Regular', autor: 'Dra. Camila Andrade', criadoEm: '2026-06-18' },
+      ],
+      weeklyMenus: [],   // { id, semana, escola|'REDE', refeicoes:[{dia,tipo,item,kcal}], kcalMedia, publicadoEm, autor }
+      fichas: [],        // fichas criadas em runtime (as demo ficam em _FICHAS_DEMO)
+      orders: [],        // pedidos criados pela escola em runtime
+      deliveries: [],    // eventos de entrega (status, confirmação, foto, assinatura)
+      incidents: [],     // ocorrências do motorista
+      productions: [],   // atualizações de produção do agricultor
+      stockAdjust: [],   // ajustes de estoque
+      lastEventAt: null,
+    };
+  },
+
+  init() {
+    try {
+      const raw = localStorage.getItem(SHARED_STATE_KEY);
+      if (raw) {
+        this._data = JSON.parse(raw);
+        // Garante que campos novos existam se o schema for atualizado
+        const defs = this._defaults();
+        for (const k of Object.keys(defs)) {
+          if (!(k in this._data)) this._data[k] = defs[k];
+        }
+      } else {
+        this._data = this._defaults();
+        this._persist();
+      }
+    } catch (e) {
+      console.warn('[SharedState] Falha ao carregar; usando defaults.', e);
+      this._data = this._defaults();
+    }
+
+    // Sincroniza entre abas do navegador: se outra aba mudou o estado,
+    // recarrega e re-renderiza a página atual do perfil ativo.
+    window.addEventListener('storage', (ev) => {
+      if (ev.key === SHARED_STATE_KEY && ev.newValue) {
+        try {
+          this._data = JSON.parse(ev.newValue);
+          this._emit('external');
+          if (typeof renderPage === 'function' && state.currentPage) {
+            renderSidebar && renderSidebar();
+            renderPage();
+          }
+        } catch {}
+      }
+    });
+  },
+
+  _persist() {
+    try {
+      this._data.lastEventAt = new Date().toISOString();
+      localStorage.setItem(SHARED_STATE_KEY, JSON.stringify(this._data));
+    } catch (e) {
+      console.warn('[SharedState] Falha ao persistir.', e);
+    }
+  },
+
+  _emit(event) {
+    this._listeners.forEach(fn => { try { fn(event, this._data); } catch {} });
+  },
+
+  onChange(fn) { this._listeners.push(fn); return () => { this._listeners = this._listeners.filter(f => f !== fn); }; },
+
+  // Leitores
+  getMenus()       { return [...(this._data.menus || [])]; },
+  getWeeklyMenus() { return [...(this._data.weeklyMenus || [])]; },
+  getFichas()      { return [...(this._data.fichas || [])]; },
+  getOrders()      { return [...(this._data.orders || [])]; },
+  getDeliveries()  { return [...(this._data.deliveries || [])]; },
+  getIncidents()   { return [...(this._data.incidents || [])]; },
+  getProductions() { return [...(this._data.productions || [])]; },
+  getStockAdjust() { return [...(this._data.stockAdjust || [])]; },
+
+  // Contadores para badges do menu lateral
+  countPendingOrders(filter) {
+    return (this._data.orders || []).filter(o => o.status === 'Pendente' && (!filter || filter(o))).length;
+  },
+  countActiveDeliveries(filter) {
+    return (this._data.deliveries || []).filter(d => d.status !== 'Confirmada' && d.status !== 'Recebida' && (!filter || filter(d))).length;
+  },
+
+  // Escritores — cada ação notifica os assinantes e persiste
+  addMenu(menu) {
+    const m = { id: 'menu-' + Date.now(), status: 'Publicado', criadoEm: new Date().toISOString().slice(0,10), ...menu };
+    this._data.menus.unshift(m);
+    this._persist(); this._emit('menu:add');
+    return m;
+  },
+  addWeeklyMenu(weekly) {
+    const w = { id: 'wk-' + Date.now(), publicadoEm: new Date().toISOString(), ...weekly };
+    this._data.weeklyMenus.unshift(w);
+    this._persist(); this._emit('weeklyMenu:add');
+    return w;
+  },
+  addFicha(ficha) {
+    const f = { id: 'ficha-' + Date.now(), criadoEm: new Date().toISOString().slice(0,10), ...ficha };
+    this._data.fichas.unshift(f);
+    this._persist(); this._emit('ficha:add');
+    return f;
+  },
+  addOrder(order) {
+    const nextNum = ((this._data.orders[0]?.numero) || 100) + 1;
+    const o = {
+      id: 'ord-' + Date.now(),
+      numero: nextNum,
+      date: new Date().toISOString().slice(0,10),
+      status: 'Pendente',
+      value: 0,
+      itens: [],
+      ...order,
+    };
+    this._data.orders.unshift(o);
+    // Cria automaticamente um registro de entrega vinculado para acompanhamento
+    this._data.deliveries.unshift({
+      id: 'del-' + Date.now(),
+      orderId: o.id,
+      orderNumero: o.numero,
+      school: o.school,
+      cooperative: o.cooperative,
+      status: 'Aguardando Cooperativa',
+      criadoEm: new Date().toISOString(),
+      timeline: [{ at: new Date().toISOString(), evento: 'Pedido enviado pela escola' }],
+    });
+    this._persist(); this._emit('order:add');
+    return o;
+  },
+  updateOrderStatus(orderId, status, extra) {
+    const o = this._data.orders.find(x => x.id === orderId);
+    if (!o) return null;
+    o.status = status;
+    if (extra) Object.assign(o, extra);
+    // Sincroniza a delivery vinculada
+    const d = this._data.deliveries.find(x => x.orderId === orderId);
+    if (d) {
+      d.status = status === 'Entregue' ? 'Confirmada' : (status === 'Em transporte' ? 'Em Transporte' : (status === 'Em separação' ? 'Em Separação' : d.status));
+      d.timeline = d.timeline || [];
+      d.timeline.push({ at: new Date().toISOString(), evento: 'Status: ' + status });
+    }
+    this._persist(); this._emit('order:update');
+    return o;
+  },
+  confirmDelivery(orderId, receiver, doc) {
+    const o = this._data.orders.find(x => x.id === orderId);
+    if (o) o.status = 'Entregue';
+    const d = this._data.deliveries.find(x => x.orderId === orderId);
+    if (d) {
+      d.status = 'Confirmada';
+      d.receiver = receiver;
+      d.doc = doc;
+      d.confirmadoEm = new Date().toISOString();
+      d.timeline = d.timeline || [];
+      d.timeline.push({ at: new Date().toISOString(), evento: 'Recebimento confirmado por ' + receiver });
+    }
+    this._persist(); this._emit('delivery:confirm');
+    return d;
+  },
+  addIncident(inc) {
+    const i = { id: 'inc-' + Date.now(), criadoEm: new Date().toISOString(), status: 'Aberta', ...inc };
+    this._data.incidents.unshift(i);
+    this._persist(); this._emit('incident:add');
+    return i;
+  },
+  addProduction(prod) {
+    const p = { id: 'prod-' + Date.now(), criadoEm: new Date().toISOString(), ...prod };
+    this._data.productions.unshift(p);
+    this._persist(); this._emit('production:add');
+    return p;
+  },
+  addStockAdjust(adj) {
+    const a = { id: 'adj-' + Date.now(), criadoEm: new Date().toISOString(), ...adj };
+    this._data.stockAdjust.unshift(a);
+    this._persist(); this._emit('stock:adjust');
+    return a;
+  },
+
+  // Limpa tudo (para debug ou reset)
+  reset() { this._data = this._defaults(); this._persist(); this._emit('reset'); },
+};
+
+SharedState.init();
+window.SharedState = SharedState;
+
+// Helper de UI: mostra um toast rápido de sucesso/erro
+function showToast(msg, kind) {
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + (kind === 'error' ? '#C62828' : '#2E7D32') + ';color:white;padding:12px 18px;border-radius:8px;font-size:0.9rem;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:9999;font-weight:600;opacity:0;transition:opacity .2s';
+  document.body.appendChild(t);
+  requestAnimationFrame(() => t.style.opacity = '1');
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 3200);
+}
+window.showToast = showToast;
 
 // ============================
 // UTILITIES
@@ -318,19 +619,42 @@ function updateDbStatusBadge() {
 // ============================
 // RENDER: SIDEBAR
 // ============================
+function computeDynamicBadge(profile, pageId) {
+  const orders = SharedState.getOrders();
+  const incidents = SharedState.getIncidents();
+  const productions = SharedState.getProductions();
+  if (profile === 'gestor' && pageId === 'pedidos')       return orders.filter(o => o.status === 'Pendente').length || null;
+  if (profile === 'gestor' && pageId === 'dashboard')     return incidents.filter(i => i.status === 'Aberta').length || null;
+  if (profile === 'nutricionista' && pageId === 'cardapios') {
+    const weekly = SharedState.getWeeklyMenus().length;
+    return weekly || null;
+  }
+  if (profile === 'escola' && pageId === 'cardapios')     return SharedState.getWeeklyMenus().length || null;
+  if (profile === 'escola' && pageId === 'entregas')      return orders.filter(o => o.status !== 'Entregue' && o.status !== 'Pendente').length || null;
+  if (profile === 'escola' && pageId === 'pedidos')       return orders.filter(o => o.status === 'Pendente').length || null;
+  if (profile === 'cooperativa' && pageId === 'pedidos')  return orders.filter(o => o.status === 'Pendente').length || null;
+  if (profile === 'agricultor' && pageId === 'pedidos')   return orders.filter(o => ['Pendente','Em separação'].includes(o.status)).length || null;
+  if (profile === 'almoxarifado' && pageId === 'separacao') return orders.filter(o => ['Pendente','Em separação'].includes(o.status)).length || null;
+  if (profile === 'motorista' && pageId === 'entregas')   return orders.filter(o => o.status === 'Em transporte').length || null;
+  return null;
+}
+
 function renderSidebar() {
   const prof = PROFILES[state.currentProfile];
   $('#sidebar-avatar').textContent = prof.initials;
   $('#sidebar-user-name').textContent = prof.name;
   $('#sidebar-user-role').textContent = prof.role;
   const nav = $('#sidebar-nav');
-  nav.innerHTML = prof.menu.map(item => `
+  nav.innerHTML = prof.menu.map(item => {
+    const dyn = computeDynamicBadge(state.currentProfile, item.id);
+    const badge = dyn != null ? dyn : item.badge;
+    return `
     <button class="sidebar-nav-item ${item.id === state.currentPage ? 'active' : ''}" data-page="${item.id}" type="button">
       <span class="nav-icon">${item.icon}</span>
       <span>${item.label}</span>
-      ${item.badge ? `<span class="nav-badge">${item.badge}</span>` : ''}
+      ${badge ? `<span class="nav-badge">${badge}</span>` : ''}
     </button>
-  `).join('');
+  `;}).join('');
   nav.querySelectorAll('.sidebar-nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(null, btn.dataset.page));
   });
@@ -436,10 +760,13 @@ PAGE_RENDERERS.gestor_dashboard = (el) => {
   const schoolsOk = DATA.schools.filter(s => s.stockStatus === 'ok').length;
   const schoolsRisk = DATA.schools.filter(s => s.stockStatus === 'danger').length;
   const totalStudents = DATA.schools.reduce((a, s) => a + s.students, 0);
-  const pendingOrders = DATA.orders.filter(o => o.status === 'Pendente').length;
+  const sharedPending = SharedState.getOrders().filter(o => o.status === 'Pendente').length;
+  const pendingOrders = DATA.orders.filter(o => o.status === 'Pendente').length + sharedPending;
   const lateOrders = DATA.orders.filter(o => o.status === 'Pendente' || o.status === 'Em separação').length;
   const totalAtas = DATA.contracts.reduce((a, c) => a + c.globalValue, 0);
   const executedAtas = DATA.contracts.reduce((a, c) => a + c.executedValue, 0);
+  const incidents = SharedState.getIncidents();
+  const recentIncidents = incidents.slice(0, 3);
 
   el.innerHTML = `
     <div class="page-header">
@@ -570,9 +897,16 @@ PAGE_RENDERERS.gestor_dashboard = (el) => {
         </div>
       </div>
       <div class="card animate-fade-up">
-        <div class="card-header"><div class="card-title">🚨 Alertas Ativos</div></div>
+        <div class="card-header"><div class="card-title">🚨 Alertas Ativos</div>${recentIncidents.length ? '<span class="status-badge status-danger">'+incidents.length+' ocorrência(s)</span>' : ''}</div>
         <div class="card-body">
           <div class="alert-list">
+            ${recentIncidents.map(i => `
+              <div class="alert-item danger">
+                <span class="alert-icon">🚚</span>
+                <div class="alert-text"><strong>Motorista — ${i.school || 'Sem escola'}</strong> reportou: ${i.tipo}</div>
+                <span class="alert-time">${new Date(i.criadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
+              </div>
+            `).join('')}
             <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EM Hércules Maymone</strong> — Estoque em 15%, risco de desabastecimento</div><span class="alert-time">5min</span></div>
             <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EM Elízio Ramirez</strong> — Estoque em 8%, situação crítica</div><span class="alert-time">1h</span></div>
             <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EM Nerone Maiolino</strong> — Estoque em 12%, aguardando entrega</div><span class="alert-time">2h</span></div>
@@ -721,6 +1055,282 @@ PAGE_RENDERERS.gestor_escolas = (el) => {
 };
 
 // ─── GESTOR: ATAS E CONTRATOS ───
+window.openAtaDetalhe = (ataId) => {
+  const container = document.getElementById('page-content');
+  const ata = DATA.contracts.find(a => a.id === ataId);
+  if (!ata) return;
+  const prods = DATA.ataProducts.filter(p => p.ataId === ataId);
+  const emps = DATA.empenhos.filter(e => e.ataId === ataId);
+  
+  container.innerHTML = `
+    <div class="page-header" style="display:flex;align-items:center;gap:12px">
+      <button class="btn btn-outline" onclick="PAGE_RENDERERS.gestor_atas(document.getElementById('page-content'))">🔙 Voltar</button>
+      <div>
+        <div class="page-title">Ata nº ${ata.number}</div>
+        <div class="page-subtitle">Fornecedor: ${ata.supplier} | Vigência: ${formatDate(ata.start)} a ${formatDate(ata.end)}</div>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(ata.globalValue)}</div><div class="kpi-label">Valor Global</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${formatCurrency(ata.executedValue)}</div><div class="kpi-label">Executado</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(ata.globalValue - ata.executedValue)}</div><div class="kpi-label">Saldo Restante</div></div>
+    </div>
+    
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-top:20px">
+      <!-- Painel de Produtos -->
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <h3>Produtos da Ata</h3>
+          <button class="btn btn-primary" onclick="window.openModalEmpenho(${ataId})">+ Novo Empenho</button>
+        </div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead><tr><th>Produto</th><th>Global</th><th>Executado</th><th>Saldo</th></tr></thead>
+            <tbody>
+              ${prods.map(p => `
+                <tr>
+                  <td><strong>${p.name}</strong><br><small style="color:var(--text-secondary)">Unid: ${p.unit} | Preço: ${formatCurrency(p.unitPrice)}</small></td>
+                  <td style="font-family:var(--font-mono)">${formatCurrency(p.globalValue)}</td>
+                  <td style="font-family:var(--font-mono)">${formatCurrency(p.executedValue)}</td>
+                  <td style="font-family:var(--font-mono);font-weight:600;color:var(--primary)">${formatCurrency(p.globalValue - p.executedValue)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Histórico de Empenhos e Pedidos -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Empenhos e NFs</h3>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${emps.map(e => {
+              const pedidos = DATA.ata_pedidos ? DATA.ata_pedidos.filter(p => p.empenhoId === e.id) : [];
+              const nfs = DATA.nf_history.filter(nf => nf.empenhoId === e.id);
+              return `
+              <div class="empenho-card-summary" style="padding:12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);cursor:pointer;transition:all 0.2s" onclick="window.openEmpenhoDetailsModal(${e.id})" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <strong>${e.numero}</strong>
+                  <span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : 'status-warning'}">${e.status}</span>
+                </div>
+                <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:4px">Data: ${formatDate(e.date)} | Valor Total: ${formatCurrency(e.totalValue)} | Saldo Financeiro: ${formatCurrency(e.totalValue - e.executedValue)}</div>
+                <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px">Qtd Solicitada: ${e.items[0]?.qtd} | Qtd Entregue: ${e.items[0]?.delivered} | Saldo Físico: ${e.items[0]?.qtd - e.items[0]?.delivered}</div>
+                <div style="text-align:right;margin-top:8px;">
+                  <span style="font-size:0.8rem;color:var(--primary);font-weight:600">Ver Movimentações ➔</span>
+                </div>
+              </div>
+            `}).join('')}
+            ${emps.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:20px">Nenhum empenho registrado.</div>' : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.openEmpenhoDetailsModal = (empenhoId) => {
+  const e = DATA.empenhos.find(x => x.id === empenhoId);
+  const pedidos = DATA.ata_pedidos ? DATA.ata_pedidos.filter(p => p.empenhoId === e.id) : [];
+  const nfs = DATA.nf_history.filter(nf => nf.empenhoId === e.id);
+  
+  showModal('Movimentações do Empenho ' + e.numero, `
+    <div style="margin-bottom:16px;padding:12px;background:var(--surface-2);border-radius:var(--radius-md)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <strong>Status: <span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : 'status-warning'}">${e.status}</span></strong>
+      </div>
+      <div style="font-size:0.85rem">Data: ${formatDate(e.date)} | Total Empenhado: ${formatCurrency(e.totalValue)}</div>
+      <div style="font-size:0.85rem;margin-top:4px;color:var(--danger)">Saldo Financeiro Restante: ${formatCurrency(e.totalValue - e.executedValue)}</div>
+      <div style="font-size:0.85rem;margin-top:4px;color:var(--primary)">Saldo Físico (Qtd) Restante: ${e.items[0]?.qtd - e.items[0]?.delivered}</div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+        <h4 style="margin:0">Pedidos Realizados</h4>
+        <button class="btn btn-sm btn-primary" onclick="window.openModalPedidoEmpenho(${e.id})">+ Solicitar Entrega</button>
+      </div>
+      ${pedidos.length === 0 ? '<div style="font-size:0.85rem;color:var(--text-secondary)">Nenhum pedido realizado para este empenho.</div>' : ''}
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${pedidos.map(p => `
+          <div style="font-size:0.85rem;display:flex;justify-content:space-between;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:4px">
+            <div>
+              <strong>🛒 Pedido em ${formatDate(p.date)}</strong><br>
+              <span style="color:var(--text-secondary)">Qtd Solicitada: ${p.qtd} | Qtd Entregue: ${p.delivered || 0}</span>
+            </div>
+            <div style="font-family:var(--font-mono);font-weight:600;text-align:right">
+              ${formatCurrency(p.value)}<br>
+              <span class="status-badge ${(p.delivered||0) >= p.qtd ? 'status-ok' : 'status-warning'}" style="font-size:0.7rem;margin-top:4px">${(p.delivered||0) >= p.qtd ? 'Atendido' : 'Pendente'}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div>
+      <div style="border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+        <h4 style="margin:0">Notas Fiscais (Baixas no Estoque)</h4>
+      </div>
+      ${nfs.length === 0 ? '<div style="font-size:0.85rem;color:var(--text-secondary)">Nenhuma entrada de mercadoria registrada.</div>' : ''}
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${nfs.map(nf => `
+          <div style="font-size:0.85rem;display:flex;justify-content:space-between;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:4px">
+            <div>
+              <strong>🧾 NF ${nf.numero}</strong><br>
+              <span style="color:var(--text-secondary)">Recebida em: ${formatDate(nf.date)}</span>
+            </div>
+            <div style="font-family:var(--font-mono);font-weight:600">
+              ${formatCurrency(nf.items.reduce((a,i)=>a+i.value,0))}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `);
+};
+
+
+window.openModalEmpenho = (ataId) => {
+  showModal('Novo Empenho', `
+    <div class="form-group">
+      <label>Produto</label>
+      <select id="ata-empenho-prod" style="width:100%;padding:10px;border-radius:var(--radius-md);border:1px solid var(--border)">
+        ${DATA.ataProducts.filter(p=>p.ataId===ataId).map(p=>`<option value="${p.id}">${p.name} (Saldo Restante na Ata: ${formatCurrency(p.globalValue - p.executedValue)})</option>`).join('')}
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group">
+        <label>Nº do Empenho</label>
+        <input type="text" id="ata-empenho-numero" placeholder="Ex: 2026 NE 00477 0909F">
+      </div>
+      <div class="form-group">
+        <label>Quantidade a empenhar</label>
+        <input type="number" id="ata-empenho-qtd" placeholder="Qtd">
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="window.saveEmpenho(${ataId})">Gravar Empenho</button>
+  `);
+};
+
+window.saveEmpenho = (ataId) => {
+  const prodId = parseInt(document.getElementById('ata-empenho-prod').value);
+  const empenho = document.getElementById('ata-empenho-numero').value;
+  const qtd = parseInt(document.getElementById('ata-empenho-qtd').value);
+  if(!empenho || !qtd) return alert('Preencha os campos.');
+  
+  const prod = DATA.ataProducts.find(p => p.id === prodId);
+  const totalValue = qtd * prod.unitPrice;
+  
+  DATA.empenhos.push({
+    id: DATA.empenhos.length + 1,
+    ataId: ataId,
+    numero: empenho,
+    date: new Date().toISOString().split('T')[0],
+    totalValue: totalValue,
+    executedValue: 0,
+    status: 'Pendente',
+    items: [{ productId: prodId, qtd: qtd, value: totalValue, delivered: 0 }]
+  });
+  
+  closeModal();
+  window.showToast('Empenho gravado com sucesso!', 'success');
+  window.openAtaDetalhe(ataId);
+};
+
+window.openModalPedidoEmpenho = (empenhoId) => {
+  const e = DATA.empenhos.find(x => x.id === empenhoId);
+  showModal('Novo Pedido (Contra Empenho)', `
+    <div style="margin-bottom:15px;padding:10px;background:var(--surface-2);border-radius:var(--radius-md)">
+      <strong>Empenho: ${e.numero}</strong><br>
+      Saldo a receber: <strong style="color:var(--danger)">${formatCurrency(e.totalValue - e.executedValue)}</strong>
+    </div>
+    <div class="form-group">
+      <label>Quantidade a solicitar (Pedido)</label>
+      <input type="number" id="ata-pedido-qtd" placeholder="Qtd">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="window.savePedidoEmpenho(${empenhoId})">Gerar Pedido</button>
+  `);
+};
+
+window.savePedidoEmpenho = (empenhoId) => {
+  const qtd = parseInt(document.getElementById('ata-pedido-qtd').value);
+  if(!qtd) return alert('Preencha a quantidade.');
+  
+  const emp = DATA.empenhos.find(x => x.id === empenhoId);
+  const item = emp.items[0]; // Simplificação
+  const value = qtd * (item.value / item.qtd);
+  
+  if (!DATA.ata_pedidos) DATA.ata_pedidos = [];
+  DATA.ata_pedidos.push({
+    id: DATA.ata_pedidos.length + 1,
+    empenhoId: empenhoId,
+    date: new Date().toISOString().split('T')[0],
+    qtd: qtd,
+    value: value
+  });
+  
+  closeModal();
+  window.showToast('Pedido gerado! Estoque atualizado.', 'success');
+  window.openAtaDetalhe(emp.ataId);
+};
+
+window.openModalNFAta = (empenhoId) => {
+  const e = DATA.empenhos.find(x => x.id === empenhoId);
+  const saldoEmp = e.totalValue - e.executedValue;
+  showModal('Registrar Entrada (Nota Fiscal)', `
+    <div style="margin-bottom:15px;padding:10px;background:var(--surface-2);border-radius:var(--radius-md)">
+      <strong>Empenho: ${e.numero}</strong><br>
+      Saldo a receber: <strong style="color:var(--danger)">${formatCurrency(saldoEmp)}</strong>
+    </div>
+    <div class="form-group">
+      <label>Número da NF</label>
+      <input type="text" id="ata-nf-num" placeholder="000.000.000">
+    </div>
+    <div class="form-group">
+      <label>Valor da NF (R$)</label>
+      <input type="number" id="ata-nf-valor" value="${saldoEmp}">
+    </div>
+    <button class="btn btn-success" style="width:100%;margin-top:10px" onclick="window.saveNFAta(${empenhoId})">Confirmar Entrada e Dar Baixa</button>
+  `);
+};
+
+window.saveNFAta = (empenhoId) => {
+  const num = document.getElementById('ata-nf-num').value;
+  const val = parseFloat(document.getElementById('ata-nf-valor').value);
+  if(!num || !val) return alert('Preencha todos os campos.');
+  
+  const emp = DATA.empenhos.find(x => x.id === empenhoId);
+  emp.executedValue += val;
+  if (emp.executedValue >= emp.totalValue) emp.status = 'Liquidado';
+  else emp.status = 'Parcial';
+  
+  const item = emp.items[0]; // Simplificação
+  DATA.nf_history.push({
+    id: DATA.nf_history.length + 1,
+    empenhoId: empenhoId,
+    date: new Date().toISOString().split('T')[0],
+    numero: num,
+    items: [{ productId: item.productId, qtd: val/item.value*item.qtd, value: val }]
+  });
+  
+  // Atualizar saldo na ATA global e no PRODUTO
+  const ata = DATA.contracts.find(a => a.id === emp.ataId);
+  ata.executedValue += val;
+  const prod = DATA.ataProducts.find(p => p.id === item.productId);
+  prod.executedValue += val;
+  
+  // Atualizar Estoque Real (Soma quantidade recebida ao estoque do produto)
+  const stockProd = DATA.products.find(p => p.id === prod.stockProductId);
+  if (stockProd) {
+    stockProd.stock += Math.round(val / item.value * item.qtd);
+  }
+  
+  closeModal();
+  window.showToast('NF registrada e estoque incrementado!', 'success');
+  window.openAtaDetalhe(emp.ataId);
+};
+
 PAGE_RENDERERS.gestor_atas = (el) => {
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Atas e Contratos</div><div class="page-subtitle">Gestão dos instrumentos contratuais vigentes</div></div>
@@ -733,19 +1343,20 @@ PAGE_RENDERERS.gestor_atas = (el) => {
     <div class="card">
       <div class="card-body">
         <table class="data-table">
-          <thead><tr><th>Nº da Ata</th><th>Vigência</th><th>Fornecedor</th><th>Valor Global</th><th>Executado</th><th>Saldo</th><th>Execução</th><th>Status</th></tr></thead>
+          <thead><tr><th>Nº da Ata</th><th>Vigência</th><th>Fornecedor</th><th>Valor Global</th><th>Executado</th><th>Saldo</th><th>Execução</th><th>Status</th><th>Ação</th></tr></thead>
           <tbody>
             ${DATA.contracts.map(c => {
               const pct = Math.round(c.executedValue / c.globalValue * 100);
-              return `<tr>
+              return `<tr style="cursor:pointer" onclick="window.openAtaDetalhe(${c.id})">
                 <td><strong>${c.number}</strong></td>
                 <td>${formatDate(c.start)} a ${formatDate(c.end)}</td>
                 <td>${c.supplier}</td>
                 <td style="font-family:var(--font-mono)">${formatCurrency(c.globalValue)}</td>
                 <td style="font-family:var(--font-mono)">${formatCurrency(c.executedValue)}</td>
-                <td style="font-family:var(--font-mono)">${formatCurrency(c.globalValue - c.executedValue)}</td>
+                <td style="font-family:var(--font-mono);font-weight:600;color:var(--primary)">${formatCurrency(c.globalValue - c.executedValue)}</td>
                 <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="width:80px"><div class="progress-fill ${pct > 80 ? 'orange' : 'blue'}" style="width:${pct}%"></div></div><span style="font-size:0.75rem;font-family:var(--font-mono)">${pct}%</span></div></td>
                 <td><span class="status-badge status-ok">${c.status}</span></td>
+                <td><button class="btn btn-outline" style="padding:4px 8px;font-size:0.75rem">Detalhes</button></td>
               </tr>`;
             }).join('')}
           </tbody>
@@ -757,27 +1368,41 @@ PAGE_RENDERERS.gestor_atas = (el) => {
 
 // ─── GESTOR: PEDIDOS ───
 PAGE_RENDERERS.gestor_pedidos = (el) => {
+  const shared = SharedState.getOrders();
+  const totalShared = shared.length;
+  const pendentes = shared.filter(o => o.status === 'Pendente').length + DATA.orders.filter(o => o.status === 'Pendente').length;
+  const emAndamento = shared.filter(o => o.status === 'Em separação' || o.status === 'Em transporte').length + DATA.orders.filter(o => o.status === 'Em separação' || o.status === 'Em transporte').length;
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Pedidos</div><div class="page-subtitle">Acompanhe todos os pedidos de abastecimento</div></div>
-    <div class="tabs">
-      <button class="tab-btn active">Todos</button>
-      <button class="tab-btn">Pendentes</button>
-      <button class="tab-btn">Em Atendimento</button>
-      <button class="tab-btn">Finalizados</button>
+    <div class="page-header"><div class="page-title">Gestão de Pedidos</div><div class="page-subtitle">Acompanhe todos os pedidos de abastecimento · Escolas → Cooperativas → Agricultores</div></div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${totalShared + DATA.orders.length}</div><div class="kpi-label">Pedidos Totais</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">⏰</div><div class="kpi-value">${pendentes}</div><div class="kpi-label">Pendentes</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🚚</div><div class="kpi-value">${emAndamento}</div><div class="kpi-label">Em Andamento</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${shared.filter(o=>o.status==='Entregue').length + DATA.orders.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues</div></div>
     </div>
     <div class="card">
-      <div class="card-body">
+      <div class="card-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>#</th><th>Escola</th><th>Data</th><th>Cooperativa</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>#</th><th>Escola</th><th>Data</th><th>Cooperativa</th><th>Itens</th><th>Valor</th><th>Status</th></tr></thead>
           <tbody>
+            ${shared.map(o => `<tr>
+              <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3, '0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
+              <td><strong>${o.school}</strong></td>
+              <td>${o.date}</td>
+              <td><span class="tag tag-teal">${o.cooperative || '—'}</span></td>
+              <td style="font-size:0.82rem">${(o.itens||[]).length} item(ns)</td>
+              <td style="font-family:var(--font-mono)">${formatCurrency(o.value || 0)}</td>
+              <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+            </tr>`).join('')}
             ${DATA.orders.map(o => `<tr>
               <td style="font-family:var(--font-mono)">#${String(o.id).padStart(3, '0')}</td>
               <td><strong>${o.school}</strong></td>
               <td>${formatDate(o.date)}</td>
               <td><span class="tag tag-teal">${o.coop}</span></td>
+              <td style="font-size:0.82rem;color:var(--text-tertiary)">—</td>
               <td style="font-family:var(--font-mono)">${formatCurrency(o.value)}</td>
               <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
-              <td><button class="table-action">Detalhes</button></td>
             </tr>`).join('')}
           </tbody>
         </table>
@@ -830,8 +1455,29 @@ PAGE_RENDERERS.gestor_cooperativas = (el) => {
 
 // ─── GESTOR: AGRICULTURA FAMILIAR ───
 PAGE_RENDERERS.gestor_agricultura = (el) => {
+  const producoes = SharedState.getProductions();
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Agricultura Familiar</div><div class="page-subtitle">Acompanhamento dos agricultores familiares do programa</div></div>
+    <div class="page-header"><div class="page-title">Agricultura Familiar</div><div class="page-subtitle">Acompanhamento dos agricultores familiares — dados vindos diretamente dos agricultores</div></div>
+
+    ${producoes.length > 0 ? `
+    <div class="card mb-24" style="border-left:4px solid var(--success)">
+      <div class="card-header"><div class="card-title">🆕 Atualizações de Produção Recentes</div><span class="status-badge status-ok">${producoes.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Agricultor</th><th>Produto</th><th>Área (ha)</th><th>Prevista (kg)</th><th>Disponível (kg)</th><th>Registrado em</th></tr></thead><tbody>
+          ${producoes.slice(0, 6).map(p => `
+            <tr>
+              <td><strong>${p.agricultor || '—'}</strong></td>
+              <td>${p.produto}</td>
+              <td style="font-family:var(--font-mono)">${p.area || '—'}</td>
+              <td style="font-family:var(--font-mono)">${(p.previsto||0).toLocaleString('pt-BR')}</td>
+              <td style="font-family:var(--font-mono);color:var(--success);font-weight:700">${(p.disponivel||0).toLocaleString('pt-BR')}</td>
+              <td style="font-size:0.78rem;color:var(--text-secondary)">${new Date(p.criadoEm).toLocaleString('pt-BR')}</td>
+            </tr>
+          `).join('')}
+        </tbody></table>
+      </div>
+    </div>` : ''}
+
     <div class="kpi-grid">
       <div class="kpi-card green"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">${DATA.farmers.length}</div><div class="kpi-label">Agricultores Ativos</div></div>
       <div class="kpi-card teal"><div class="kpi-icon">🌱</div><div class="kpi-value">${DATA.farmers.reduce((a,f)=>a+f.products.length,0)}</div><div class="kpi-label">Produtos Cadastrados</div></div>
@@ -871,17 +1517,33 @@ PAGE_RENDERERS.gestor_estoque = (el) => {
       </div>
       <div class="card-body">
         <table class="data-table">
-          <thead><tr><th>Produto</th><th>Categoria</th><th>Estoque Total</th><th>Consumo Médio/Dia</th><th>Dias de Cobertura</th><th>Agric. Familiar</th><th>Status</th></tr></thead>
+          <thead><tr><th>Produto</th><th>Categoria</th><th>Estoque Total</th><th>Pedidos Pendentes</th><th>Consumo Médio/Dia</th><th>Dias de Cobertura</th><th>Status</th></tr></thead>
           <tbody>
-            ${DATA.products.map(p => `<tr>
+            ${DATA.products.map(p => {
+              // Calcula pedidos pendentes a partir das atas
+              const aProds = DATA.ataProducts.filter(ap => ap.stockProductId === p.id);
+              let pendente = 0;
+              aProds.forEach(ap => {
+                const emps = DATA.empenhos.filter(e => e.items[0].productId === ap.id);
+                emps.forEach(e => {
+                  const pedidos = (DATA.ata_pedidos || []).filter(pd => pd.empenhoId === e.id);
+                  const requested = pedidos.reduce((sum, pd) => sum + pd.qtd, 0);
+                  const nfs = (DATA.nf_history || []).filter(nf => nf.empenhoId === e.id);
+                  const delivered = nfs.reduce((sum, nf) => sum + nf.items[0].qtd, 0);
+                  pendente += Math.max(0, requested - delivered);
+                });
+              });
+              
+              return `<tr>
               <td><strong>${p.name}</strong></td>
               <td><span class="tag tag-blue">${p.category}</span></td>
-              <td style="font-family:var(--font-mono)">${p.stock.toLocaleString('pt-BR')} ${p.unit}</td>
+              <td style="font-family:var(--font-mono);font-weight:700">${p.stock.toLocaleString('pt-BR')} ${p.unit}</td>
+              <td style="font-family:var(--font-mono);color:var(--warning)">${pendente > 0 ? pendente.toLocaleString('pt-BR') + ' ' + p.unit : '—'}</td>
               <td style="font-family:var(--font-mono)">${p.avgConsume} ${p.unit}</td>
               <td style="font-family:var(--font-mono);font-weight:700;color:${p.daysLeft <= 3 ? 'var(--danger)' : p.daysLeft <= 7 ? 'var(--warning)' : 'var(--success)'}">${p.daysLeft} dias</td>
-              <td>${p.familyFarm ? '<span class="tag tag-green">✓ Sim</span>' : '<span class="tag" style="background:#F5F5F5;color:#9E9E9E">Não</span>'}</td>
               <td><span class="status-badge ${p.daysLeft <= 3 ? 'status-danger' : p.daysLeft <= 7 ? 'status-warning' : 'status-ok'}">${p.daysLeft <= 3 ? 'Crítico' : p.daysLeft <= 7 ? 'Atenção' : 'Normal'}</span></td>
-            </tr>`).join('')}
+            </tr>`;
+            }).join('')}
           </tbody>
         </table>
       </div>
@@ -891,19 +1553,57 @@ PAGE_RENDERERS.gestor_estoque = (el) => {
 
 // ─── GESTOR: PLANEJAMENTO ───
 PAGE_RENDERERS.gestor_planejamento = (el) => {
+  const menus = SharedState.getMenus();
+  const weekly = SharedState.getWeeklyMenus();
+  const perfilAtivo = state.currentProfile;
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Planejamento Alimentar</div><div class="page-subtitle">Visão consolidada dos cardápios e necessidades futuras</div></div>
+    <div class="page-header">
+      <div class="page-title">Planejamento Alimentar</div>
+      <div class="page-subtitle">Visão consolidada dos cardápios e necessidades futuras · Sincronizado com Nutricionista e escolas</div>
+    </div>
     <div class="grid-2">
-      <div class="card"><div class="card-header"><div class="card-title">📅 Cardápios Ativos</div></div><div class="card-body">
-        <table class="data-table"><thead><tr><th>Cardápio</th><th>Período</th><th>Escolas</th><th>Status</th></tr></thead><tbody>
-          <tr><td><strong>Cardápio Junho/2026</strong></td><td>01/06 a 30/06/2026</td><td>183</td><td><span class="status-badge status-ok">Ativo</span></td></tr>
-          <tr><td><strong>Cardápio Julho/2026</strong></td><td>01/07 a 31/07/2026</td><td>183</td><td><span class="status-badge status-info">Em Elaboração</span></td></tr>
-        </tbody></table>
-      </div></div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📅 Cardápios Ativos</div>
+          <span class="status-badge status-info">${menus.length}</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table"><thead><tr><th>Cardápio</th><th>Período</th><th>Escolas</th><th>Autor</th><th>Status</th></tr></thead><tbody>
+            ${menus.map(m => `
+              <tr>
+                <td><strong>${m.nome}</strong></td>
+                <td>${m.periodo}</td>
+                <td style="font-family:var(--font-mono)">${m.escolas || 0}</td>
+                <td style="font-size:0.82rem">${m.autor || '—'}</td>
+                <td><span class="status-badge ${m.status === 'Publicado' ? 'status-ok' : 'status-info'}">${m.status === 'Publicado' ? 'Ativo' : m.status}</span></td>
+              </tr>
+            `).join('')}
+          </tbody></table>
+        </div>
+      </div>
       <div class="card"><div class="card-header"><div class="card-title">📊 Necessidades Futuras (30 dias)</div></div><div class="card-body">
         <div class="chart-container h-250"><canvas id="chart-necessidades"></canvas></div>
       </div></div>
     </div>
+
+    ${weekly.length > 0 ? `
+    <div class="card" style="margin-top:20px">
+      <div class="card-header"><div class="card-title">🗓️ Cardápios Semanais Recentemente Publicados</div><span class="status-badge status-ok">${weekly.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Autor</th><th>Publicado em</th><th>Média Kcal</th></tr></thead><tbody>
+          ${weekly.slice(0, 6).map(w => `
+            <tr>
+              <td><strong>${w.nome || 'Cardápio Semanal'}</strong></td>
+              <td>${w.periodo || '—'}</td>
+              <td style="font-size:0.82rem">${w.autor || '—'}</td>
+              <td style="font-size:0.82rem">${new Date(w.publicadoEm).toLocaleString('pt-BR')}</td>
+              <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${w.kcalMedia || '—'} kcal/dia</td>
+            </tr>
+          `).join('')}
+        </tbody></table>
+      </div>
+    </div>` : ''}
   `;
   setTimeout(() => {
     createChart('chart-necessidades', {
@@ -1196,6 +1896,7 @@ PAGE_RENDERERS.nutricionista_fichas = (el) => {
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           <span style="font-size:0.8rem;color:var(--text-secondary)">${fichasSalvas.length} salva${fichasSalvas.length !== 1 ? 's' : ''} + ${_FICHAS_DEMO.length} demo</span>
+          <button class="btn btn-outline" onclick="PAGE_RENDERERS.nutricionista_simulacoes(document.getElementById('page-content'))">🔬 Simular Enquadramento PNAE</button>
           <button class="btn btn-primary" onclick="showCreateFichaForm()">+ Nova Ficha Técnica</button>
         </div>
       </div>
@@ -1824,7 +2525,7 @@ window.handleIngredienteSearchForId = (ingredienteId, inputElement) => {
   }
 
   dropdown.innerHTML = filtered.map(a => `
-    <div class="autocomplete-item" onclick="window.selectIngredienteForId(${ingredienteId}, '${a.name.replace(/'/g, "\\'")}')">
+    <div class="autocomplete-item" onclick="window.selectIngredienteForId(${ingredienteId}, '${a.name.replace(/'/g, "'")}')">
       <span class="autocomplete-item-name">${a.name}</span>
       <span class="autocomplete-item-details">
         ${a.category || ''} • ${a.kcal_per_100g || 0} kcal/100g
@@ -1947,11 +2648,14 @@ window.handleCreateFicha = (event) => {
   fichas.push(receita);
   localStorage.setItem('fichas_tecnicas', JSON.stringify(fichas));
 
+  // Publica no SharedState para que Escola/Gestor também vejam
+  SharedState.addFicha(receita);
+
   // Adicionar também ao DATA.produtos para aparecer nos cardápios
   if (!DATA.receitas) DATA.receitas = [];
   DATA.receitas.push(receita);
 
-  alert(`Ficha técnica de "${nome}" criada e salva com sucesso! ✓\n\nEnergia: ${receita.totais.kcal.toFixed(0)} kcal\nProteína: ${receita.totais.proteinas.toFixed(1)}g\nCarboidratos: ${receita.totais.carbos.toFixed(1)}g`);
+  alert(`Ficha técnica de "${nome}" criada e salva com sucesso! ✓nnEnergia: ${receita.totais.kcal.toFixed(0)} kcalnProteína: ${receita.totais.proteinas.toFixed(1)}gnCarboidratos: ${receita.totais.carbos.toFixed(1)}g`);
 
   const container = document.getElementById('page-content');
   PAGE_RENDERERS.nutricionista_fichas(container);
@@ -2091,91 +2795,297 @@ PAGE_RENDERERS.nutricionista_produtos = (el) => {
 
 
 PAGE_RENDERERS.nutricionista_cardapios = (el) => {
+  const readOnly = state.currentProfile === 'escola';
+  const sharedMenus = SharedState.getMenus();
+  const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]').map((c, i) => ({
+    id: 'legacy-' + i,
+    nome: c.nome,
+    periodo: c.periodo,
+    escolas: c.escolas === 'Todas' ? ((DATA.schools||[]).length || 183) : (parseInt(c.escolas) || 0),
+    status: c.status,
+    autor: c.autor || 'Dra. Camila Andrade',
+    criadoEm: c.criadoEm || '2026-06-25',
+  }));
+  const weekly = SharedState.getWeeklyMenus();
+  const allCardapios = [...legacy, ...sharedMenus];
+  const totalSchools = (DATA.schools||[]).length || 183;
+
+  const rows = allCardapios.map((c, i) => {
+    const periodoStr = c.periodo || `${(c.data_inicio||'').split('-').reverse().join('/')} a ${(c.data_fim||'').split('-').reverse().join('/')}`;
+    return `
+      <tr>
+        <td><strong>${c.nome}</strong></td>
+        <td>${periodoStr}</td>
+        <td style="font-family:var(--font-mono)">${c.escolas || '—'}</td>
+        <td><span class="status-badge status-${c.status === 'Publicado' ? 'ok' : 'info'}">${c.status}</span></td>
+        <td style="font-size:0.82rem">${c.autor || '—'}</td>
+        <td>
+          ${(!readOnly && c.status !== 'Publicado')
+            ? `<button class="table-action" onclick="viewCardapio('${c.id || i}')">Editar</button>`
+            : `<button class="table-action" onclick="viewCardapio('${c.id || i}')">Visualizar</button>`}
+        </td>
+      </tr>
+    `;
+  }).join('');
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Cardápios</div><div class="page-subtitle">Elaboração, publicação e vinculação de cardápios escolares</div></div>
-    
+    <div class="page-header">
+      <div class="page-title">${readOnly ? 'Cardápios da Rede' : 'Gestão de Cardápios'}</div>
+      <div class="page-subtitle">${readOnly ? 'Cardápios elaborados pela Nutricionista SEMED e distribuídos à sua escola' : 'Elaboração, publicação e vinculação de cardápios escolares'}</div>
+    </div>
+
+    ${!readOnly ? `
     <div class="card mb-24">
       <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-        <div style="font-weight:600">Planejador de Cardápios</div>
+        <div>
+          <div style="font-weight:600">Planejador de Cardápios</div>
+          <div style="font-size:0.82rem;color:var(--text-secondary)">Cardápios publicados aqui aparecem imediatamente nas ${totalSchools} escolas da rede e no painel do Gestor</div>
+        </div>
         <button class="btn btn-primary" onclick="showMenuPlanner()">+ Abrir Planejador Semanal</button>
+      </div>
+    </div>` : `
+    <div class="card mb-24" style="border-left:4px solid var(--primary)">
+      <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+        <div>
+          <div style="font-weight:700">📖 Cardápios recebidos da SEMED</div>
+          <div style="font-size:0.82rem;color:var(--text-secondary)">Visão somente leitura — apenas a Nutricionista SEMED pode editar</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="navigateTo('escola','planejamento')">Ver Planejamento Semanal →</button>
+      </div>
+    </div>`}
+
+    <div class="card ${weekly.length > 0 ? 'mb-24' : ''}">
+      <div class="card-header">
+        <div class="card-title">Cardápios ${readOnly ? 'Disponíveis' : 'Publicados e Em Elaboração'}</div>
+        <span class="status-badge status-info">${allCardapios.length}</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Status</th><th>Autor</th><th>Ações</th></tr></thead><tbody>
+          ${rows}
+        </tbody></table>
       </div>
     </div>
 
+    ${weekly.length > 0 ? `
     <div class="card">
-      <div class="card-header"><div class="card-title">Cardápios Publicados</div></div>
-      <div class="card-body">
-        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-          <tr><td><strong>Cardápio Junho/2026 — Regular</strong></td><td>01/06 a 30/06</td><td>152</td><td><span class="status-badge status-ok">Publicado</span></td><td><button class="table-action">Visualizar</button></td></tr>
-          <tr><td><strong>Cardápio Junho/2026 — Integral</strong></td><td>01/06 a 30/06</td><td>31</td><td><span class="status-badge status-ok">Publicado</span></td><td><button class="table-action">Visualizar</button></td></tr>
-          <tr><td><strong>Cardápio Julho/2026 — Regular</strong></td><td>01/07 a 31/07</td><td>—</td><td><span class="status-badge status-info">Em Elaboração</span></td><td><button class="table-action">Editar</button></td></tr>
+      <div class="card-header"><div class="card-title">🗓️ Cardápios Semanais Publicados</div><span class="status-badge status-ok">${weekly.length} recentes</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Destino</th><th>Autor</th><th>Publicado em</th><th>Média Kcal</th></tr></thead><tbody>
+          ${weekly.map(w => `
+            <tr>
+              <td><strong>${w.nome || 'Cardápio Semanal'}</strong></td>
+              <td>${w.periodo || '—'}</td>
+              <td>${w.escola || 'Toda a Rede'}</td>
+              <td style="font-size:0.82rem">${w.autor || '—'}</td>
+              <td style="font-size:0.82rem">${new Date(w.publicadoEm).toLocaleString('pt-BR')}</td>
+              <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${w.kcalMedia || '—'} kcal/dia</td>
+            </tr>
+          `).join('')}
         </tbody></table>
+      </div>
+    </div>` : ''}
+  `;
+};
+
+window.viewCardapio = (id) => {
+  const container = document.getElementById('page-content');
+  container.innerHTML = `
+    <div class="page-header"><div class="page-title">Detalhes do Cardápio</div><div class="page-subtitle">Ações de visualização, exportação e logística</div></div>
+    <div class="card mb-24">
+      <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="showMenuPlanner()">✏️ Editar Cardápio</button>
+        <button class="btn btn-outline" onclick="generateMenuPDF()">📄 Exportar Cardápio (PDF)</button>
+        <button class="btn btn-outline" onclick="generateRomaneio()">📦 Gerar Romaneio de Entrega</button>
+        <button class="btn btn-outline" style="color:var(--danger);border-color:var(--danger)" onclick="PAGE_RENDERERS.nutricionista_cardapios(document.getElementById('page-content'))">🔙 Voltar</button>
+      </div>
+    </div>
+    
+    <div id="print-area">
+      <div class="card" style="padding: 24px">
+        <h2 style="text-align:center;margin-bottom:20px;color:var(--primary)">Cardápio Oficial — Referência</h2>
+        <table class="data-table">
+          <thead><tr><th>Data</th><th>Refeição</th><th>Preparação Sugerida</th></tr></thead>
+          <tbody>
+            <tr><td>01/07/2026</td><td>Desjejum</td><td>Pão com Manteiga e Leite</td></tr>
+            <tr><td>01/07/2026</td><td>Almoço</td><td>Arroz com Feijão Tradicional</td></tr>
+            <tr><td>01/07/2026</td><td>Lanche</td><td>Vitamina de Banana</td></tr>
+            <tr><td>02/07/2026</td><td>Desjejum</td><td>Mingau de Aveia</td></tr>
+            <tr><td>02/07/2026</td><td>Almoço</td><td>Frango Grelhado com Legumes</td></tr>
+            <tr><td>02/07/2026</td><td>Lanche</td><td>Salada de Frutas</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
   `;
 };
 
-window.showMenuPlanner = () => {
+window.generateMenuPDF = () => {
+  alert("O navegador abrirá a tela de impressão ajustada para exportar em PDF o cardápio oficial.");
+  const printArea = document.getElementById('print-area');
+  const originalHtml = document.body.innerHTML;
+  document.body.innerHTML = printArea.innerHTML;
+  window.print();
+  document.body.innerHTML = originalHtml;
+  location.reload(); // Recarrega para restaurar eventos
+};
+
+window.generateRomaneio = () => {
   const container = document.getElementById('page-content');
+  container.innerHTML = `
+    <div class="page-header"><div class="page-title">Romaneio de Entrega Logística</div><div class="page-subtitle">Guia de Quantitativos para Conferência Escolar</div></div>
+    <div class="card mb-24">
+      <div class="card-body">
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Guia</button>
+        <button class="btn btn-outline" onclick="PAGE_RENDERERS.nutricionista_cardapios(document.getElementById('page-content'))">🔙 Voltar</button>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px" id="romaneio-print">
+      <h2 style="text-align:center;margin-bottom:20px;color:var(--primary)">Guia de Entrega Logística — Checklist</h2>
+      <table class="data-table">
+        <thead><tr><th>✓</th><th>Ingrediente</th><th>Quantidade Total (Estivada)</th></tr></thead>
+        <tbody>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Arroz Agulhinha</td><td>150 kg</td></tr>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Feijão Carioca</td><td>80 kg</td></tr>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Peito de Frango</td><td>120 kg</td></tr>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Banana Nanica</td><td>40 kg</td></tr>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Leite Integral</td><td>200 L</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:40px;border-top:1px solid #ccc;padding-top:20px;display:flex;justify-content:space-around">
+        <div style="text-align:center">________________________<br>Assinatura Entregador</div>
+        <div style="text-align:center">________________________<br>Assinatura Direção / Cozinha</div>
+      </div>
+    </div>
+  `;
+};
+
+window.buildPlannerSelectOptions = (mealType, preselectRecipeId) => {
+  const fichasSalvas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
+  const todas = [...RECIPE_LIBRARY, ..._FICHAS_DEMO, ...fichasSalvas];
+  
+  const uniqueRecipes = Array.from(new Map(todas.map(item => [item.id, item])).values());
+
+  const isDesjejum = (t) => t && (t.toLowerCase().includes('desjejum') || t.toLowerCase().includes('café'));
+  const isLanche = (t) => t && t.toLowerCase().includes('lanche');
+  const isAlmoco = (t) => t && t.toLowerCase().includes('almoço');
+
+  const filtered = uniqueRecipes.filter(r => {
+    if (!mealType) return true;
+    const t = r.mealType || r.tipo || r.categoria || '';
+    if (mealType === 'Desjejum') return isDesjejum(t) || (!isLanche(t) && !isAlmoco(t));
+    if (mealType === 'Lanche') return isLanche(t);
+    if (mealType === 'Almoço') return isAlmoco(t);
+    return true;
+  });
+
+  let options = '<option value="0">Selecione uma preparação...</option>';
+  filtered.forEach(r => {
+    const kcal = r.kcal || (r.totais && r.totais.kcal) || (r.totais && r.totais.energia) || 0;
+    const isSelected = r.id === preselectRecipeId ? 'selected' : '';
+    const name = r.name || r.nome || 'Receita sem nome';
+    options += `<option value="${kcal}" ${isSelected}>${name} (${parseFloat(kcal).toFixed(0)} kcal)</option>`;
+  });
+  return options;
+};
+
+window.generatePlannerDays = () => {
+  const start = document.getElementById('planner-start-date').value;
+  const end = document.getElementById('planner-end-date').value;
+  if (!start || !end) return alert('Selecione as datas de início e fim.');
+  
+  const [sY, sM, sD] = start.split('-');
+  const [eY, eM, eD] = end.split('-');
+  const startDate = new Date(sY, sM - 1, sD);
+  const endDate = new Date(eY, eM - 1, eD);
+  if (endDate < startDate) return alert('A data final deve ser maior ou igual à inicial.');
+  
+  const container = document.getElementById('planner-days-container');
+  container.innerHTML = '';
+  
+  const optDesjejum = window.buildPlannerSelectOptions('Desjejum', window._lastPreselectRecipeId);
+  const optAlmoco = window.buildPlannerSelectOptions('Almoço', window._lastPreselectRecipeId);
+  const optLanche = window.buildPlannerSelectOptions('Lanche', window._lastPreselectRecipeId);
+
+  let current = new Date(startDate);
+  const daysOfWeek = ['Domingo', 'Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado'];
+  
+  let html = '';
+  let dayIndex = 0;
+  while (current <= endDate) {
+    const dayName = daysOfWeek[current.getDay()];
+    if (current.getDay() !== 0 && current.getDay() !== 6) { 
+      const dateStr = current.toLocaleDateString('pt-BR');
+      const idx = dayIndex++;
+      html += `
+        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; margin-bottom:12px" class="planner-day-block" data-date="${dateStr}">
+          <div style="font-weight:700;margin-bottom:10px;color:var(--primary)">${dayName} (${dateStr})</div>
+          <div class="grid-3">
+            <div class="form-group">
+              <label>Café da Manhã</label>
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-bkf-${idx}" onchange="calculatePlannerKcal()">
+                ${optDesjejum}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Almoço</label>
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-lun-${idx}" onchange="calculatePlannerKcal()">
+                ${optAlmoco}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Lanche da Tarde</label>
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-snk-${idx}" onchange="calculatePlannerKcal()">
+                ${optLanche}
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  if (!html) html = '<div style="padding:16px;color:var(--text-secondary)">Nenhum dia útil selecionado no período.</div>';
+  container.innerHTML = html;
+  calculatePlannerKcal();
+};
+
+window.showMenuPlanner = (preselectRecipeId) => {
+  window._lastPreselectRecipeId = preselectRecipeId;
+  const container = document.getElementById('page-content');
+  
+  const today = new Date();
+  const nextMonday = new Date(today);
+  nextMonday.setDate(today.getDate() + ((1 + 7 - today.getDay()) % 7 || 7));
+  const nextFriday = new Date(nextMonday);
+  nextFriday.setDate(nextMonday.getDate() + 4);
+  
+  const dStart = nextMonday.toISOString().split('T')[0];
+  const dEnd = nextFriday.toISOString().split('T')[0];
+
   container.innerHTML = `
     <div class="page-header"><div class="page-title">Planejador Semanal de Cardápio</div><div class="page-subtitle">Monte as refeições diárias e verifique o valor nutricional acumulado</div></div>
     
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Elaboração do Menu Semanal</div></div>
+      <div class="card-header"><div class="card-title">Período do Cardápio</div></div>
       <div class="card-body">
-        <div style="display:flex;gap:12px;flex-direction:column">
-          <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; margin-bottom:12px">
-            <div style="font-weight:700;margin-bottom:10px;color:var(--primary)">Segunda-Feira</div>
-            <div class="grid-3">
-              <div class="form-group">
-                <label>Café da Manhã</label>
-                <select class="btn btn-outline" style="width:100%;text-align:left;padding:8px" id="planner-mon-breakfast" onchange="calculatePlannerKcal()">
-                  <option value="280">Pão com Manteiga e Leite (280 kcal)</option>
-                  <option value="210">Vitamina de Banana (210 kcal)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Almoço</label>
-                <select class="btn btn-outline" style="width:100%;text-align:left;padding:8px" id="planner-mon-lunch" onchange="calculatePlannerKcal()">
-                  <option value="425">Arroz com Feijão Tradicional (425 kcal)</option>
-                  <option value="380">Frango Grelhado com Legumes (380 kcal)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Lanche da Tarde</label>
-                <select class="btn btn-outline" style="width:100%;text-align:left;padding:8px" id="planner-mon-snack" onchange="calculatePlannerKcal()">
-                  <option value="80">Melancia Picada (80 kcal)</option>
-                  <option value="210">Vitamina de Banana (210 kcal)</option>
-                </select>
-              </div>
-            </div>
+        <div class="grid-3" style="align-items:end">
+          <div class="form-group">
+            <label>Data Inicial</label>
+            <input type="date" id="planner-start-date" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${dStart}">
           </div>
-
-          <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; margin-bottom:12px">
-            <div style="font-weight:700;margin-bottom:10px;color:var(--primary)">Terça-Feira</div>
-            <div class="grid-3">
-              <div class="form-group">
-                <label>Café da Manhã</label>
-                <select class="btn btn-outline" style="width:100%;text-align:left;padding:8px" id="planner-tue-breakfast" onchange="calculatePlannerKcal()">
-                  <option value="210">Vitamina de Banana (210 kcal)</option>
-                  <option value="280">Pão com Manteiga e Leite (280 kcal)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Almoço</label>
-                <select class="btn btn-outline" style="width:100%;text-align:left;padding:8px" id="planner-tue-lunch" onchange="calculatePlannerKcal()">
-                  <option value="380">Frango Grelhado com Legumes (380 kcal)</option>
-                  <option value="425">Arroz com Feijão Tradicional (425 kcal)</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Lanche da Tarde</label>
-                <select class="btn btn-outline" style="width:100%;text-align:left;padding:8px" id="planner-tue-snack" onchange="calculatePlannerKcal()">
-                  <option value="90">Banana Nanica (90 kcal)</option>
-                  <option value="210">Vitamina de Banana (210 kcal)</option>
-                </select>
-              </div>
-            </div>
+          <div class="form-group">
+            <label>Data Final</label>
+            <input type="date" id="planner-end-date" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${dEnd}">
           </div>
+          <button class="btn btn-primary" onclick="generatePlannerDays()">Gerar Dias</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Elaboração do Menu</div></div>
+      <div class="card-body">
+        <div id="planner-days-container" style="display:flex;gap:12px;flex-direction:column">
         </div>
 
         <div style="margin-top:20px;padding:16px;background:var(--primary-light);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center">
@@ -2183,24 +3093,29 @@ window.showMenuPlanner = () => {
             <div style="font-weight:700">Média Nutricional Diária Calculada</div>
             <div style="font-size:0.85rem;color:var(--text-secondary)">Meta recomendada PNAE: 650 a 800 kcal/dia</div>
           </div>
-          <div style="font-size:1.6rem;font-weight:800;color:var(--primary)" id="planner-total-kcal">785 kcal</div>
+          <div style="font-size:1.6rem;font-weight:800;color:var(--primary)" id="planner-total-kcal">0 kcal</div>
         </div>
 
         <div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end">
           <button class="btn btn-outline" onclick="cancelMenuPlanner()">Cancelar</button>
-          <button class="btn btn-primary" onclick="saveWeeklyMenu()">Publicar Cardápio Semanal</button>
+          <button class="btn btn-primary" onclick="saveWeeklyMenu()">Publicar Cardápio</button>
         </div>
       </div>
     </div>
   `;
+  setTimeout(() => window.generatePlannerDays(), 50);
 };
 
 window.calculatePlannerKcal = () => {
-  const b1 = parseInt(document.getElementById('planner-mon-breakfast').value) || 0;
-  const l1 = parseInt(document.getElementById('planner-mon-lunch').value) || 0;
-  const s1 = parseInt(document.getElementById('planner-mon-snack').value) || 0;
-  const total = b1 + l1 + s1;
-  document.getElementById('planner-total-kcal').textContent = `${total} kcal`;
+  const selects = document.querySelectorAll('.planner-select-kcal');
+  let total = 0;
+  selects.forEach(s => total += parseInt(s.value) || 0);
+  
+  const days = document.querySelectorAll('.planner-day-block').length;
+  const avg = days > 0 ? Math.round(total / days) : 0;
+  
+  const el = document.getElementById('planner-total-kcal');
+  if (el) el.textContent = `${avg} kcal/dia`;
 };
 
 window.cancelMenuPlanner = () => {
@@ -2209,12 +3124,85 @@ window.cancelMenuPlanner = () => {
 };
 
 window.saveWeeklyMenu = () => {
-  alert('Cardápio semanal publicado com sucesso e distribuído para a rede escolar!');
+  const start = document.getElementById('planner-start-date').value;
+  const end = document.getElementById('planner-end-date').value;
+  const daysCount = document.querySelectorAll('.planner-day-block').length;
+
+  if (daysCount === 0) return alert('Gere e preencha os dias do cardápio antes de salvar.');
+
+  const d1 = start.split('-').reverse().join('/');
+  const d2 = end.split('-').reverse().join('/');
+  const name = `Cardápio Personalizado — ${d1} a ${d2}`;
+
+  // Calcula média nutricional a partir dos selects preenchidos
+  const selects = document.querySelectorAll('.planner-select-kcal');
+  let total = 0;
+  selects.forEach(s => total += parseInt(s.value) || 0);
+  const kcalMedia = daysCount > 0 ? Math.round(total / daysCount) : 0;
+
+  const totalSchools = (DATA.schools||[]).length || 183;
+  const prof = PROFILES[state.currentProfile] || {};
+
+  // Grava no SharedState (visível em todos os perfis)
+  SharedState.addMenu({
+    nome: name,
+    periodo: `${d1} a ${d2}`,
+    escolas: totalSchools,
+    status: 'Publicado',
+    tipo: 'Semanal',
+    autor: prof.name || 'Dra. Camila Andrade',
+  });
+  SharedState.addWeeklyMenu({
+    nome: name,
+    periodo: `${d1} a ${d2}`,
+    semana: `${d1} a ${d2}`,
+    escola: 'Toda a Rede',
+    kcalMedia,
+    autor: prof.name || 'Dra. Camila Andrade',
+  });
+
+  // Mantém compatibilidade com localStorage legado
+  const novosCardapios = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+  novosCardapios.unshift({ nome: name, periodo: `${d1} a ${d2}`, status: 'Publicado', escolas: 'Todas', statusCls: 'status-ok' });
+  localStorage.setItem('cardapios_publicados', JSON.stringify(novosCardapios));
+
+  showToast('✅ Cardápio publicado! Já visível para as ' + totalSchools + ' escolas e para o Gestor.');
   const container = document.getElementById('page-content');
   PAGE_RENDERERS.nutricionista_cardapios(container);
 };
 
-PAGE_RENDERERS.nutricionista_planejamento = (el) => { PAGE_RENDERERS.gestor_planejamento(el); };
+window.showMenuViewer = () => {
+  const container = document.getElementById('page-content');
+  container.innerHTML = `
+    <div class="page-header"><div class="page-title">Visualização de Cardápio</div><div class="page-subtitle">Detalhes do cardápio semanal selecionado</div></div>
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Cardápio da Semana</div></div>
+      <div class="card-body">
+        <table class="data-table">
+          <thead><tr><th>Dia da Semana</th><th>Café da Manhã</th><th>Almoço</th><th>Lanche</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Segunda-Feira</strong></td><td>Pão com Manteiga e Leite</td><td>Arroz com Feijão Tradicional</td><td>Biscoito Maisena e Suco</td></tr>
+            <tr><td><strong>Terça-Feira</strong></td><td>Vitamina de Banana</td><td>Macarrão com Carne Moída</td><td>Fruta (Maçã/Banana)</td></tr>
+            <tr><td><strong>Quarta-Feira</strong></td><td>Cereal com Leite</td><td>Frango Grelhado com Legumes</td><td>Bolo Simples</td></tr>
+            <tr><td><strong>Quinta-Feira</strong></td><td>Pão com Queijo</td><td>Risoto de Frango</td><td>Biscoito Doce e Chá</td></tr>
+            <tr><td><strong>Sexta-Feira</strong></td><td>Iogurte com Cereal</td><td>Estrogonofe de Carne</td><td>Suco Natural e Pão</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end">
+          <button class="btn btn-primary" onclick="cancelMenuPlanner()">Voltar aos Cardápios</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+PAGE_RENDERERS.nutricionista_planejamento = (el) => {
+  PAGE_RENDERERS.gestor_planejamento(el);
+  const header = el.querySelector('.page-header');
+  if (header) {
+    header.insertAdjacentHTML('afterend', `<div style="background:var(--warning-light);border:1px solid var(--warning);padding:12px;border-radius:var(--radius-md);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;"><div><strong>⚠️ Área em Validação:</strong> Esta tela de planejamento está em fase de testes e co-criação com a equipe de nutrição.</div><button class="btn btn-primary btn-sm" onclick="alert('Formulário de feedback da Nutricionista aberto!')">Dar Feedback</button></div>`);
+  }
+};
 PAGE_RENDERERS.nutricionista_escolas = (el) => { PAGE_RENDERERS.gestor_escolas(el); };
 
 // Painel de escolas compartilhado: escola vê todas da rede (para referência),
@@ -2301,7 +3289,7 @@ PAGE_RENDERERS.cooperativa_escolas = (el) => {
                 </div></td>
                 <td><span class="status-badge ${statusClass(s.stockStatus)}">${statusLabel(s.stockStatus)}</span></td>
                 <td style="font-size:0.82rem">${s.lastDelivery ? formatDate(s.lastDelivery) : '—'}</td>
-                <td><button class="table-action" onclick="alert('Programar entrega para ${s.name.replace(/'/g,"\\'")}')">Programar →</button></td>
+                <td><button class="table-action" onclick="alert('Programar entrega para ${s.name.replace(/'/g,"'")}')">Programar →</button></td>
               </tr>`).join('')}
             </tbody>
           </table>
@@ -2396,6 +3384,7 @@ PAGE_RENDERERS.motorista_escolas = (el) => {
 PAGE_RENDERERS.nutricionista_consumo = (el) => {
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Monitoramento de Consumo</div><div class="page-subtitle">Comparativo entre consumo previsto e realizado</div></div>
+    <div style="background:var(--warning-light);border:1px solid var(--warning);padding:12px;border-radius:var(--radius-md);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;"><div><strong>⚠️ Área em Validação:</strong> O Controle de Consumo está em fase de testes e validação com a equipe técnica.</div><button class="btn btn-primary btn-sm" onclick="alert('Formulário de feedback da Nutricionista aberto!')">Dar Feedback</button></div>
     <div class="card"><div class="card-header"><div class="card-title">📊 Comparativo por Produto</div></div><div class="card-body"><div class="chart-container h-300"><canvas id="chart-comparativo"></canvas></div></div></div>
   `;
   setTimeout(() => {
@@ -2535,16 +3524,40 @@ function stockStatusFor(daysLeft) {
   return { label: 'OK', color: 'var(--success)', cls: 'status-ok' };
 }
 
-function getStockSuggestions(targetKcal) {
-  return RECIPE_LIBRARY.map(recipe => {
-    const linkedIngredients = recipe.ingredients.map(ing => {
+function getStockSuggestions(targetKcal, mealType) {
+  const fichasSalvas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
+  const todasAsReceitas = [...RECIPE_LIBRARY, ...fichasSalvas.map(f => ({
+    id: f.id,
+    name: f.nome,
+    mealType: f.categoria || 'Desjejum',
+    kcal: f.kcal || 0,
+    carbsG: f.macros ? f.macros.carbs : 0,
+    proteinG: f.macros ? f.macros.protein : 0,
+    lipidG: f.macros ? f.macros.lipids : 0,
+    sodium: f.macros ? f.macros.sodium : 0,
+    ingredients: f.ingredientes ? f.ingredientes.map(i => ({ name: i.nome, qty: i.qtd || 0, unit: 'g' })) : []
+  }))];
+
+  let library = todasAsReceitas;
+  if (mealType) {
+    library = library.filter(r => {
+      const mt = r.mealType || r.categoria;
+      if (mealType === 'Desjejum') return mt === 'Desjejum' || mt === 'Café da Manhã';
+      if (mealType === 'Almoço') return mt === 'Almoço';
+      if (mealType === 'Lanche') return mt === 'Lanche' || mt === 'Lanche da Tarde';
+      return mt === mealType;
+    });
+  }
+
+  return library.map(recipe => {
+    const linkedIngredients = (recipe.ingredients || []).map(ing => {
       const product = DATA.products.find(p => p.name === ing.name);
       return { ...ing, product };
     });
     const missing = linkedIngredients.filter(i => !i.product);
     const worstDaysLeft = linkedIngredients.reduce((min, i) => i.product ? Math.min(min, i.product.daysLeft) : min, Infinity);
     const familyFarmCount = linkedIngredients.filter(i => i.product && i.product.familyFarm).length;
-    const kcalDiff = Math.abs(recipe.kcal - targetKcal);
+    const kcalDiff = Math.abs((recipe.kcal || 0) - targetKcal);
     let overallStatus;
     if (missing.length > 0) overallStatus = { label: 'Insumo Indisponível', color: 'var(--text-tertiary)', cls: 'status-neutral' };
     else overallStatus = stockStatusFor(worstDaysLeft);
@@ -2563,7 +3576,8 @@ window.renderStockSuggestions = () => {
   const container = document.getElementById('sim-stock-suggestions');
   if (!container) return;
   const kcal = parseInt(document.getElementById('sim-kcal')?.value) || 400;
-  const suggestions = getStockSuggestions(kcal);
+  const mealType = document.getElementById('sim-meal-type')?.value;
+  const suggestions = getStockSuggestions(kcal, mealType);
 
   container.innerHTML = `
     <div class="card-header"><div class="card-title">🥗 Cardápio Sugerido (baseado no Estoque Atual)</div><div class="card-subtitle">Receitas com energia próxima à simulada, priorizando itens com estoque saudável</div></div>
@@ -2591,6 +3605,7 @@ window.renderStockSuggestions = () => {
               </div>
               ${s.familyFarmCount > 0 ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--success);font-weight:600">🌾 ${s.familyFarmCount} ingrediente(s) da agricultura familiar</div>` : ''}
               <button class="btn btn-outline btn-sm btn-full" style="margin-top:12px" onclick="applyStockSuggestion('${s.recipe.id}')">Usar este Cardápio na Simulação</button>
+              <button class="btn btn-primary btn-sm btn-full" style="margin-top:8px" onclick="addToPlanner('${s.recipe.id}')">Incluir no Planejador Semanal</button>
             </div>
           </div>
         `).join('')}
@@ -2610,6 +3625,13 @@ window.applyStockSuggestion = (recipeId) => {
   window.runPnaeSimulation({ preventDefault: () => {} });
 };
 
+window.addToPlanner = (recipeId) => {
+  alert('A receita será selecionada no Planejador Semanal.');
+  // Em um sistema real, salvaríamos no estado qual receita pré-selecionar. 
+  // Aqui abrimos direto a tela.
+  window.showMenuPlanner();
+};
+
 PAGE_RENDERERS.nutricionista_simulacoes = (el) => {
   let options = '';
   for (const key in DRI_TABLE) {
@@ -2618,6 +3640,7 @@ PAGE_RENDERERS.nutricionista_simulacoes = (el) => {
   
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Simulações de Cardápios & PNAE</div><div class="page-subtitle">Verifique o enquadramento de macronutrientes (% VET) nas diretrizes do FNDE/PNAE</div></div>
+    <div style="background:var(--warning-light);border:1px solid var(--warning);padding:12px;border-radius:var(--radius-md);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;"><div><strong>⚠️ Área em Validação:</strong> O módulo de simulação e enquadramento PNAE está em fase de testes para validação.</div><button class="btn btn-primary btn-sm" onclick="alert('Formulário de feedback da Nutricionista aberto!')">Dar Feedback</button></div>
     
     <div class="grid-2-1 mb-24">
       <div class="card">
@@ -2628,6 +3651,14 @@ PAGE_RENDERERS.nutricionista_simulacoes = (el) => {
               <label>Selecione a Modalidade e Referência FNDE</label>
               <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="sim-preset-modalidade" onchange="updateSimulationPresets()">
                 ${options}
+              </select>
+            </div>
+            <div class="form-group" style="margin-top:12px">
+              <label>Tipo de Refeição</label>
+              <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="sim-meal-type">
+                <option value="Desjejum">Desjejum / Café da Manhã</option>
+                <option value="Almoço">Almoço</option>
+                <option value="Lanche">Lanche da Tarde</option>
               </select>
             </div>
             
@@ -2657,6 +3688,7 @@ PAGE_RENDERERS.nutricionista_simulacoes = (el) => {
             </div>
             
             <button type="submit" class="btn btn-primary btn-full" id="btn-run-simulation">Executar Simulação PNAE</button>
+            <button type="button" class="btn btn-outline btn-full" style="margin-top:8px" onclick="window.renderStockSuggestions()">Gerar Sugestões com IA 🤖</button>
           </form>
         </div>
       </div>
@@ -2691,7 +3723,9 @@ window.updateSimulationPresets = () => {
   
   document.getElementById('sim-lipids-g').value = Math.round((target.fatMin + target.fatMax) / 2);
   document.getElementById('sim-sodium').value = Math.round(target.sodium * 0.9);
-  window.renderStockSuggestions();
+  // Limpar sugestões anteriores ao trocar preset
+  const container = document.getElementById('sim-stock-suggestions');
+  if (container) container.innerHTML = '';
 };
 
 window.runPnaeSimulation = (event) => {
@@ -2757,9 +3791,9 @@ window.runPnaeSimulation = (event) => {
           <span style="font-weight:600;color:${isSodOk ? 'var(--success)' : 'var(--danger)'}">${sod} mg (${isSodOk ? 'OK' : 'Excesso'})</span>
         </div>
       </div>
+      </div>
     </div>
   `;
-  window.renderStockSuggestions();
 };
 
 PAGE_RENDERERS.nutricionista_relatorios = (el) => { PAGE_RENDERERS.gestor_relatorios(el); };
@@ -2849,7 +3883,7 @@ PAGE_RENDERERS.escola_dashboard = (el) => {
     <div class="page-header">
       <div>
         <div class="page-title">Dashboard — ${sc.name}</div>
-        <div class="page-subtitle">${sc.grade_levels || 'EF I + EF II'} \u00b7 ${sc.region || ''} \u00b7 Diretor(a): ${sc.director || ''}</div>
+        <div class="page-subtitle">${sc.grade_levels || 'EF I + EF II'} u00b7 ${sc.region || ''} u00b7 Diretor(a): ${sc.director || ''}</div>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="navigateTo('escola','consumo')">📝 Registrar Consumo</button>
@@ -2941,11 +3975,31 @@ PAGE_RENDERERS.escola_planejamento = (el) => {
   const lanche = ['Vitamina de Banana','Pão c/ Manteiga','Mingau de Aveia','Vitamina de Banana','Pão c/ Queijo'];
   const almoco = ['Arroz, Feijão, Frango Grelhado','Macarrão c/ Carne Moída','Arroz, Feijão, Peixe Assado','Arroz, Feijão, Ovo Cozido','Sopa de Legumes c/ Frango'];
   const dias = ['Seg','Ter','Qua','Qui','Sex'];
+  const weeklyPublicados = SharedState.getWeeklyMenus();
+  const menus = SharedState.getMenus().filter(m => m.status === 'Publicado');
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Planejamento Alimentar — ${sc.name}</div>
       <div class="page-subtitle">Cardápio semanal aprovado pelo Nutricionista — Junho 2026</div>
     </div>
+
+    ${weeklyPublicados.length > 0 ? `
+    <div class="card mb-16" style="border-left:4px solid var(--primary)">
+      <div class="card-header"><div class="card-title">🆕 Cardápios Semanais Recentes da Nutricionista</div><span class="status-badge status-ok">${weeklyPublicados.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Cardápio</th><th>Período</th><th>Autor</th><th>Publicado em</th><th>Kcal/Dia</th></tr></thead><tbody>
+          ${weeklyPublicados.slice(0, 5).map(w => `
+            <tr>
+              <td><strong>${w.nome || 'Cardápio Semanal'}</strong></td>
+              <td>${w.periodo || '—'}</td>
+              <td style="font-size:0.82rem">${w.autor || '—'}</td>
+              <td style="font-size:0.82rem">${new Date(w.publicadoEm).toLocaleString('pt-BR')}</td>
+              <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${w.kcalMedia || '—'}</td>
+            </tr>
+          `).join('')}
+        </tbody></table>
+      </div>
+    </div>` : ''}
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
       <div class="kpi-card blue"><div class="kpi-icon">👨‍🎓</div><div class="kpi-value">${sc.attendance_avg||572}</div><div class="kpi-label">Alunos p/ Refeição</div></div>
       <div class="kpi-card green"><div class="kpi-icon">🍽️</div><div class="kpi-value">${sc.meals_per_day||2}</div><div class="kpi-label">Refeições/Dia</div></div>
@@ -3128,6 +4182,7 @@ PAGE_RENDERERS.escola_pedidos = (el) => {
   const products = (typeof DATA !== 'undefined' && DATA.products) ? DATA.products : [];
   const coops = (typeof DATA !== 'undefined' && DATA.cooperatives) ? DATA.cooperatives : [{name:'COOPAGRAN'},{name:'COOPRAN'},{name:'COOPAERGS'}];
   const orders = (typeof DATA !== 'undefined' && DATA.orders) ? DATA.orders : [];
+  const sharedOrders = SharedState.getOrders().filter(o => o.school === sc.name);
   const suggest = products.filter(p=>(p.days_left||99)<=3).slice(0,3);
   const topSuggest = suggest.length > 0 ? suggest : products.slice(0,3);
 
@@ -3165,13 +4220,18 @@ PAGE_RENDERERS.escola_pedidos = (el) => {
         </div>
       </div>
       <div class="card">
-        <div class="card-header"><div class="card-title">📋 Histórico</div></div>
+        <div class="card-header"><div class="card-title">📋 Histórico</div><span class="status-badge status-info">${sharedOrders.length + orders.length} pedidos</span></div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
             <thead><tr><th>#</th><th>Data</th><th>Cooperativa</th><th>Valor</th><th>Status</th></tr></thead>
             <tbody>
-              <tr><td>#001</td><td>24/06</td><td>COOPAGRAN</td><td>R$ 8.500</td><td><span class="status-badge status-danger">Pendente</span></td></tr>
-              <tr><td>#002</td><td>20/06</td><td>COOPAGRAN</td><td>R$ 8.200</td><td><span class="status-badge status-ok">Entregue</span></td></tr>
+              ${sharedOrders.map(o=>`<tr>
+                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem;margin-left:4px">NOVO</span></td>
+                <td>${o.date}</td>
+                <td>${o.cooperative||'—'}</td>
+                <td style="font-family:var(--font-mono)">R$ ${(o.value||0).toLocaleString('pt-BR')}</td>
+                <td><span class="status-badge ${o.status==='Entregue'?'status-ok':o.status==='Pendente'?'status-danger':'status-warning'}">${o.status}</span></td>
+              </tr>`).join('')}
               ${orders.slice(0,4).map((o,i)=>`<tr><td>#${String(i+3).padStart(3,'0')}</td><td>${o.date||'—'}</td><td>${o.cooperative||'—'}</td><td>R$ ${(o.value||0).toLocaleString('pt-BR')}</td><td><span class="status-badge ${o.status==='Entregue'?'status-ok':o.status==='Pendente'?'status-danger':'status-warning'}">${o.status||'—'}</span></td></tr>`).join('')}
             </tbody>
           </table>
@@ -3188,14 +4248,47 @@ PAGE_RENDERERS.escola_pedidos = (el) => {
 
   document.getElementById('btn-send-ped')?.addEventListener('click', async () => {
     const btn=document.getElementById('btn-send-ped'), fb=document.getElementById('ped-feedback');
+    const coopSel = document.getElementById('ped-coop')?.value || 'COOPAGRAN';
+
+    // Coleta itens do formulário
+    const itens = [];
+    document.querySelectorAll('#ped-items .ped-row').forEach(row => {
+      const inputs = row.querySelectorAll('select, input');
+      const produto = inputs[0]?.value;
+      const qtd = parseFloat(inputs[1]?.value || 0);
+      const unidade = inputs[2]?.value;
+      if (produto && qtd > 0) itens.push({ produto, qtd, unidade });
+    });
+    if (itens.length === 0) {
+      fb.style.display='block';
+      fb.innerHTML='<span style="color:var(--warning)">⚠️ Informe ao menos um item com quantidade.</span>';
+      return;
+    }
+
     btn.disabled=true; btn.textContent='Enviando...';
+    // Estimativa de valor: R$ 12/kg médio
+    const value = Math.round(itens.reduce((s,i) => s + i.qtd * 12, 0));
+
+    // Grava no SharedState — visível na cooperativa, agricultor, gestor, almoxarifado
+    const newOrder = SharedState.addOrder({
+      school: sc.name,
+      cooperative: coopSel,
+      itens,
+      value,
+    });
+
+    // Tenta gravar também no Supabase (best-effort)
     try {
-      const {error}=await _sb.from('orders').insert([{school:sc.name,date:new Date().toISOString().split('T')[0],status:'Pendente',cooperative:document.getElementById('ped-coop')?.value,value:Math.round(Math.random()*5000+3000)}]);
-      if(error) throw error;
-      fb.style.display='block'; fb.innerHTML='<span style="color:var(--success)">✅ Pedido enviado!</span>';
-    } catch(e) {
-      fb.style.display='block'; fb.innerHTML=`<span style="color:var(--danger)">⚠️ ${e.message||'Erro.'}</span>`;
-    } finally { btn.disabled=false; btn.textContent='📤 Enviar Pedido'; }
+      if (typeof _sb !== 'undefined') {
+        await _sb.from('orders').insert([{ school: sc.name, date: newOrder.date, status: 'Pendente', cooperative: coopSel, value }]);
+      }
+    } catch(e) { /* silencia — SharedState garante persistência local */ }
+
+    fb.style.display='block';
+    fb.innerHTML = `<span style="color:var(--success)">✅ Pedido <strong>#${String(newOrder.numero).padStart(3,'0')}</strong> enviado! Já visível para <strong>${coopSel}</strong>, Almoxarifado e Gestor.</span>`;
+    showToast('📤 Pedido #' + String(newOrder.numero).padStart(3,'0') + ' enviado para ' + coopSel);
+    btn.disabled=false; btn.textContent='📤 Enviar Pedido';
+    setTimeout(() => PAGE_RENDERERS.escola_pedidos(document.getElementById('page-content')), 900);
   });
 };
 
@@ -3204,24 +4297,35 @@ PAGE_RENDERERS.escola_entregas = (el) => {
   const sc = getCurrentSchool();
   const orders = (typeof DATA !== 'undefined' && DATA.orders) ? DATA.orders : [];
   const active = orders.filter(o=>o.status!=='Entregue').slice(0,5);
+  const sharedActive = SharedState.getOrders().filter(o => o.school === sc.name && o.status !== 'Entregue');
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Recebimento de Entregas — ${sc.name}</div>
       <div class="page-subtitle">Conferência e confirmação de recebimento</div>
     </div>
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">🚚 Entregas em Andamento</div></div>
+      <div class="card-header"><div class="card-title">🚚 Entregas em Andamento</div>${sharedActive.length ? '<span class="status-badge status-ok">'+sharedActive.length+' pedidos recentes</span>' : ''}</div>
       <div class="card-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>#</th><th>Cooperativa</th><th>Data</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+          <thead><tr><th>#</th><th>Cooperativa</th><th>Data</th><th>Itens</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
+            ${sharedActive.map(o=>`<tr>
+              <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
+              <td>${o.cooperative||'—'}</td><td>${o.date}</td>
+              <td style="font-size:0.82rem">${(o.itens||[]).map(i=>i.produto).slice(0,2).join(', ') || '—'}</td>
+              <td>R$ ${(o.value||0).toLocaleString('pt-BR')}</td>
+              <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+              <td>${o.status === 'Em transporte' ? `<button class="btn btn-sm btn-primary" onclick="confirmSchoolDelivery('${o.id}','${sc.director||'Diretor(a)'}')">✅ Confirmar</button>` : ''}</td>
+            </tr>`).join('')}
             ${active.map((o,i)=>`<tr>
               <td style="font-family:var(--font-mono)">#${String(i+1).padStart(3,'0')}</td>
               <td>${o.cooperative||'—'}</td><td>${o.date||'—'}</td>
+              <td style="font-size:0.82rem;color:var(--text-tertiary)">—</td>
               <td>R$ ${(o.value||0).toLocaleString('pt-BR')}</td>
               <td><span class="status-badge ${o.status==='Pendente'?'status-danger':o.status?.includes?.('separ')?'status-warning':'status-info'}">${o.status||'—'}</span></td>
               <td><button class="btn btn-sm btn-primary" onclick="alert('Recebimento #${String(i+1).padStart(3,"0")} confirmado!')">✅ Confirmar</button></td>
-            </tr>`).join('')||'<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma entrega pendente</td></tr>'}
+            </tr>`).join('')}
+            ${(sharedActive.length + active.length) === 0 ? '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma entrega pendente</td></tr>' : ''}
           </tbody>
         </table>
       </div>
@@ -3387,11 +4491,32 @@ PAGE_RENDERERS.cooperativa_dashboard = (el) => {
 };
 
 PAGE_RENDERERS.cooperativa_agricultores = (el) => {
+  const producoes = SharedState.getProductions();
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Agricultores</div><div class="page-subtitle">Cadastro e acompanhamento dos agricultores vinculados</div></div>
+    <div class="page-header"><div class="page-title">Gestão de Agricultores</div><div class="page-subtitle">Cadastro e acompanhamento — atualizações vindas dos agricultores aparecem em tempo real</div></div>
+
+    ${producoes.length > 0 ? `
+    <div class="card mb-24" style="border-left:4px solid var(--success)">
+      <div class="card-header"><div class="card-title">🆕 Atualizações Recentes de Produção</div><span class="status-badge status-ok">${producoes.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Agricultor</th><th>Produto</th><th>Área (ha)</th><th>Prevista (kg)</th><th>Disponível (kg)</th><th>Registrado em</th></tr></thead><tbody>
+          ${producoes.slice(0, 8).map(p => `
+            <tr>
+              <td><strong>${p.agricultor || '—'}</strong></td>
+              <td>${p.produto}</td>
+              <td style="font-family:var(--font-mono)">${p.area || '—'}</td>
+              <td style="font-family:var(--font-mono)">${(p.previsto||0).toLocaleString('pt-BR')}</td>
+              <td style="font-family:var(--font-mono);color:var(--success);font-weight:700">${(p.disponivel||0).toLocaleString('pt-BR')}</td>
+              <td style="font-size:0.78rem;color:var(--text-secondary)">${new Date(p.criadoEm).toLocaleString('pt-BR')}</td>
+            </tr>
+          `).join('')}
+        </tbody></table>
+      </div>
+    </div>` : ''}
+
     <div class="card">
       <div class="card-header"><div class="card-title">Agricultores Vinculados</div><button class="btn btn-primary btn-sm">+ Novo Agricultor</button></div>
-      <div class="card-body">
+      <div class="card-body" style="padding:0">
         <table class="data-table"><thead><tr><th>Nome</th><th>Produtos</th><th>Estoque (kg)</th><th>Produção Est. (kg)</th><th>Status</th><th>Ações</th></tr></thead><tbody>
           ${DATA.farmers.filter(f => f.coop === 'COOPAGRAN').map(f => `<tr class="clickable-row" onclick="navigateTo('agricultor','dashboard')">
             <td><strong>${f.name}</strong></td>
@@ -3411,15 +4536,42 @@ PAGE_RENDERERS.cooperativa_produtos = (el) => { el.innerHTML = renderCrudScreen(
 PAGE_RENDERERS.cooperativa_estoque = (el) => { PAGE_RENDERERS.gestor_estoque(el); };
 
 PAGE_RENDERERS.cooperativa_pedidos = (el) => {
+  const prof = PROFILES[state.currentProfile] || {};
+  const coopName = prof.role || 'COOPAGRAN';
+  const sharedOrders = SharedState.getOrders().filter(o => (o.cooperative || '').toUpperCase() === coopName.toUpperCase());
+  const legacyOrders = DATA.orders.filter(o => o.coop === coopName);
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Pedidos</div><div class="page-subtitle">Pedidos recebidos das escolas e distribuição para agricultores</div></div>
+    <div class="page-header">
+      <div class="page-title">Gestão de Pedidos — ${coopName}</div>
+      <div class="page-subtitle">Pedidos enviados pelas escolas · sincronizados em tempo real</div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${sharedOrders.length + legacyOrders.length}</div><div class="kpi-label">Pedidos Totais</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">⏰</div><div class="kpi-value">${sharedOrders.filter(o=>o.status==='Pendente').length + legacyOrders.filter(o=>o.status==='Pendente').length}</div><div class="kpi-label">Aguardando Aceite</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🚚</div><div class="kpi-value">${sharedOrders.filter(o=>o.status==='Em transporte' || o.status==='Em separação').length}</div><div class="kpi-label">Em Andamento</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${sharedOrders.filter(o=>o.status==='Entregue').length + legacyOrders.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues</div></div>
+    </div>
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Pedidos Recebidos</div></div>
-      <div class="card-body">
-        <table class="data-table"><thead><tr><th>#</th><th>Escola</th><th>Data</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-          ${DATA.orders.filter(o => o.coop === 'COOPAGRAN').map(o => `<tr>
+      <div class="card-header"><div class="card-title">Pedidos Recebidos das Escolas</div>${sharedOrders.length ? '<span class="status-badge status-ok">'+sharedOrders.length+' novos</span>' : ''}</div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>#</th><th>Escola</th><th>Data</th><th>Itens</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+          ${sharedOrders.map(o => `<tr>
+            <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
+            <td><strong>${o.school}</strong></td>
+            <td>${o.date}</td>
+            <td style="font-size:0.82rem">${(o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ') || '—'}</td>
+            <td style="font-family:var(--font-mono)">${formatCurrency(o.value || 0)}</td>
+            <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+            <td>
+              ${o.status === 'Pendente' ? `<button class="btn btn-sm btn-primary" onclick="acceptOrder('${o.id}')">Aceitar & Distribuir</button>` : ''}
+              ${o.status === 'Em separação' ? `<button class="btn btn-sm btn-primary" onclick="dispatchOrder('${o.id}')">Despachar</button>` : ''}
+            </td>
+          </tr>`).join('')}
+          ${legacyOrders.map(o => `<tr>
             <td style="font-family:var(--font-mono)">#${String(o.id).padStart(3,'0')}</td>
             <td><strong>${o.school}</strong></td><td>${formatDate(o.date)}</td>
+            <td style="font-size:0.82rem;color:var(--text-tertiary)">—</td>
             <td style="font-family:var(--font-mono)">${formatCurrency(o.value)}</td>
             <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
             <td><button class="table-action">Distribuir</button></td>
@@ -3440,6 +4592,24 @@ PAGE_RENDERERS.cooperativa_pedidos = (el) => {
       </div>
     </div>
   `;
+};
+
+window.acceptOrder = (id) => {
+  SharedState.updateOrderStatus(id, 'Em separação');
+  showToast('✅ Pedido aceito. Já visível no Almoxarifado para separação.');
+  renderPage();
+};
+window.dispatchOrder = (id) => {
+  SharedState.updateOrderStatus(id, 'Em transporte');
+  showToast('🚚 Pedido despachado. Motorista notificado.');
+  renderPage();
+};
+window.confirmSchoolDelivery = (id, receiver) => {
+  const nome = prompt('Nome do responsável pelo recebimento:', receiver || '');
+  if (!nome) return;
+  SharedState.confirmDelivery(id, nome, '');
+  showToast('✅ Recebimento confirmado! Cooperativa e Gestor notificados.');
+  renderPage();
 };
 
 PAGE_RENDERERS.cooperativa_planejamento = (el) => { PAGE_RENDERERS.escola_planejamento(el); };
@@ -3511,7 +4681,55 @@ PAGE_RENDERERS.agricultor_dashboard = (el) => {
   `;
 };
 
-PAGE_RENDERERS.agricultor_producao = (el) => { el.innerHTML = renderCrudScreen('Minha Produção', 'Cadastro e acompanhamento da produção agrícola', ['Produto','Área Plantada (ha)','Produção Prevista (kg)','Produção Disponível (kg)','Status'], [['Mandioca','5','2.500','1.200','Em produção'],['Banana Nanica','4','1.400','800','Em produção'],['Abóbora Cabotiá','3','600','200','Pré-colheita']]); };
+PAGE_RENDERERS.agricultor_producao = (el) => {
+  const prof = PROFILES[state.currentProfile] || {};
+  const producoes = SharedState.getProductions().filter(p => p.agricultor === prof.name);
+  const baseRows = [
+    ['Mandioca','5','2.500','1.200','Em produção'],
+    ['Banana Nanica','4','1.400','800','Em produção'],
+    ['Abóbora Cabotiá','3','600','200','Pré-colheita'],
+  ];
+  const extraRows = producoes.map(p => [p.produto, p.area || '—', (p.previsto||0).toLocaleString('pt-BR'), (p.disponivel||0).toLocaleString('pt-BR'), p.status || 'Em produção']);
+
+  el.innerHTML = `
+    <div class="page-header"><div class="page-title">Minha Produção</div><div class="page-subtitle">Atualizações aqui aparecem imediatamente na Cooperativa e no Gestor</div></div>
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Nova Atualização de Produção</div></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px">
+          <input type="text" id="prod-produto" placeholder="Produto (ex.: Alface Crespa)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">
+          <input type="number" id="prod-area" placeholder="Área (ha)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">
+          <input type="number" id="prod-previsto" placeholder="Previsto (kg)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">
+          <input type="number" id="prod-disponivel" placeholder="Disponível (kg)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">
+          <button class="btn btn-primary" id="btn-add-prod">+ Adicionar</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Produção Atual</div>${extraRows.length ? '<span class="status-badge status-ok">'+extraRows.length+' atualização(ões) recente(s)</span>' : ''}</div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Produto</th><th>Área (ha)</th><th>Prevista (kg)</th><th>Disponível (kg)</th><th>Status</th></tr></thead>
+          <tbody>
+            ${extraRows.map(r => `<tr>${r.map((c,i)=>i===0?`<td><strong>${c}</strong> <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>`:`<td>${c}</td>`).join('')}</tr>`).join('')}
+            ${baseRows.map(r => `<tr>${r.map((c,i)=>i===0?`<td><strong>${c}</strong></td>`:`<td>${c}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btn-add-prod')?.addEventListener('click', () => {
+    const produto = document.getElementById('prod-produto').value.trim();
+    const area = parseFloat(document.getElementById('prod-area').value) || 0;
+    const previsto = parseFloat(document.getElementById('prod-previsto').value) || 0;
+    const disponivel = parseFloat(document.getElementById('prod-disponivel').value) || 0;
+    if (!produto) { showToast('Informe o nome do produto.', 'error'); return; }
+    SharedState.addProduction({ agricultor: prof.name, produto, area, previsto, disponivel, status: 'Em produção' });
+    showToast('🌾 Produção registrada — Cooperativa e Gestor SEMED notificados.');
+    PAGE_RENDERERS.agricultor_producao(document.getElementById('page-content'));
+  });
+};
 PAGE_RENDERERS.agricultor_estoque = (el) => {
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Gestão de Estoque</div><div class="page-subtitle">Controle de produtos disponíveis para venda</div></div>
@@ -3529,16 +4747,36 @@ PAGE_RENDERERS.agricultor_estoque = (el) => {
 };
 
 PAGE_RENDERERS.agricultor_pedidos = (el) => {
+  const prof = PROFILES[state.currentProfile] || {};
+  // Pedidos distribuídos ao agricultor pela cooperativa (todo pedido "Em separação" da COOPAGRAN pode envolver este agricultor)
+  const shared = SharedState.getOrders().filter(o => o.status === 'Em separação' || o.status === 'Em transporte' || o.status === 'Pendente');
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Pedidos</div><div class="page-subtitle">Pedidos recebidos da cooperativa</div></div>
+    <div class="page-header"><div class="page-title">Pedidos Distribuídos pela Cooperativa</div><div class="page-subtitle">Solicitações vindas da COOPAGRAN em tempo real</div></div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+      <div class="kpi-card red"><div class="kpi-icon">⏳</div><div class="kpi-value">${shared.filter(o=>o.status==='Pendente').length}</div><div class="kpi-label">Aguardando Aceite</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${shared.filter(o=>o.status==='Em separação').length}</div><div class="kpi-label">Em Separação</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">🚚</div><div class="kpi-value">${shared.filter(o=>o.status==='Em transporte').length}</div><div class="kpi-label">Em Transporte</div></div>
+    </div>
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Pedidos Recebidos</div></div>
-      <div class="card-body">
-        <table class="data-table"><thead><tr><th>Pedido</th><th>Produto</th><th>Quantidade</th><th>Data Limite</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-          <tr><td>#P-001</td><td><strong>Mandioca</strong></td><td>200 kg</td><td>25/06/2026</td><td><span class="status-badge status-danger">Pendente</span></td>
-            <td><button class="btn btn-sm btn-success">Aceitar</button> <button class="btn btn-sm btn-outline">Ajustar</button></td></tr>
-          <tr><td>#P-002</td><td><strong>Banana Nanica</strong></td><td>150 kg</td><td>27/06/2026</td><td><span class="status-badge status-ok">Confirmado</span></td>
-            <td><button class="btn btn-sm btn-outline">Detalhes</button></td></tr>
+      <div class="card-header"><div class="card-title">Pedidos Recebidos</div>${shared.length ? '<span class="status-badge status-ok">'+shared.length+' novos</span>' : ''}</div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Pedido</th><th>Escola</th><th>Cooperativa</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+          ${shared.map(o => `<tr>
+            <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
+            <td><strong>${o.school}</strong></td>
+            <td><span class="tag tag-teal">${o.cooperative||'—'}</span></td>
+            <td style="font-size:0.82rem">${(o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ') || '—'}</td>
+            <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+            <td>
+              ${o.status === 'Pendente' ? `<button class="btn btn-sm btn-success" onclick="acceptOrder('${o.id}')">Aceitar</button>` : ''}
+              ${o.status === 'Em separação' ? `<button class="btn btn-sm btn-primary" onclick="dispatchOrder('${o.id}')">Marcar Enviado</button>` : ''}
+            </td>
+          </tr>`).join('') || `
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum pedido no momento — assim que uma escola criar pedido para a COOPAGRAN, ele aparecerá aqui.</td></tr>
+          `}
+          <tr><td>#P-001</td><td>—</td><td>—</td><td><strong>Mandioca</strong> 200 kg</td><td><span class="status-badge status-danger">Pendente</span></td>
+            <td style="font-size:0.72rem;color:var(--text-tertiary)">exemplo</td></tr>
         </tbody></table>
       </div>
     </div>
@@ -3578,170 +4816,321 @@ PAGE_RENDERERS.agricultor_perfil = (el) => {
   `;
 };
 
-// ─── ALMOXARIFADO: RENDERERS ───
-PAGE_RENDERERS.almoxarifado_dashboard = (el) => {
+// ─── ESTOQUE: RENDERERS ───
+PAGE_RENDERERS.estoque_dashboard = (el) => {
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Dashboard Operacional</div><div class="page-subtitle">Controle de separação e expedição de alimentos</div></div>
+    <div class="page-header"><div class="page-title">Dashboard Operacional (CD)</div><div class="page-subtitle">Central de Distribuição · Entradas, Lotes e Expedição</div></div>
     
     <div class="grid-4 mb-24">
       <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--warning);background:var(--warning-light)">📦</div>
-        <div class="stat-info"><div class="stat-num" id="picking-pending-count">2</div><div class="stat-name">Pedidos para Separar</div></div>
+        <div class="stat-icon" style="color:var(--warning);background:var(--warning-light)">📥</div>
+        <div class="stat-info"><div class="stat-num">2</div><div class="stat-name">Entradas (NF) Pendentes</div></div>
       </div></div>
       <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--info);background:var(--info-light)">🚚</div>
-        <div class="stat-info"><div class="stat-num">3</div><div class="stat-name">Veículos na Rota</div></div>
+        <div class="stat-icon" style="color:var(--info);background:var(--info-light)">📦</div>
+        <div class="stat-info"><div class="stat-num">${DATA.separation_orders.filter(o => o.status === 'Pendente').length}</div><div class="stat-name">Ordens p/ Separar</div></div>
       </div></div>
       <div class="card stat-card"><div class="card-body">
         <div class="stat-icon" style="color:var(--danger);background:var(--danger-light)">⚠️</div>
         <div class="stat-info"><div class="stat-num">1</div><div class="stat-name">Lotes Vencendo (30d)</div></div>
       </div></div>
       <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--success);background:var(--success-light)">✓</div>
-        <div class="stat-info"><div class="stat-num">14</div><div class="stat-name">Entregas Concluídas</div></div>
-      </div></div>
-    </div>
-
-    <div class="grid-2 mb-24">
-      <div class="card"><div class="card-header"><div class="card-title">Expedição Diária</div></div><div class="card-body" style="height:250px">
-        <canvas id="chart-almox-expedicao"></canvas>
-      </div></div>
-      <div class="card"><div class="card-header"><div class="card-title">Status dos Veículos de Entrega</div></div><div class="card-body">
-        <table class="data-table"><thead><tr><th>Placa / Motorista</th><th>Rota</th><th>Carga (%)</th><th>Status</th></tr></thead><tbody>
-          <tr><td><strong>ABC-1234</strong> / José Souza</td><td>Anhanduizinho</td><td style="font-family:var(--font-mono)">85%</td><td><span class="status-badge status-warning">Em trânsito</span></td></tr>
-          <tr><td><strong>DEF-5678</strong> / Marcos Lima</td><td>Bandeira</td><td style="font-family:var(--font-mono)">95%</td><td><span class="status-badge status-ok">Entregue</span></td></tr>
-          <tr><td><strong>GHI-9012</strong> / Valdir Neto</td><td>Imbirussu</td><td style="font-family:var(--font-mono)">10%</td><td><span class="status-badge status-danger">Carregando</span></td></tr>
-        </tbody></table>
+        <div class="stat-icon" style="color:var(--success);background:var(--success-light)">🚚</div>
+        <div class="stat-info"><div class="stat-num">14</div><div class="stat-name">Veículos Liberados</div></div>
       </div></div>
     </div>
   `;
-  setTimeout(() => {
-    createChart('chart-almox-expedicao', {
-      type: 'bar',
-      data: {
-        labels: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'],
-        datasets: [{ label: 'Pedidos Expedidos', data: [12, 15, 18, 14, 16], backgroundColor: CHART_COLORS.blue }]
-      },
-      options: { ...CHART_DEFAULTS }
-    });
-  }, 50);
 };
 
-PAGE_RENDERERS.almoxarifado_separacao = (el) => {
+PAGE_RENDERERS.estoque_inventario = (el) => {
+  const prods = DATA.products.slice().sort((a,b) => a.daysLeft - b.daysLeft);
+  
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Separação de Pedidos</div><div class="page-subtitle">Separação e pesagem de insumos por lote e validade</div></div>
-    <div id="separacao-workspace">
-      <div class="card mb-24">
-        <div class="card-header"><div class="card-title">Fila de Separação</div></div>
-        <div class="card-body">
-          <table class="data-table"><thead><tr><th>Pedido</th><th>Escola Destino</th><th>Itens</th><th>Data Solicitação</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-            <tr><td><strong>#PED-304</strong></td><td>EM Hércules Maymone</td><td>Arroz (120kg), Feijão (40kg)</td><td>10/07/2026</td><td><span class="status-badge status-danger">Pendente</span></td>
-              <td><button class="btn btn-sm btn-primary" onclick="startPicking('304', 'EM Hércules Maymone', 'Arroz (120kg), Feijão (40kg)')">Iniciar Separação</button></td></tr>
-            <tr><td><strong>#PED-305</strong></td><td>EM Nerone Maiolino</td><td>Leite (90L), Maçã (30kg)</td><td>10/07/2026</td><td><span class="status-badge status-danger">Pendente</span></td>
-              <td><button class="btn btn-sm btn-primary" onclick="startPicking('305', 'EM Nerone Maiolino', 'Leite (90L), Maçã (30kg)')">Iniciar Separação</button></td></tr>
-            <tr><td><strong>#PED-301</strong></td><td>EM Arlindo Lima</td><td>Banana (150kg), Alface (20kg)</td><td>09/07/2026</td><td><span class="status-badge status-ok">Separado</span></td>
-              <td><button class="btn btn-sm btn-outline" disabled>Concluído</button></td></tr>
-          </tbody></table>
-        </div>
-      </div>
-    </div>
-  `;
-};
-
-window.startPicking = (id, school, items) => {
-  const container = document.getElementById('separacao-workspace');
-  if (!container) return;
-  container.innerHTML = `
+    <div class="page-header"><div class="page-title">Posição de Estoque Central</div><div class="page-subtitle">Acompanhamento em Tempo Real</div></div>
+    
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Separando Itens: Pedido #${id} — ${school}</div></div>
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">Inventário Atual</div>
+        <div style="display:flex;gap:10px">
+          <input type="text" class="form-control" placeholder="Buscar produto..." style="width:250px" onkeyup="
+            const v = this.value.toLowerCase();
+            document.querySelectorAll('#estoque-table tr').forEach(tr => {
+              if(!tr.dataset.name) return;
+              tr.style.display = tr.dataset.name.indexOf(v) > -1 ? '' : 'none';
+            })
+          ">
+        </div>
+      </div>
       <div class="card-body">
-        <div style="margin-bottom: 16px; padding: 12px; background: var(--warning-light); border-radius: var(--radius); font-weight: 500; font-size: 0.9rem">
-          ⚠️ ATENÇÃO: Verifique o lote e a validade física de cada item antes de bipar/confirmar.
-        </div>
-        <table class="data-table"><thead><tr><th>Confirmar</th><th>Produto</th><th>Solicitado</th><th>Lote Selecionado</th><th>Validade</th><th>Status</th></tr></thead><tbody>
-          <tr>
-            <td><input type="checkbox" id="chk-item-1" style="width:20px;height:20px;cursor:pointer"></td>
-            <td><strong>Arroz Integral Tipo 1</strong></td>
-            <td>120 kg</td>
-            <td><code>L-ARR-092</code></td>
-            <td style="color:var(--success)">12/2026</td>
-            <td><span class="status-badge status-info">Pronto para binar</span></td>
-          </tr>
-          <tr>
-            <td><input type="checkbox" id="chk-item-2" style="width:20px;height:20px;cursor:pointer"></td>
-            <td><strong>Feijão Carioca</strong></td>
-            <td>40 kg</td>
-            <td><code>L-FEI-012</code></td>
-            <td style="color:var(--warning)">09/2026</td>
-            <td><span class="status-badge status-info">Pronto para binar</span></td>
-          </tr>
-        </tbody></table>
-        <div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end">
-          <button class="btn btn-outline" onclick="cancelPicking()">Cancelar</button>
-          <button class="btn btn-primary" onclick="completePicking('${id}')">Concluir Separação (Gerar Etiqueta)</button>
-        </div>
+        <table class="data-table">
+          <thead>
+            <tr><th>Produto</th><th>Categoria</th><th>Estoque Físico</th><th>Consumo Médio Diário</th><th>Autonomia (Dias)</th><th>Status</th></tr>
+          </thead>
+          <tbody id="estoque-table">
+            ${prods.map(p => {
+              let statusObj = { text: 'Estoque Normal', class: 'status-ok' };
+              if(p.daysLeft <= 0) statusObj = { text: 'Falta de Estoque', class: 'status-danger' };
+              else if(p.daysLeft <= 5) statusObj = { text: 'Estoque Crítico', class: 'status-danger' };
+              else if(p.daysLeft <= 10) statusObj = { text: 'Atenção (Baixo)', class: 'status-warning' };
+
+              return \`<tr data-name="\${p.name.toLowerCase()}">
+                <td><strong>\${p.name}</strong><br><small style="color:var(--text-secondary)">ID: \${p.id.toString().padStart(4, '0')}</small></td>
+                <td><span class="status-badge status-info">\${p.category}</span></td>
+                <td style="font-family:var(--font-mono);font-size:1.1rem">\${p.stock} \${p.unit}</td>
+                <td style="font-family:var(--font-mono)">\${p.avgConsume} \${p.unit}/dia</td>
+                <td style="font-family:var(--font-mono);font-weight:600">\${p.daysLeft} dias</td>
+                <td><span class="status-badge \${statusObj.class}">\${statusObj.text}</span></td>
+              </tr>\`;
+            }).join('')}
+          </tbody>
+        </table>
       </div>
     </div>
   `;
 };
 
-window.cancelPicking = () => {
-  const el = document.getElementById('page-content');
-  if (el) PAGE_RENDERERS.almoxarifado_separacao(el);
+PAGE_RENDERERS.estoque_entradas = (el) => {
+  // Simular pedidos aprovados que aguardam NF
+  const pedidosNF = DATA.ata_pedidos.filter(p => true); // Para o mock, mostramos todos
+  el.innerHTML = `
+    <div class="page-header"><div class="page-title">Recebimento de Mercadorias (NF)</div><div class="page-subtitle">Entrada física e baixa de empenhos</div></div>
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Aguardando Recebimento</div></div>
+      <div class="card-body">
+        <table class="data-table"><thead><tr><th>Data Pedido</th><th>Ata / Empenho</th><th>Produto</th><th>Solicitado</th><th>Recebido</th><th>Saldo</th><th>Status</th><th>Ação</th></tr></thead><tbody>
+          ${pedidosNF.map(p => {
+            const emp = DATA.empenhos.find(e => e.id === p.empenhoId);
+            if (!emp) return '';
+            const prodId = emp.items[0].productId;
+            const prod = DATA.ataProducts.find(a => a.id === prodId);
+            const recebido = p.delivered || 0;
+            const saldo = p.qtd - recebido;
+            if (saldo <= 0) return ''; // Já entregue totalmente
+            
+            return `<tr>
+              <td>${formatDate(p.date)}</td>
+              <td><strong>${emp.numero}</strong><br><small>Ata #${emp.ataId}</small></td>
+              <td>${prod.name}</td>
+              <td style="font-family:var(--font-mono)">${p.qtd}</td>
+              <td style="font-family:var(--font-mono);color:var(--success)">${recebido}</td>
+              <td style="font-family:var(--font-mono);font-weight:bold;color:var(--danger)">${saldo} ${prod.unit}</td>
+              <td><span class="status-badge ${recebido > 0 ? 'status-warning' : 'status-danger'}">${recebido > 0 ? 'Pendente (Parcial)' : 'Aguardando'}</span></td>
+              <td><button class="btn btn-sm btn-primary" onclick="openRecebimentoModal(${p.id})">Registrar NF / Conferência</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody></table>
+      </div>
+    </div>
+  `;
 };
 
-window.completePicking = (id) => {
-  const c1 = document.getElementById('chk-item-1')?.checked;
-  const c2 = document.getElementById('chk-item-2')?.checked;
-  if (!c1 || !c2) {
-    alert('Erro: Por favor, confira e selecione todos os itens do pedido antes de concluir!');
-    return;
+window.openRecebimentoModal = (pedidoId) => {
+  const p = DATA.ata_pedidos.find(x => x.id === pedidoId);
+  const emp = DATA.empenhos.find(e => e.id === p.empenhoId);
+  const prod = DATA.ataProducts.find(a => a.id === emp.items[0].productId);
+  const saldoFisico = p.qtd - (p.delivered || 0);
+  
+  const content = `
+    <div style="background:var(--surface-2);padding:12px;border-radius:6px;margin-bottom:16px;font-size:0.9rem">
+      <strong>Item:</strong> ${prod.name}<br>
+      <strong>Qtd Pedido:</strong> ${p.qtd} ${prod.unit} | <strong>Já Entregue:</strong> ${p.delivered || 0} ${prod.unit} <br>
+      <strong style="color:var(--danger)">Saldo a Receber: ${saldoFisico} ${prod.unit}</strong>
+    </div>
+    <div class="form-group"><label>Número da Nota Fiscal</label><input type="text" id="rec-nf" class="form-control" placeholder="Ex: NF-55829"></div>
+    <div class="form-group"><label>Quantidade Recebida Fisicamente (${prod.unit})</label><input type="number" id="rec-qtd" class="form-control" value="${saldoFisico}" max="${saldoFisico}"></div>
+    <div class="form-group"><label>Validade do Lote</label><input type="date" id="rec-val" class="form-control"></div>
+    
+    <div style="margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:6px;background:var(--warning-light)">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:bold;margin:0">
+        <input type="checkbox" id="rec-ateste" style="width:20px;height:20px">
+        Atesto que realizei a conferência da qualidade técnica e da quantidade física destes produtos.
+      </label>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmRecebimento(${p.id}, ${emp.id}, ${prod.id})">Confirmar Conferência e Receber</button>
+    </div>
+  `;
+  showModal('Registro de Entrada e Conferência', content);
+};
+
+window.confirmRecebimento = (pedidoId, empenhoId, prodId) => {
+  const ateste = document.getElementById('rec-ateste').checked;
+  if(!ateste) { alert('Você precisa atestar a conferência da mercadoria marcando a caixa de seleção!'); return; }
+  
+  const qtd = parseFloat(document.getElementById('rec-qtd').value);
+  const val = document.getElementById('rec-val').value;
+  const nf = document.getElementById('rec-nf').value;
+  if(!val || !nf || !qtd || qtd <= 0) { alert('Preencha os dados da NF, Validade e Quantidade corretamente!'); return; }
+  
+  // Atualizar Pedido
+  const p = DATA.ata_pedidos.find(x => x.id === pedidoId);
+  p.delivered = (p.delivered || 0) + qtd;
+  
+  // Alimentar Estoque Real e gerar Lote
+  const ataP = DATA.ataProducts.find(x => x.id === prodId);
+  const stockProd = DATA.products.find(x => x.id === ataP.stockProductId);
+  if(stockProd) {
+    stockProd.stock += qtd;
+    DATA.lots.push({ id: DATA.lots.length + 1, productId: stockProd.id, number: nf, entryDate: new Date().toISOString().split('T')[0], expirationDate: val, qtd: qtd });
   }
-  alert(`Separação do pedido #${id} concluída com sucesso! Etiqueta de código de barras gerada.`);
+  
+  // Baixar Empenho
+  const emp = DATA.empenhos.find(e => e.id === empenhoId);
+  if(emp) {
+    emp.items[0].delivered = (emp.items[0].delivered || 0) + qtd;
+    emp.executedValue += (qtd * ataP.unitPrice);
+    
+    // Atualiza status do empenho e da ata global
+    if(emp.items[0].delivered >= emp.items[0].qtd) emp.status = 'Liquidado';
+    else emp.status = 'Parcial';
+    
+    ataP.executedValue += (qtd * ataP.unitPrice);
+  }
+  
+  // Add ao historico de NF
+  DATA.nf_history.push({
+    id: DATA.nf_history.length + 1,
+    numero: nf,
+    date: new Date().toISOString().split('T')[0],
+    empenhoId: emp.id,
+    items: [{ productId: prodId, qtd: qtd, value: qtd * ataP.unitPrice }]
+  });
+  
+  closeModal();
+  showToast('NF Recebida com sucesso! Estoque, Ata e Empenho atualizados.', 'success');
   const el = document.getElementById('page-content');
-  if (el) PAGE_RENDERERS.almoxarifado_separacao(el);
+  if(el) PAGE_RENDERERS.estoque_entradas(el);
 };
 
-PAGE_RENDERERS.almoxarifado_carregamento = (el) => {
+PAGE_RENDERERS.estoque_separacao = (el) => {
+  const orders = DATA.separation_orders;
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Carregamento e Expedição</div><div class="page-subtitle">Distribuição e atribuição de rotas aos motoristas</div></div>
-    <div class="grid-2 mb-24">
-      <div class="card"><div class="card-header"><div class="card-title">Cargas Separadas (Aguardando Veículo)</div></div><div class="card-body">
-        <table class="data-table"><thead><tr><th>Pedido</th><th>Destino</th><th>Veículo / Rota</th><th>Ação</th></tr></thead><tbody>
-          <tr><td><strong>#PED-301</strong></td><td>EM Arlindo Lima</td><td><select id="sel-vehicle-301" class="btn btn-sm btn-outline"><option value="ABC-1234">ABC-1234 (Anhanduizinho)</option><option value="DEF-5678">DEF-5678 (Bandeira)</option></select></td>
-            <td><button class="btn btn-sm btn-primary" onclick="assignVehicle('301')">Expedir Carga</button></td></tr>
-          <tr><td><strong>#PED-302</strong></td><td>EM Elpídio Reis</td><td><select id="sel-vehicle-302" class="btn btn-sm btn-outline"><option value="DEF-5678">DEF-5678 (Bandeira)</option><option value="ABC-1234">ABC-1234 (Anhanduizinho)</option></select></td>
-            <td><button class="btn btn-sm btn-primary" onclick="assignVehicle('302')">Expedir Carga</button></td></tr>
+    <div class="page-header"><div class="page-title">Ordens de Separação (Picking)</div><div class="page-subtitle">Sistema sugere os lotes baseado em FIFO (First-In, First-Out)</div></div>
+    <div class="card mb-24">
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Ordem</th><th>Escola Destino</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead><tbody>
+          ${orders.map(o => `<tr>
+            <td style="font-family:var(--font-mono);font-weight:700">#ORD-${o.id}</td>
+            <td><strong>${o.school}</strong></td>
+            <td style="font-size:0.85rem">${o.items.length} produto(s)</td>
+            <td><span class="status-badge ${o.status==='Separado'?'status-ok':'status-warning'}">${o.status}</span></td>
+            <td>
+              ${o.status === 'Pendente' ? 
+                `<button class="btn btn-sm btn-primary" onclick="startSeparacao(${o.id})">Iniciar Separação</button>` : 
+                `<button class="btn btn-sm btn-outline" disabled>Separado</button>`}
+            </td>
+          </tr>`).join('')}
+        </tbody></table>
+      </div>
+    </div>
+  `;
+};
+
+window.startSeparacao = (orderId) => {
+  const o = DATA.separation_orders.find(x => x.id === orderId);
+  o.status = 'Separado';
+  showToast('Separação concluída via FIFO! Lotes vinculados.', 'success');
+  const el = document.getElementById('page-content');
+  if(el) PAGE_RENDERERS.estoque_separacao(el);
+};
+
+PAGE_RENDERERS.estoque_carregamento = (el) => {
+  const separated = DATA.separation_orders.filter(o => o.status === 'Separado');
+  el.innerHTML = `
+    <div class="page-header"><div class="page-title">Carregamento e Bipagem (Check-out)</div><div class="page-subtitle">Validação de caixas no caminhão</div></div>
+    <div class="grid-2">
+      <div class="card"><div class="card-header"><div class="card-title">Cargas Aguardando Embarque</div></div>
+      <div class="card-body">
+        <table class="data-table"><thead><tr><th>Ordem</th><th>Destino</th><th>Ação</th></tr></thead><tbody>
+          ${separated.map(o => `<tr>
+            <td><strong>#ORD-${o.id}</strong></td>
+            <td>${o.school}</td>
+            <td><button class="btn btn-sm btn-primary" onclick="openBipagem(${o.id})">Bipar Carga</button></td>
+          </tr>`).join('')}
         </tbody></table>
       </div></div>
-      <div class="card"><div class="card-header"><div class="card-title">Status de Embarque</div></div><div class="card-body">
-        <table class="data-table"><thead><tr><th>Veículo</th><th>Motorista</th><th>Status</th><th>Pedidos Atribuídos</th></tr></thead><tbody>
-          <tr><td><strong>ABC-1234</strong></td><td>José Souza</td><td><span class="status-badge status-ok">Carregado / Pronto</span></td><td>#PED-299, #PED-300</td></tr>
-          <tr><td><strong>DEF-5678</strong></td><td>Marcos Lima</td><td><span class="status-badge status-warning">Carregando</span></td><td>#PED-302</td></tr>
-        </tbody></table>
+      <div class="card"><div class="card-header"><div class="card-title">Simulador de Bipagem</div></div>
+      <div class="card-body" id="bipagem-area">
+        <div style="color:var(--text-tertiary);text-align:center;padding:40px">Selecione uma carga à esquerda para iniciar a bipagem.</div>
       </div></div>
     </div>
   `;
 };
 
-window.assignVehicle = (id) => {
-  const sel = document.getElementById(`sel-vehicle-${id}`);
-  const val = sel ? sel.value : 'Veículo';
-  alert(`Carga do Pedido #${id} vinculada ao veículo ${val} e expedida com sucesso para entrega!`);
+window.openBipagem = (orderId) => {
+  const o = DATA.separation_orders.find(x => x.id === orderId);
+  const area = document.getElementById('bipagem-area');
+  area.innerHTML = `
+    <h4 style="margin-top:0">Bipando Ordem #ORD-${o.id}</h4>
+    <div style="display:flex;gap:12px;margin-bottom:20px;">
+      <input type="text" id="bip-input" class="form-control" placeholder="Clique aqui e simule o leitor (aperte Enter)..." style="flex:1" onkeydown="if(event.key==='Enter') window.biparItem(${o.id})">
+      <button class="btn btn-primary" onclick="window.biparItem(${o.id})">Bipar</button>
+    </div>
+    <ul id="bip-list" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;">
+      ${o.items.map(i => {
+        const p = DATA.products.find(x => x.id === i.productId);
+        const done = i.scanned >= i.requested;
+        return `<li style="padding:12px;border:1px solid var(--border);border-radius:4px;display:flex;justify-content:space-between;align-items:center;background:${done?'var(--success-light)':'transparent'}">
+          <div><strong>${p.name}</strong><br><small>Lote: ${i.lotSugg}</small></div>
+          <div style="font-family:var(--font-mono);font-weight:bold;color:${done?'var(--success)':'var(--text)'}">${i.scanned} / ${i.requested}</div>
+        </li>`;
+      }).join('')}
+    </ul>
+    <div style="margin-top:20px;text-align:right">
+      <button class="btn btn-success" id="btn-liberar" style="display:none" onclick="liberarCaminhao(${o.id})">Tudo Bipado! Liberar Caminhão</button>
+    </div>
+  `;
+  checkBipagem(o);
 };
 
-PAGE_RENDERERS.almoxarifado_estoque = (el) => {
+window.biparItem = (orderId) => {
+  const o = DATA.separation_orders.find(x => x.id === orderId);
+  // Simula bipar o primeiro item incompleto
+  const item = o.items.find(i => i.scanned < i.requested);
+  if(item) {
+    item.scanned = item.requested; // simula bipar a caixa inteira
+    document.getElementById('bip-input').value = '';
+    openBipagem(orderId);
+  } else {
+    showToast('Todos os itens já foram bipados!', 'warning');
+  }
+};
+
+window.checkBipagem = (o) => {
+  const allDone = o.items.every(i => i.scanned >= i.requested);
+  if(allDone) {
+    document.getElementById('btn-liberar').style.display = 'inline-block';
+    showToast('Carga validada com sucesso! Pronta para embarque.', 'success');
+  }
+};
+
+window.liberarCaminhao = (orderId) => {
+  const o = DATA.separation_orders.find(x => x.id === orderId);
+  o.status = 'Em Transporte';
+  showToast('Caminhão Liberado!', 'success');
+  const el = document.getElementById('page-content');
+  if(el) PAGE_RENDERERS.estoque_carregamento(el);
+};
+
+PAGE_RENDERERS.estoque_lotes = (el) => {
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Estoque Central — Lotes & Validade</div><div class="page-subtitle">Controle de validades e rastreabilidade dos alimentos</div></div>
+    <div class="page-header"><div class="page-title">Controle de Lotes e Validade</div><div class="page-subtitle">Gestão de Shelf-life e Inventário detalhado</div></div>
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Inventário Detalhado por Lote</div></div>
-      <div class="card-body">
-        <table class="data-table"><thead><tr><th>Produto</th><th>Categoria</th><th>Lote</th><th>Validade</th><th>Qtd. Estoque</th><th>Status</th></tr></thead><tbody>
-          <tr><td><strong>Arroz Integral Tipo 1</strong></td><td>Grãos</td><td><code>L-ARR-092</code></td><td style="font-family:var(--font-mono)">15/12/2026</td><td style="font-family:var(--font-mono)">12.500 kg</td><td><span class="status-badge status-ok">Vigente</span></td></tr>
-          <tr><td><strong>Feijão Carioca</strong></td><td>Grãos</td><td><code>L-FEI-012</code></td><td style="font-family:var(--font-mono)">10/09/2026</td><td style="font-family:var(--font-mono)">4.200 kg</td><td><span class="status-badge status-warning">Validade Curta</span></td></tr>
-          <tr><td><strong>Banana Nanica</strong></td><td>Frutas</td><td><code>L-BAN-482</code></td><td style="font-family:var(--font-mono)">15/07/2026</td><td style="font-family:var(--font-mono)">1.800 kg</td><td><span class="status-badge status-danger">Validade Crítica (5d)</span></td></tr>
-          <tr><td><strong>Leite Integral</strong></td><td>Laticínios</td><td><code>L-LEI-102</code></td><td style="font-family:var(--font-mono)">20/10/2026</td><td style="font-family:var(--font-mono)">8.900 L</td><td><span class="status-badge status-ok">Vigente</span></td></tr>
-          <tr><td><strong>Maçã Fuji</strong></td><td>Frutas</td><td><code>L-MAC-220</code></td><td style="font-family:var(--font-mono)">22/07/2026</td><td style="font-family:var(--font-mono)">2.300 kg</td><td><span class="status-badge status-warning">Validade Curta</span></td></tr>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Lote</th><th>Produto</th><th>Entrada</th><th>Validade</th><th>Qtd</th><th>Status</th></tr></thead><tbody>
+          ${DATA.lots.map(l => {
+            const p = DATA.products.find(x => x.id === l.productId);
+            return `<tr>
+              <td style="font-family:var(--font-mono)"><strong>${l.number}</strong></td>
+              <td>${p ? p.name : '—'}</td>
+              <td>${formatDate(l.entryDate)}</td>
+              <td style="font-family:var(--font-mono);font-weight:700">${formatDate(l.expirationDate)}</td>
+              <td style="font-family:var(--font-mono)">${l.qtd.toLocaleString('pt-BR')} ${p?p.unit:''}</td>
+              <td><span class="status-badge status-ok">Vigente</span></td>
+            </tr>`;
+          }).join('')}
         </tbody></table>
       </div>
     </div>
@@ -3814,10 +5203,15 @@ PAGE_RENDERERS.motorista_dashboard = (el) => {
 };
 
 PAGE_RENDERERS.motorista_entregas = (el) => {
+  // Pega o próximo pedido em transporte do SharedState (fila do motorista)
+  const emTransporte = SharedState.getOrders().find(o => o.status === 'Em transporte');
+  const alvoNome = emTransporte ? emTransporte.school : 'EM Elpídio Reis';
+  window._currentDeliveryOrderId = emTransporte ? emTransporte.id : null;
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Realizar Entrega</div><div class="page-subtitle">Confirmação de recebimento física na unidade escolar</div></div>
+    <div class="page-header"><div class="page-title">Realizar Entrega</div><div class="page-subtitle">Confirmação de recebimento física na unidade escolar${emTransporte ? ' · Pedido #' + String(emTransporte.numero).padStart(3,'0') : ''}</div></div>
     <div id="entrega-form-container" class="card mb-24" style="max-width: 600px; margin: 0 auto;">
-      <div class="card-header"><div class="card-title">Confirmar Recibo de Alimentos: EM Elpídio Reis</div></div>
+      <div class="card-header"><div class="card-title">Confirmar Recibo de Alimentos: ${alvoNome}</div></div>
       <div class="card-body">
         <form id="form-driver-delivery">
           <div class="form-group">
@@ -3862,11 +5256,18 @@ PAGE_RENDERERS.motorista_entregas = (el) => {
     document.getElementById('form-driver-delivery')?.addEventListener('submit', (e) => {
       e.preventDefault();
       const rec = document.getElementById('delivery-receiver').value;
+      const doc = document.getElementById('delivery-doc').value;
       if (!rec) {
         alert('Por favor, informe o nome do responsável.');
         return;
       }
-      alert('Entrega confirmada com sucesso! Recibo digital assinado e foto enviada para a SEMED.');
+      if (window._currentDeliveryOrderId) {
+        SharedState.confirmDelivery(window._currentDeliveryOrderId, rec, doc);
+        window._currentDeliveryOrderId = null;
+        showToast('✅ Entrega confirmada. Escola, Cooperativa e SEMED foram notificados.');
+      } else {
+        alert('Entrega confirmada com sucesso! Recibo digital assinado e foto enviada para a SEMED.');
+      }
       navigateTo(null, 'dashboard');
     });
   }, 50);
@@ -3982,7 +5383,14 @@ PAGE_RENDERERS.motorista_ocorrencias = (el) => {
       e.preventDefault();
       const school = document.getElementById('incident-school').value;
       const type = document.getElementById('incident-type').value;
-      alert(`Ocorrência de "${type}" enviada com sucesso para a SEMED. Equipe de suporte foi notificada.`);
+      const desc = document.getElementById('incident-desc').value;
+      SharedState.addIncident({
+        school,
+        tipo: type,
+        descricao: desc,
+        motorista: (PROFILES[state.currentProfile] && PROFILES[state.currentProfile].name) || 'Motorista',
+      });
+      showToast('⚠️ Ocorrência registrada — SEMED/Gestor foram notificados em tempo real.');
       navigateTo(null, 'dashboard');
     });
   }, 50);
