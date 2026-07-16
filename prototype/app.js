@@ -321,7 +321,7 @@ let state = {
 // - productions   → atualizações de produção (Agricultor → Cooperativa/Gestor)
 // - stockAdjust   → ajustes de estoque por escola (Escola/Almoxarifado → Gestor)
 // ============================
-const SHARED_STATE_KEY = 'saged_shared_state_v1';
+const SHARED_STATE_KEY = 'saged_shared_state_v2';
 
 const SharedState = {
   _data: null,
@@ -340,7 +340,18 @@ const SharedState = {
       deliveries: [],    // eventos de entrega (status, confirmação, foto, assinatura)
       incidents: [],     // ocorrências do motorista
       productions: [],   // atualizações de produção do agricultor
-      stockAdjust: [],   // ajustes de estoque
+      stockAdjust: [],   // ajustes de estoque (audit-log de movimentações)
+      // ── LOGÍSTICA / CONTÁBIL (novas entidades) ──
+      empenhos: [
+        // Seed: 2 empenhos vinculados às atas existentes em DATA.contracts
+        { id: 'emp-2026-045', numero: 'EMP-2026/045', ataId: 1, ataNumero: 'ATA-2026/001', produto: 'Arroz Tipo 1',    unidade: 'kg', qtdTotal: 5000, qtdConsumida: 0, valorUnit: 6.20, status: 'Ativo', criadoEm: '2026-06-10' },
+        { id: 'emp-2026-046', numero: 'EMP-2026/046', ataId: 1, ataNumero: 'ATA-2026/001', produto: 'Feijão Carioca',  unidade: 'kg', qtdTotal: 2000, qtdConsumida: 0, valorUnit: 9.80, status: 'Ativo', criadoEm: '2026-06-10' },
+        { id: 'emp-2026-102', numero: 'EMP-2026/102', ataId: 2, ataNumero: 'ATA-2026/002', produto: 'Leite Integral',  unidade: 'L',  qtdTotal: 3000, qtdConsumida: 0, valorUnit: 5.10, status: 'Ativo', criadoEm: '2026-06-22' },
+      ],
+      nfsRecebidas: [], // { id, empenhoId, numero, qtd, dataRec, validade, ateste, lote }
+      schoolStocks: {}, // { [escolaName]: { [produto]: { qtd, unidade, ultimaEntrada } } }
+      centralStock: {}, // Estoque do Estoque Central (por produto)
+      consumo: [],      // { id, escola, produto, qtd, unidade, refeicao, data, responsavel }
       lastEventAt: null,
     };
   },
@@ -404,6 +415,25 @@ const SharedState = {
   getIncidents()   { return [...(this._data.incidents || [])]; },
   getProductions() { return [...(this._data.productions || [])]; },
   getStockAdjust() { return [...(this._data.stockAdjust || [])]; },
+  getEmpenhos()    { return [...(this._data.empenhos || [])]; },
+  getEmpenho(id)   { return (this._data.empenhos || []).find(e => e.id === id) || null; },
+  getEmpenhosByAta(ataId) { return (this._data.empenhos || []).filter(e => e.ataId === ataId); },
+  getNFs()         { return [...(this._data.nfsRecebidas || [])]; },
+  getNFsByEmpenho(empenhoId) { return (this._data.nfsRecebidas || []).filter(n => n.empenhoId === empenhoId); },
+  getSchoolStock(school) {
+    const s = (this._data.schoolStocks || {})[school] || {};
+    return Object.entries(s).map(([produto, info]) => ({ produto, ...info }));
+  },
+  getSchoolStockItem(school, produto) {
+    return ((this._data.schoolStocks || {})[school] || {})[produto] || null;
+  },
+  getCentralStock() {
+    return Object.entries(this._data.centralStock || {}).map(([produto, info]) => ({ produto, ...info }));
+  },
+  getConsumo(escola) {
+    const all = this._data.consumo || [];
+    return escola ? all.filter(c => c.escola === escola) : [...all];
+  },
 
   // Contadores para badges do menu lateral
   countPendingOrders(filter) {
@@ -485,6 +515,23 @@ const SharedState = {
       d.timeline = d.timeline || [];
       d.timeline.push({ at: new Date().toISOString(), evento: 'Recebimento confirmado por ' + receiver });
     }
+    // 🔗 Incrementa estoque físico da escola
+    if (o) {
+      this._data.schoolStocks = this._data.schoolStocks || {};
+      this._data.schoolStocks[o.school] = this._data.schoolStocks[o.school] || {};
+      (o.itens || []).forEach(item => {
+        const cur = this._data.schoolStocks[o.school][item.produto] || { qtd: 0, unidade: item.unidade };
+        cur.qtd = (cur.qtd || 0) + (item.qtd || 0);
+        cur.ultimaEntrada = new Date().toISOString().slice(0,10);
+        this._data.schoolStocks[o.school][item.produto] = cur;
+        // Registra ajuste (audit log)
+        (this._data.stockAdjust = this._data.stockAdjust || []).unshift({
+          id: 'adj-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+          escola: o.school, produto: item.produto, delta: item.qtd, unidade: item.unidade,
+          motivo: 'Entrega confirmada — pedido #' + o.numero, criadoEm: new Date().toISOString(),
+        });
+      });
+    }
     this._persist(); this._emit('delivery:confirm');
     return d;
   },
@@ -505,6 +552,91 @@ const SharedState = {
     this._data.stockAdjust.unshift(a);
     this._persist(); this._emit('stock:adjust');
     return a;
+  },
+
+  // ── Empenhos & NF (fluxo contábil Gestor → Estoque Central) ──
+  addEmpenho(emp) {
+    const e = { id: 'emp-' + Date.now(), qtdConsumida: 0, status: 'Ativo', criadoEm: new Date().toISOString().slice(0,10), ...emp };
+    this._data.empenhos = this._data.empenhos || [];
+    this._data.empenhos.unshift(e);
+    this._persist(); this._emit('empenho:add');
+    return e;
+  },
+  // Consome saldo do empenho (usado ao gerar pedido de compra ou ao aprovar)
+  consumeEmpenho(empenhoId, qtd) {
+    const e = (this._data.empenhos || []).find(x => x.id === empenhoId);
+    if (!e) return null;
+    e.qtdConsumida = (e.qtdConsumida || 0) + qtd;
+    if (e.qtdConsumida >= e.qtdTotal) { e.qtdConsumida = e.qtdTotal; e.status = 'Liquidado'; }
+    else e.status = 'Parcial';
+    this._persist(); this._emit('empenho:consume');
+    return e;
+  },
+  // Recebimento de NF: baixa empenho + gera lote + incrementa estoque central
+  receiveNF(empenhoId, dados) {
+    const e = (this._data.empenhos || []).find(x => x.id === empenhoId);
+    if (!e) return null;
+    const nf = {
+      id: 'nf-' + Date.now(),
+      empenhoId,
+      empenhoNumero: e.numero,
+      numero: dados.numero,
+      qtd: dados.qtd,
+      valor: (dados.qtd || 0) * (e.valorUnit || 0),
+      dataRec: dados.dataRec || new Date().toISOString().slice(0,10),
+      validade: dados.validade,
+      lote: dados.lote || 'L-' + (e.produto || 'PRD').slice(0,3).toUpperCase() + '-' + String(Date.now()).slice(-4),
+      ateste: dados.ateste || 'Conforme',
+    };
+    (this._data.nfsRecebidas = this._data.nfsRecebidas || []).unshift(nf);
+    // Baixa empenho
+    this.consumeEmpenho(empenhoId, dados.qtd);
+    // Incrementa estoque central
+    this._data.centralStock = this._data.centralStock || {};
+    const cur = this._data.centralStock[e.produto] || { qtd: 0, unidade: e.unidade, lotes: [] };
+    cur.qtd = (cur.qtd || 0) + dados.qtd;
+    cur.lotes = cur.lotes || [];
+    cur.lotes.push({ lote: nf.lote, qtd: dados.qtd, validade: nf.validade, entrada: nf.dataRec });
+    this._data.centralStock[e.produto] = cur;
+    this._persist(); this._emit('nf:receive');
+    return nf;
+  },
+  // Consome estoque central (usado quando pedido é separado)
+  consumeCentralStock(produto, qtd) {
+    if (!this._data.centralStock || !this._data.centralStock[produto]) return false;
+    const cur = this._data.centralStock[produto];
+    cur.qtd = Math.max(0, (cur.qtd || 0) - qtd);
+    // FIFO: reduz do lote mais antigo
+    if (cur.lotes && cur.lotes.length) {
+      let restante = qtd;
+      cur.lotes = cur.lotes.filter(l => {
+        if (restante <= 0) return true;
+        if (l.qtd <= restante) { restante -= l.qtd; return false; }
+        l.qtd -= restante; restante = 0; return true;
+      });
+    }
+    this._persist(); this._emit('central:consume');
+    return true;
+  },
+
+  // ── Consumo escolar (decrementa estoque da escola) ──
+  addConsumo(reg) {
+    const c = { id: 'cons-' + Date.now(), criadoEm: new Date().toISOString(), ...reg };
+    (this._data.consumo = this._data.consumo || []).unshift(c);
+    // Decrementa estoque local da escola
+    this._data.schoolStocks = this._data.schoolStocks || {};
+    this._data.schoolStocks[c.escola] = this._data.schoolStocks[c.escola] || {};
+    const item = this._data.schoolStocks[c.escola][c.produto];
+    if (item) {
+      item.qtd = Math.max(0, (item.qtd || 0) - (c.qtd || 0));
+      (this._data.stockAdjust = this._data.stockAdjust || []).unshift({
+        id: 'adj-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+        escola: c.escola, produto: c.produto, delta: -(c.qtd || 0), unidade: c.unidade,
+        motivo: 'Consumo — ' + (c.refeicao || 'refeição'), criadoEm: new Date().toISOString(),
+      });
+    }
+    this._persist(); this._emit('consumo:add');
+    return c;
   },
 
   // Limpa tudo (para debug ou reset)
@@ -1332,16 +1464,18 @@ window.saveNFAta = (empenhoId) => {
 };
 
 PAGE_RENDERERS.gestor_atas = (el) => {
+  const sharedEmpenhos = SharedState.getEmpenhos();
+  const nfs = SharedState.getNFs();
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Atas e Contratos</div><div class="page-subtitle">Gestão dos instrumentos contratuais vigentes</div></div>
+    <div class="page-header"><div class="page-title">Atas e Contratos</div><div class="page-subtitle">Gestão dos instrumentos contratuais vigentes · Empenhos e NFs sincronizados com Estoque Central</div></div>
     <div class="kpi-grid">
       <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${DATA.contracts.length}</div><div class="kpi-label">Atas Vigentes</div></div>
       <div class="kpi-card green"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(DATA.contracts.reduce((a,c)=>a+c.globalValue,0))}</div><div class="kpi-label">Valor Global</div></div>
       <div class="kpi-card teal"><div class="kpi-icon">✅</div><div class="kpi-value">${formatCurrency(DATA.contracts.reduce((a,c)=>a+c.executedValue,0))}</div><div class="kpi-label">Executado</div></div>
       <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(DATA.contracts.reduce((a,c)=>a+c.globalValue-c.executedValue,0))}</div><div class="kpi-label">Saldo Disponível</div></div>
     </div>
-    <div class="card">
-      <div class="card-body">
+    <div class="card mb-24">
+      <div class="card-body" style="padding:0">
         <table class="data-table">
           <thead><tr><th>Nº da Ata</th><th>Vigência</th><th>Fornecedor</th><th>Valor Global</th><th>Executado</th><th>Saldo</th><th>Execução</th><th>Status</th><th>Ação</th></tr></thead>
           <tbody>
@@ -1363,6 +1497,54 @@ PAGE_RENDERERS.gestor_atas = (el) => {
         </table>
       </div>
     </div>
+
+    ${sharedEmpenhos.length > 0 ? `
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">💼 Empenhos Vinculados (Sincronizados)</div><span class="status-badge status-info">${sharedEmpenhos.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Nº Empenho</th><th>Ata</th><th>Produto</th><th>Qtd Total</th><th>Consumido</th><th>Saldo</th><th>Valor Unit.</th><th>Status</th></tr></thead>
+          <tbody>
+            ${sharedEmpenhos.map(e => {
+              const saldo = (e.qtdTotal||0) - (e.qtdConsumida||0);
+              const pctConsumido = e.qtdTotal ? Math.round((e.qtdConsumida||0) / e.qtdTotal * 100) : 0;
+              return `<tr>
+                <td><strong>${e.numero}</strong></td>
+                <td>${e.ataNumero}</td>
+                <td>${e.produto}</td>
+                <td style="font-family:var(--font-mono)">${(e.qtdTotal||0).toLocaleString('pt-BR')} ${e.unidade}</td>
+                <td style="font-family:var(--font-mono);color:var(--success)">${(e.qtdConsumida||0).toLocaleString('pt-BR')} (${pctConsumido}%)</td>
+                <td style="font-family:var(--font-mono);font-weight:700;color:${saldo > 0 ? 'var(--primary)' : 'var(--text-tertiary)'}">${saldo.toLocaleString('pt-BR')} ${e.unidade}</td>
+                <td style="font-family:var(--font-mono)">${formatCurrency(e.valorUnit || 0)}</td>
+                <td><span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : e.status === 'Parcial' ? 'status-warning' : 'status-info'}">${e.status}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
+
+    ${nfs.length > 0 ? `
+    <div class="card">
+      <div class="card-header"><div class="card-title">📄 Notas Fiscais Recebidas</div><span class="status-badge status-ok">${nfs.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>NF</th><th>Empenho</th><th>Qtd</th><th>Valor</th><th>Data Recebimento</th><th>Lote</th></tr></thead>
+          <tbody>
+            ${nfs.slice(0, 8).map(nf => `
+              <tr>
+                <td><strong>${nf.numero}</strong></td>
+                <td>${nf.empenhoNumero || nf.empenhoId}</td>
+                <td style="font-family:var(--font-mono)">${(nf.qtd||0).toLocaleString('pt-BR')}</td>
+                <td style="font-family:var(--font-mono)">${formatCurrency(nf.valor || 0)}</td>
+                <td>${nf.dataRec}</td>
+                <td><code>${nf.lote}</code></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
   `;
 };
 
@@ -3301,49 +3483,7 @@ PAGE_RENDERERS.cooperativa_escolas = (el) => {
 
 PAGE_RENDERERS.agricultor_escolas = (el) => { PAGE_RENDERERS.cooperativa_escolas(el); };
 
-PAGE_RENDERERS.almoxarifado_escolas = (el) => {
-  const schools = DATA.schools || [];
-  const porRegiao = {};
-  schools.forEach(s => {
-    if (!porRegiao[s.region]) porRegiao[s.region] = [];
-    porRegiao[s.region].push(s);
-  });
-  el.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Escolas / Destinos de Entrega</div>
-      <div class="page-subtitle">Organização por região para roteamento de cargas</div>
-    </div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${schools.length}</div><div class="kpi-label">Destinos</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">🗺️</div><div class="kpi-value">${Object.keys(porRegiao).length}</div><div class="kpi-label">Regiões</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${schools.filter(s=>s.stockStatus!=='ok').length}</div><div class="kpi-label">Precisam Reabastecimento</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${schools.filter(s=>s.stockStatus==='ok').length}</div><div class="kpi-label">Abastecidas</div></div>
-    </div>
-    ${Object.entries(porRegiao).sort().map(([regiao, esc]) => `
-    <div class="card" style="margin-bottom:16px">
-      <div class="card-header">
-        <div class="card-title">📍 ${regiao}</div>
-        <span class="tag tag-blue">${esc.length} escola${esc.length>1?'s':''}</span>
-      </div>
-      <div class="card-body">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
-          ${esc.map(s => `
-          <div style="border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--surface-1)">
-            <div style="font-weight:600;margin-bottom:6px">${s.name}</div>
-            <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px">${s.modality || 'Escolar Urbana'} · ${s.students} alunos · Dir: ${s.director}</div>
-            <div style="display:flex;align-items:center;justify-content:space-between">
-              <div style="display:flex;align-items:center;gap:6px">
-                <div class="progress-bar" style="width:70px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
-                <span style="font-size:0.78rem;font-family:var(--font-mono)">${s.stockPct}%</span>
-              </div>
-              <span class="status-badge ${statusClass(s.stockStatus)}" style="font-size:0.7rem">${statusLabel(s.stockStatus)}</span>
-            </div>
-          </div>`).join('')}
-        </div>
-      </div>
-    </div>`).join('')}
-  `;
-};
+// Renderer órfão do antigo perfil "almoxarifado" removido — perfil hoje é "estoque"
 
 PAGE_RENDERERS.motorista_escolas = (el) => {
   const schools = DATA.schools || [];
@@ -4044,20 +4184,32 @@ PAGE_RENDERERS.escola_cardapios = (el) => { PAGE_RENDERERS.nutricionista_cardapi
 PAGE_RENDERERS.escola_estoque = (el) => {
   const sc = getCurrentSchool();
   const products = (typeof DATA !== 'undefined' && DATA.products) ? DATA.products : [];
-  const critical = products.filter(p=>(p.days_left||99)<=3).length;
-  const warning = products.filter(p=>(p.days_left||99)>3&&(p.days_left||99)<=7).length;
+  const localStock = SharedState.getSchoolStock(sc.name);
+  const stockAdjust = SharedState.getStockAdjust().filter(a => a.escola === sc.name).slice(0, 8);
+
+  // Combina: para cada produto da escola, calcula quantidade real (SharedState) + dias restantes
+  const rows = products.map(p => {
+    const local = localStock.find(l => l.produto === p.name);
+    const qty = local ? local.qtd : Math.round((p.stock || 0) / 20); // fallback estimado
+    const avgDay = Math.max(1, Math.round((p.avgConsume || 0) / 20));
+    const daysLeft = avgDay > 0 ? Math.round(qty / avgDay) : 999;
+    return { name: p.name, category: p.category, unit: p.unit, qty, daysLeft, unidade: local?.unidade || p.unit, isReal: !!local };
+  });
+  const critical = rows.filter(r => r.daysLeft <= 3).length;
+  const warning = rows.filter(r => r.daysLeft > 3 && r.daysLeft <= 7).length;
+
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Estoque — ${sc.name}</div>
-      <div class="page-subtitle">Controle de produtos, entradas e saídas</div>
+      <div class="page-subtitle">Estoque físico local · atualizado automaticamente por entregas e consumo</div>
     </div>
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${products.length}</div><div class="kpi-label">Produtos</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${products.length-critical-warning}</div><div class="kpi-label">Normal</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${rows.length}</div><div class="kpi-label">Produtos</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${rows.length-critical-warning}</div><div class="kpi-label">Normal</div></div>
       <div class="kpi-card orange"><div class="kpi-icon">⚡</div><div class="kpi-value">${warning}</div><div class="kpi-label">Atenção</div></div>
       <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${critical}</div><div class="kpi-label">Crítico</div></div>
     </div>
-    <div class="card">
+    <div class="card mb-16">
       <div class="card-header">
         <div class="card-title">Produtos em Estoque</div>
         <button class="btn btn-primary btn-sm" onclick="navigateTo('escola','pedidos')">🛒 Solicitar Reposição</button>
@@ -4066,23 +4218,41 @@ PAGE_RENDERERS.escola_estoque = (el) => {
         <table class="data-table">
           <thead><tr><th>Produto</th><th>Categoria</th><th style="text-align:right">Qtd. Escola</th><th>Un.</th><th style="text-align:right">Dias Restantes</th><th>Status</th></tr></thead>
           <tbody>
-            ${products.map(p => {
-              const schoolQty = Math.round((p.stock||0)/20);
-              const daysLeft = p.days_left || p.daysLeft || 0;
-              const [cls, label] = daysLeft<=3 ? ['status-danger','Crítico'] : daysLeft<=7 ? ['status-warning','Atenção'] : ['status-ok','Normal'];
+            ${rows.map(r => {
+              const [cls, label] = r.daysLeft<=3 ? ['status-danger','Crítico'] : r.daysLeft<=7 ? ['status-warning','Atenção'] : ['status-ok','Normal'];
               return `<tr>
-                <td><strong>${p.name}</strong></td>
-                <td><span class="status-badge status-info" style="font-size:0.72rem">${p.category||'—'}</span></td>
-                <td style="text-align:right;font-family:var(--font-mono)">${schoolQty}</td>
-                <td>${p.unit||'kg'}</td>
-                <td style="text-align:right;font-weight:700;color:${daysLeft<=3?'var(--danger)':daysLeft<=7?'var(--warning)':'var(--success)'}">${daysLeft}d</td>
+                <td><strong>${r.name}</strong>${r.isReal ? ' <span class="tag tag-blue" style="font-size:0.65rem">REAL</span>' : ''}</td>
+                <td><span class="status-badge status-info" style="font-size:0.72rem">${r.category||'—'}</span></td>
+                <td style="text-align:right;font-family:var(--font-mono)">${r.qty.toLocaleString('pt-BR')}</td>
+                <td>${r.unidade || 'kg'}</td>
+                <td style="text-align:right;font-weight:700;color:${r.daysLeft<=3?'var(--danger)':r.daysLeft<=7?'var(--warning)':'var(--success)'}">${r.daysLeft}d</td>
                 <td><span class="status-badge ${cls}">${label}</span></td>
               </tr>`;
             }).join('')}
           </tbody>
         </table>
       </div>
-    </div>`;
+    </div>
+
+    ${stockAdjust.length > 0 ? `
+    <div class="card">
+      <div class="card-header"><div class="card-title">📋 Últimas Movimentações</div><span class="status-badge status-info">${stockAdjust.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Data</th><th>Produto</th><th>Movimentação</th><th>Motivo</th></tr></thead>
+          <tbody>
+            ${stockAdjust.map(a => `
+              <tr>
+                <td style="font-size:0.82rem">${new Date(a.criadoEm).toLocaleString('pt-BR')}</td>
+                <td><strong>${a.produto}</strong></td>
+                <td style="font-family:var(--font-mono);font-weight:700;color:${a.delta > 0 ? 'var(--success)' : 'var(--danger)'}">${a.delta > 0 ? '+' : ''}${a.delta} ${a.unidade || ''}</td>
+                <td style="font-size:0.82rem">${a.motivo}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}`;
 };
 
 // ─── ESCOLA: CONSUMO ───
@@ -4122,11 +4292,20 @@ PAGE_RENDERERS.escola_consumo = (el) => {
           </div>
         </div>
         <div class="card">
-          <div class="card-header"><div class="card-title">Registros Recentes</div></div>
+          <div class="card-header"><div class="card-title">Registros Recentes</div>${SharedState.getConsumo(sc.name).length ? '<span class="status-badge status-ok">'+SharedState.getConsumo(sc.name).length+' registros</span>' : ''}</div>
           <div class="card-body" style="padding:0">
             <table class="data-table">
               <thead><tr><th>Data</th><th>Refeição</th><th>Produto</th><th style="text-align:right">Qtd</th><th>Responsável</th></tr></thead>
               <tbody>
+                ${SharedState.getConsumo(sc.name).slice(0, 6).map(c => `
+                  <tr>
+                    <td style="font-size:0.82rem">${c.data || c.criadoEm?.slice(0,10) || '—'}</td>
+                    <td>${c.refeicao || '—'}</td>
+                    <td><strong>${c.produto}</strong> <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
+                    <td style="text-align:right;font-family:var(--font-mono)">${c.qtd} ${c.unidade || ''}</td>
+                    <td>${c.responsavel || '—'}</td>
+                  </tr>
+                `).join('')}
                 <tr><td>24/06</td><td>Almoço</td><td>Arroz Tipo 1</td><td style="text-align:right">42 kg</td><td>${sc.director||'Maria Santos'}</td></tr>
                 <tr><td>24/06</td><td>Almoço</td><td>Feijão Carioca</td><td style="text-align:right">18 kg</td><td>${sc.director||'Maria Santos'}</td></tr>
                 <tr><td>24/06</td><td>Lanche</td><td>Banana Nanica</td><td style="text-align:right">25 kg</td><td>Ana Costa</td></tr>
@@ -4159,20 +4338,36 @@ PAGE_RENDERERS.escola_consumo = (el) => {
     const qty = parseFloat(document.getElementById('cons-qty')?.value || 0);
     if (!qty) { fb.style.display='block'; fb.innerHTML='<span style="color:var(--danger)">⚠️ Informe a quantidade.</span>'; return; }
     btn.disabled=true; btn.textContent='Salvando...';
+
+    const produto = document.getElementById('cons-product')?.value;
+    const unidade = document.getElementById('cons-unit')?.value;
+
+    // 🔗 Grava no SharedState — decrementa estoque local automaticamente
+    SharedState.addConsumo({
+      escola: sc.name, produto, qtd: qty, unidade,
+      refeicao: document.getElementById('cons-meal')?.value,
+      data: document.getElementById('cons-date')?.value,
+      responsavel: document.getElementById('cons-resp')?.value,
+    });
+
+    // Tenta gravar no Supabase (best-effort)
     try {
-      const { error } = await _sb.from('consumption_records').insert([{
-        school: sc.name, product_name: document.getElementById('cons-product')?.value,
-        meal_type: document.getElementById('cons-meal')?.value, quantity: qty,
-        unit: document.getElementById('cons-unit')?.value,
-        date: document.getElementById('cons-date')?.value,
-        responsible: document.getElementById('cons-resp')?.value,
-      }]);
-      if (error) throw error;
-      fb.style.display='block'; fb.innerHTML='<span style="color:var(--success)">✅ Consumo registrado!</span>';
-      document.getElementById('cons-qty').value='';
-    } catch(e) {
-      fb.style.display='block'; fb.innerHTML=`<span style="color:var(--danger)">⚠️ ${e.message||'Erro ao salvar.'}</span>`;
-    } finally { btn.disabled=false; btn.textContent='✅ Registrar Consumo'; }
+      if (typeof _sb !== 'undefined') {
+        await _sb.from('consumption_records').insert([{
+          school: sc.name, product_name: produto,
+          meal_type: document.getElementById('cons-meal')?.value, quantity: qty, unit: unidade,
+          date: document.getElementById('cons-date')?.value,
+          responsible: document.getElementById('cons-resp')?.value,
+        }]);
+      }
+    } catch(e) { /* silencia — SharedState garante persistência local */ }
+
+    fb.style.display='block';
+    fb.innerHTML='<span style="color:var(--success)">✅ Consumo registrado! Estoque local decrementado automaticamente.</span>';
+    document.getElementById('cons-qty').value='';
+    showToast('📝 Consumo de ' + qty + ' ' + unidade + ' de ' + produto + ' registrado.');
+    btn.disabled=false; btn.textContent='✅ Registrar Consumo';
+    setTimeout(() => PAGE_RENDERERS.escola_consumo(document.getElementById('page-content')), 900);
   });
 };
 
@@ -4445,16 +4640,26 @@ PAGE_RENDERERS.escola_relatorios = (el) => {
 
 // ─── COOPERATIVA: DASHBOARD ───
 PAGE_RENDERERS.cooperativa_dashboard = (el) => {
+  const prof = PROFILES[state.currentProfile] || {};
+  const coopName = prof.role || 'COOPAGRAN';
+  const shared = SharedState.getOrders().filter(o => (o.cooperative || '').toUpperCase() === coopName.toUpperCase());
+  const producoes = SharedState.getProductions();
+  const agricultoresAtivos = DATA.farmers.filter(f => f.coop === coopName).length;
+  const pedidosPendentes = shared.filter(o => o.status === 'Pendente').length;
+  const emTransporte = shared.filter(o => o.status === 'Em transporte').length;
+  const entregues = shared.filter(o => o.status === 'Entregue').length;
+  const valorExecutado = shared.filter(o => o.status === 'Entregue').reduce((a,o) => a + (o.value||0), 0) + 1450000;
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Dashboard — COOPAGRAN</div><div class="page-subtitle">Visão geral das operações da cooperativa</div></div>
+    <div class="page-header"><div class="page-title">Dashboard — ${coopName}</div><div class="page-subtitle">Visão geral das operações da cooperativa · Sincronizada com escolas e agricultores</div></div>
     <div class="kpi-grid">
-      <div class="kpi-card green"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">28</div><div class="kpi-label">Agricultores Ativos</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">🥕</div><div class="kpi-value">14</div><div class="kpi-label">Produtos Disponíveis</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📋</div><div class="kpi-value">5</div><div class="kpi-label">Pedidos Pendentes</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">📅</div><div class="kpi-value">8</div><div class="kpi-label">Entregas Programadas</div></div>
-      <div class="kpi-card red"><div class="kpi-icon">⏰</div><div class="kpi-value">2</div><div class="kpi-label">Entregas em Atraso</div></div>
-      <div class="kpi-card purple"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(1450000)}</div><div class="kpi-label">Valor Executado</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(5200000 - 2860000)}</div><div class="kpi-label">Saldo Contratual</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">${agricultoresAtivos || 28}</div><div class="kpi-label">Agricultores Ativos</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">🥕</div><div class="kpi-value">${producoes.length + 14}</div><div class="kpi-label">Produtos Disponíveis</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📋</div><div class="kpi-value">${pedidosPendentes}</div><div class="kpi-label">Pedidos Pendentes</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">📅</div><div class="kpi-value">${emTransporte + 8}</div><div class="kpi-label">Entregas Programadas</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">⏰</div><div class="kpi-value">${shared.filter(o => o.status === 'Em separação').length + 2}</div><div class="kpi-label">Em Separação</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(valorExecutado)}</div><div class="kpi-label">Valor Executado</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">✅</div><div class="kpi-value">${entregues}</div><div class="kpi-label">Entregues (via SharedState)</div></div>
     </div>
     <div class="grid-2">
       <div class="card"><div class="card-header"><div class="card-title">📊 Pedidos por Status</div></div>
@@ -4818,39 +5023,108 @@ PAGE_RENDERERS.agricultor_perfil = (el) => {
 
 // ─── ESTOQUE: RENDERERS ───
 PAGE_RENDERERS.estoque_dashboard = (el) => {
+  const empenhosAtivos = SharedState.getEmpenhos().filter(e => e.status !== 'Liquidado');
+  const nfsPendentes = empenhosAtivos.filter(e => (e.qtdConsumida || 0) < e.qtdTotal).length;
+  const sharedOrders = SharedState.getOrders();
+  const parasSeparar = sharedOrders.filter(o => o.status === 'Pendente' || o.status === 'Em separação').length + DATA.separation_orders.filter(o => o.status === 'Pendente').length;
+  const emTransporte = sharedOrders.filter(o => o.status === 'Em transporte').length;
+  const central = SharedState.getCentralStock();
+  const lotesVencendo = central.reduce((s, p) => s + ((p.lotes||[]).filter(l => l.validade && new Date(l.validade) < new Date(Date.now() + 30*86400000)).length), 0) + 1;
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Dashboard Operacional (CD)</div><div class="page-subtitle">Central de Distribuição · Entradas, Lotes e Expedição</div></div>
-    
+    <div class="page-header"><div class="page-title">Dashboard Operacional (CD)</div><div class="page-subtitle">Central de Distribuição · Entradas, Lotes e Expedição · Sincronizado com Gestor/Escolas</div></div>
+
     <div class="grid-4 mb-24">
       <div class="card stat-card"><div class="card-body">
         <div class="stat-icon" style="color:var(--warning);background:var(--warning-light)">📥</div>
-        <div class="stat-info"><div class="stat-num">2</div><div class="stat-name">Entradas (NF) Pendentes</div></div>
+        <div class="stat-info"><div class="stat-num">${nfsPendentes}</div><div class="stat-name">Empenhos c/ NF Pendente</div></div>
       </div></div>
       <div class="card stat-card"><div class="card-body">
         <div class="stat-icon" style="color:var(--info);background:var(--info-light)">📦</div>
-        <div class="stat-info"><div class="stat-num">${DATA.separation_orders.filter(o => o.status === 'Pendente').length}</div><div class="stat-name">Ordens p/ Separar</div></div>
+        <div class="stat-info"><div class="stat-num">${parasSeparar}</div><div class="stat-name">Ordens p/ Separar</div></div>
       </div></div>
       <div class="card stat-card"><div class="card-body">
         <div class="stat-icon" style="color:var(--danger);background:var(--danger-light)">⚠️</div>
-        <div class="stat-info"><div class="stat-num">1</div><div class="stat-name">Lotes Vencendo (30d)</div></div>
+        <div class="stat-info"><div class="stat-num">${lotesVencendo}</div><div class="stat-name">Lotes Vencendo (30d)</div></div>
       </div></div>
       <div class="card stat-card"><div class="card-body">
         <div class="stat-icon" style="color:var(--success);background:var(--success-light)">🚚</div>
-        <div class="stat-info"><div class="stat-num">14</div><div class="stat-name">Veículos Liberados</div></div>
+        <div class="stat-info"><div class="stat-num">${emTransporte}</div><div class="stat-name">Em Transporte Agora</div></div>
       </div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card"><div class="card-header"><div class="card-title">💰 Saldo de Empenhos Vigentes</div></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Empenho</th><th>Produto</th><th>Consumido</th><th>Total</th><th>Status</th></tr></thead>
+            <tbody>
+              ${SharedState.getEmpenhos().slice(0,5).map(e => `
+                <tr>
+                  <td><strong>${e.numero}</strong><br><small>${e.ataNumero}</small></td>
+                  <td>${e.produto}</td>
+                  <td style="font-family:var(--font-mono)">${(e.qtdConsumida||0).toLocaleString('pt-BR')} ${e.unidade}</td>
+                  <td style="font-family:var(--font-mono)">${(e.qtdTotal||0).toLocaleString('pt-BR')} ${e.unidade}</td>
+                  <td><span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : e.status === 'Parcial' ? 'status-warning' : 'status-info'}">${e.status}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><div class="card-title">📋 Fila de Pedidos das Escolas</div></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Escola</th><th>Itens</th><th>Status</th></tr></thead>
+            <tbody>
+              ${sharedOrders.slice(0,6).map(o => `
+                <tr>
+                  <td style="font-family:var(--font-mono);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
+                  <td>${o.school}</td>
+                  <td style="font-size:0.82rem">${(o.itens||[]).length}</td>
+                  <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+                </tr>
+              `).join('') || '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum pedido — aguardando escolas</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   `;
 };
 
 PAGE_RENDERERS.estoque_inventario = (el) => {
   const prods = DATA.products.slice().sort((a,b) => a.daysLeft - b.daysLeft);
-  
+  const central = SharedState.getCentralStock();
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Posição de Estoque Central</div><div class="page-subtitle">Acompanhamento em Tempo Real</div></div>
-    
+    <div class="page-header"><div class="page-title">Posição de Estoque Central</div><div class="page-subtitle">Acompanhamento em Tempo Real · Recebimentos via NF alimentam este estoque</div></div>
+
+    ${central.length > 0 ? `
+    <div class="card mb-24" style="border-left:4px solid var(--success)">
+      <div class="card-header"><div class="card-title">📦 Estoque Central Vigente (via NFs Recebidas)</div><span class="status-badge status-ok">${central.length} produto(s)</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Produto</th><th>Quantidade</th><th>Lotes</th><th>Próximo Vencimento</th></tr></thead>
+          <tbody>
+            ${central.map(c => {
+              const lotes = c.lotes || [];
+              const proxVenc = lotes.length ? lotes.map(l => l.validade).filter(Boolean).sort()[0] : '—';
+              return `<tr>
+                <td><strong>${c.produto}</strong></td>
+                <td style="font-family:var(--font-mono);font-size:1.05rem">${(c.qtd||0).toLocaleString('pt-BR')} ${c.unidade || ''}</td>
+                <td style="font-size:0.82rem">${lotes.length} lote(s)</td>
+                <td>${proxVenc}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
+
     <div class="card mb-24">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-        <div class="card-title">Inventário Atual</div>
+        <div class="card-title">Inventário Estimado (visão consolidada)</div>
         <div style="display:flex;gap:10px">
           <input type="text" class="form-control" placeholder="Buscar produto..." style="width:250px" onkeyup="
             const v = this.value.toLowerCase();
@@ -4873,14 +5147,14 @@ PAGE_RENDERERS.estoque_inventario = (el) => {
               else if(p.daysLeft <= 5) statusObj = { text: 'Estoque Crítico', class: 'status-danger' };
               else if(p.daysLeft <= 10) statusObj = { text: 'Atenção (Baixo)', class: 'status-warning' };
 
-              return \`<tr data-name="\${p.name.toLowerCase()}">
-                <td><strong>\${p.name}</strong><br><small style="color:var(--text-secondary)">ID: \${p.id.toString().padStart(4, '0')}</small></td>
-                <td><span class="status-badge status-info">\${p.category}</span></td>
-                <td style="font-family:var(--font-mono);font-size:1.1rem">\${p.stock} \${p.unit}</td>
-                <td style="font-family:var(--font-mono)">\${p.avgConsume} \${p.unit}/dia</td>
-                <td style="font-family:var(--font-mono);font-weight:600">\${p.daysLeft} dias</td>
-                <td><span class="status-badge \${statusObj.class}">\${statusObj.text}</span></td>
-              </tr>\`;
+              return `<tr data-name="${p.name.toLowerCase()}">
+                <td><strong>${p.name}</strong><br><small style="color:var(--text-secondary)">ID: ${p.id.toString().padStart(4, '0')}</small></td>
+                <td><span class="status-badge status-info">${p.category}</span></td>
+                <td style="font-family:var(--font-mono);font-size:1.1rem">${p.stock} ${p.unit}</td>
+                <td style="font-family:var(--font-mono)">${p.avgConsume} ${p.unit}/dia</td>
+                <td style="font-family:var(--font-mono);font-weight:600">${p.daysLeft} dias</td>
+                <td><span class="status-badge ${statusObj.class}">${statusObj.text}</span></td>
+              </tr>`;
             }).join('')}
           </tbody>
         </table>
@@ -4890,13 +5164,37 @@ PAGE_RENDERERS.estoque_inventario = (el) => {
 };
 
 PAGE_RENDERERS.estoque_entradas = (el) => {
-  // Simular pedidos aprovados que aguardam NF
-  const pedidosNF = DATA.ata_pedidos.filter(p => true); // Para o mock, mostramos todos
+  // Simular pedidos aprovados que aguardam NF (legacy)
+  const pedidosNF = DATA.ata_pedidos.filter(p => true);
+  // Empenhos do SharedState (novos, criados pelo Gestor)
+  const empenhosSaldo = SharedState.getEmpenhos().filter(e => (e.qtdConsumida || 0) < e.qtdTotal);
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Recebimento de Mercadorias (NF)</div><div class="page-subtitle">Entrada física e baixa de empenhos</div></div>
+    <div class="page-header"><div class="page-title">Recebimento de Mercadorias (NF)</div><div class="page-subtitle">Entrada física e baixa de empenhos · Ateste de qualidade obrigatório</div></div>
+
+    ${empenhosSaldo.length > 0 ? `
+    <div class="card mb-24" style="border-left:4px solid var(--primary)">
+      <div class="card-header"><div class="card-title">📋 Empenhos com Saldo (Gestor SEMED)</div><span class="status-badge status-ok">${empenhosSaldo.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Empenho</th><th>Ata</th><th>Produto</th><th>Qtd Total</th><th>Consumido</th><th>Saldo</th><th>Ação</th></tr></thead><tbody>
+          ${empenhosSaldo.map(e => {
+            const saldo = (e.qtdTotal||0) - (e.qtdConsumida||0);
+            return `<tr>
+              <td><strong>${e.numero}</strong></td>
+              <td>${e.ataNumero}</td>
+              <td>${e.produto}</td>
+              <td style="font-family:var(--font-mono)">${(e.qtdTotal||0).toLocaleString('pt-BR')} ${e.unidade}</td>
+              <td style="font-family:var(--font-mono);color:var(--success)">${(e.qtdConsumida||0).toLocaleString('pt-BR')}</td>
+              <td style="font-family:var(--font-mono);font-weight:bold;color:var(--danger)">${saldo.toLocaleString('pt-BR')} ${e.unidade}</td>
+              <td><button class="btn btn-sm btn-primary" onclick="openReceiveNFModal('${e.id}')">Receber NF</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody></table>
+      </div>
+    </div>` : ''}
+
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Aguardando Recebimento</div></div>
-      <div class="card-body">
+      <div class="card-header"><div class="card-title">Aguardando Recebimento (Legacy)</div></div>
+      <div class="card-body" style="padding:0">
         <table class="data-table"><thead><tr><th>Data Pedido</th><th>Ata / Empenho</th><th>Produto</th><th>Solicitado</th><th>Recebido</th><th>Saldo</th><th>Status</th><th>Ação</th></tr></thead><tbody>
           ${pedidosNF.map(p => {
             const emp = DATA.empenhos.find(e => e.id === p.empenhoId);
@@ -4905,8 +5203,8 @@ PAGE_RENDERERS.estoque_entradas = (el) => {
             const prod = DATA.ataProducts.find(a => a.id === prodId);
             const recebido = p.delivered || 0;
             const saldo = p.qtd - recebido;
-            if (saldo <= 0) return ''; // Já entregue totalmente
-            
+            if (saldo <= 0) return '';
+
             return `<tr>
               <td>${formatDate(p.date)}</td>
               <td><strong>${emp.numero}</strong><br><small>Ata #${emp.ataId}</small></td>
@@ -4921,7 +5219,70 @@ PAGE_RENDERERS.estoque_entradas = (el) => {
         </tbody></table>
       </div>
     </div>
+
+    ${SharedState.getNFs().length > 0 ? `
+    <div class="card">
+      <div class="card-header"><div class="card-title">📄 Histórico de NFs Recebidas</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>NF</th><th>Empenho</th><th>Qtd</th><th>Valor</th><th>Data</th><th>Lote</th><th>Ateste</th></tr></thead><tbody>
+          ${SharedState.getNFs().slice(0, 8).map(nf => `
+            <tr>
+              <td><strong>${nf.numero}</strong></td>
+              <td>${nf.empenhoNumero || nf.empenhoId}</td>
+              <td style="font-family:var(--font-mono)">${(nf.qtd||0).toLocaleString('pt-BR')}</td>
+              <td style="font-family:var(--font-mono)">${formatCurrency(nf.valor || 0)}</td>
+              <td>${nf.dataRec}</td>
+              <td><code>${nf.lote}</code></td>
+              <td><span class="status-badge status-ok">${nf.ateste || 'Conforme'}</span></td>
+            </tr>
+          `).join('')}
+        </tbody></table>
+      </div>
+    </div>` : ''}
   `;
+};
+
+window.openReceiveNFModal = (empenhoId) => {
+  const e = SharedState.getEmpenho(empenhoId);
+  if (!e) return;
+  const saldo = (e.qtdTotal||0) - (e.qtdConsumida||0);
+  const content = `
+    <div style="background:var(--surface-2);padding:12px;border-radius:6px;margin-bottom:16px;font-size:0.9rem">
+      <strong>Empenho:</strong> ${e.numero}<br>
+      <strong>Ata:</strong> ${e.ataNumero}<br>
+      <strong>Produto:</strong> ${e.produto} · <strong>Unidade:</strong> ${e.unidade}<br>
+      <strong style="color:var(--danger)">Saldo a receber: ${saldo.toLocaleString('pt-BR')} ${e.unidade}</strong>
+    </div>
+    <div class="form-group"><label>Número da Nota Fiscal</label><input type="text" id="rec-nf-num" class="form-control" placeholder="Ex: NF-55829"></div>
+    <div class="form-group"><label>Quantidade Recebida (${e.unidade})</label><input type="number" id="rec-nf-qtd" class="form-control" value="${saldo}" max="${saldo}"></div>
+    <div class="form-group"><label>Validade do Lote</label><input type="date" id="rec-nf-val" class="form-control"></div>
+    <div style="margin-top:16px;padding:12px;border:1px solid var(--border);border-radius:6px;background:var(--warning-light)">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-weight:bold;margin:0">
+        <input type="checkbox" id="rec-nf-ateste" style="width:20px;height:20px">
+        Atesto conferência de qualidade e quantidade.
+      </label>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px;">
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-primary" onclick="confirmReceiveNF('${empenhoId}')">Confirmar Recebimento</button>
+    </div>
+  `;
+  showModal('Receber NF — ' + e.produto, content);
+};
+
+window.confirmReceiveNF = (empenhoId) => {
+  const ateste = document.getElementById('rec-nf-ateste').checked;
+  if (!ateste) { alert('Marque o ateste de conferência antes de confirmar!'); return; }
+  const nf = document.getElementById('rec-nf-num').value.trim();
+  const qtd = parseFloat(document.getElementById('rec-nf-qtd').value);
+  const val = document.getElementById('rec-nf-val').value;
+  if (!nf || !qtd || qtd <= 0 || !val) { alert('Preencha NF, quantidade e validade.'); return; }
+  const rec = SharedState.receiveNF(empenhoId, { numero: nf, qtd, validade: val, ateste: 'Conforme' });
+  if (rec) {
+    closeModal();
+    showToast('✅ NF ' + nf + ' recebida. Empenho baixado, estoque central alimentado.');
+    PAGE_RENDERERS.estoque_entradas(document.getElementById('page-content'));
+  }
 };
 
 window.openRecebimentoModal = (pedidoId) => {
@@ -5005,27 +5366,57 @@ window.confirmRecebimento = (pedidoId, empenhoId, prodId) => {
 };
 
 PAGE_RENDERERS.estoque_separacao = (el) => {
-  const orders = DATA.separation_orders;
+  const legacyOrders = DATA.separation_orders || [];
+  const sharedOrders = SharedState.getOrders().filter(o => o.status === 'Pendente' || o.status === 'Em separação');
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Ordens de Separação (Picking)</div><div class="page-subtitle">Sistema sugere os lotes baseado em FIFO (First-In, First-Out)</div></div>
+    <div class="page-header"><div class="page-title">Ordens de Separação (Picking)</div><div class="page-subtitle">Sistema sugere os lotes baseado em FIFO (First-In, First-Out) · Pedidos das escolas em tempo real</div></div>
     <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Fila de Separação</div>${sharedOrders.length ? '<span class="status-badge status-ok">'+sharedOrders.length+' pedido(s) da escola</span>' : ''}</div>
       <div class="card-body" style="padding:0">
         <table class="data-table"><thead><tr><th>Ordem</th><th>Escola Destino</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-          ${orders.map(o => `<tr>
+          ${sharedOrders.map(o => {
+            const itensStr = (o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ');
+            return `<tr>
+              <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
+              <td><strong>${o.school}</strong></td>
+              <td style="font-size:0.82rem">${itensStr}</td>
+              <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+              <td>${o.status === 'Pendente'
+                ? `<button class="btn btn-sm btn-primary" onclick="sharedStartSeparacao('${o.id}')">Iniciar Separação (FIFO)</button>`
+                : `<button class="btn btn-sm btn-warning" onclick="sharedFinishSeparacao('${o.id}')">Concluir</button>`}</td>
+            </tr>`;
+          }).join('')}
+          ${legacyOrders.map(o => `<tr>
             <td style="font-family:var(--font-mono);font-weight:700">#ORD-${o.id}</td>
             <td><strong>${o.school}</strong></td>
             <td style="font-size:0.85rem">${o.items.length} produto(s)</td>
             <td><span class="status-badge ${o.status==='Separado'?'status-ok':'status-warning'}">${o.status}</span></td>
-            <td>
-              ${o.status === 'Pendente' ? 
-                `<button class="btn btn-sm btn-primary" onclick="startSeparacao(${o.id})">Iniciar Separação</button>` : 
-                `<button class="btn btn-sm btn-outline" disabled>Separado</button>`}
-            </td>
+            <td>${o.status === 'Pendente'
+              ? `<button class="btn btn-sm btn-primary" onclick="startSeparacao(${o.id})">Iniciar Separação</button>`
+              : `<button class="btn btn-sm btn-outline" disabled>Separado</button>`}</td>
           </tr>`).join('')}
         </tbody></table>
       </div>
     </div>
   `;
+};
+
+window.sharedStartSeparacao = (orderId) => {
+  const o = SharedState.getOrders().find(x => x.id === orderId);
+  if (!o) return;
+  SharedState.updateOrderStatus(orderId, 'Em separação');
+  // Decrementa estoque central (FIFO)
+  (o.itens || []).forEach(item => SharedState.consumeCentralStock(item.produto, item.qtd));
+  showToast('📦 Pedido #' + String(o.numero).padStart(3,'0') + ' em separação — FIFO aplicado, lotes vinculados.');
+  PAGE_RENDERERS.estoque_separacao(document.getElementById('page-content'));
+};
+window.sharedFinishSeparacao = (orderId) => {
+  const o = SharedState.getOrders().find(x => x.id === orderId);
+  if (!o) return;
+  SharedState.updateOrderStatus(orderId, 'Em transporte');
+  showToast('🚚 Pedido separado — vai para Carregamento/Bipagem.');
+  PAGE_RENDERERS.estoque_separacao(document.getElementById('page-content'));
 };
 
 window.startSeparacao = (orderId) => {
@@ -5038,17 +5429,26 @@ window.startSeparacao = (orderId) => {
 
 PAGE_RENDERERS.estoque_carregamento = (el) => {
   const separated = DATA.separation_orders.filter(o => o.status === 'Separado');
+  const sharedInTransit = SharedState.getOrders().filter(o => o.status === 'Em transporte');
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Carregamento e Bipagem (Check-out)</div><div class="page-subtitle">Validação de caixas no caminhão</div></div>
+    <div class="page-header"><div class="page-title">Carregamento e Bipagem (Check-out)</div><div class="page-subtitle">Validação de caixas no caminhão · Pedidos prontos aparecem em tempo real</div></div>
     <div class="grid-2">
-      <div class="card"><div class="card-header"><div class="card-title">Cargas Aguardando Embarque</div></div>
-      <div class="card-body">
-        <table class="data-table"><thead><tr><th>Ordem</th><th>Destino</th><th>Ação</th></tr></thead><tbody>
+      <div class="card"><div class="card-header"><div class="card-title">Cargas Aguardando Embarque</div>${sharedInTransit.length ? '<span class="status-badge status-ok">'+sharedInTransit.length+' pronto(s)</span>' : ''}</div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Ordem</th><th>Destino</th><th>Itens</th><th>Ação</th></tr></thead><tbody>
+          ${sharedInTransit.map(o => `<tr>
+            <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
+            <td><strong>${o.school}</strong></td>
+            <td style="font-size:0.82rem">${(o.itens||[]).length} itens</td>
+            <td><button class="btn btn-sm btn-primary" onclick="sharedLiberarCaminhao('${o.id}')">✅ Liberar p/ Motorista</button></td>
+          </tr>`).join('')}
           ${separated.map(o => `<tr>
             <td><strong>#ORD-${o.id}</strong></td>
             <td>${o.school}</td>
+            <td style="font-size:0.82rem">${o.items?.length || 0} itens</td>
             <td><button class="btn btn-sm btn-primary" onclick="openBipagem(${o.id})">Bipar Carga</button></td>
           </tr>`).join('')}
+          ${(sharedInTransit.length + separated.length) === 0 ? '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma carga pronta — aguardando separação</td></tr>' : ''}
         </tbody></table>
       </div></div>
       <div class="card"><div class="card-header"><div class="card-title">Simulador de Bipagem</div></div>
@@ -5057,6 +5457,13 @@ PAGE_RENDERERS.estoque_carregamento = (el) => {
       </div></div>
     </div>
   `;
+};
+
+window.sharedLiberarCaminhao = (orderId) => {
+  const o = SharedState.getOrders().find(x => x.id === orderId);
+  if (!o) return;
+  showToast('🚚 Caminhão liberado — carga #' + String(o.numero).padStart(3,'0') + ' entregue ao Motorista.');
+  PAGE_RENDERERS.estoque_carregamento(document.getElementById('page-content'));
 };
 
 window.openBipagem = (orderId) => {
@@ -5203,13 +5610,37 @@ PAGE_RENDERERS.motorista_dashboard = (el) => {
 };
 
 PAGE_RENDERERS.motorista_entregas = (el) => {
-  // Pega o próximo pedido em transporte do SharedState (fila do motorista)
-  const emTransporte = SharedState.getOrders().find(o => o.status === 'Em transporte');
-  const alvoNome = emTransporte ? emTransporte.school : 'EM Elpídio Reis';
-  window._currentDeliveryOrderId = emTransporte ? emTransporte.id : null;
+  // Todos os pedidos "Em transporte" da fila do motorista
+  const emTransporteList = SharedState.getOrders().filter(o => o.status === 'Em transporte');
+  const alvo = window._selectedDeliveryOrderId
+    ? emTransporteList.find(o => o.id === window._selectedDeliveryOrderId)
+    : emTransporteList[0];
+  const alvoNome = alvo ? alvo.school : 'EM Elpídio Reis';
+  window._currentDeliveryOrderId = alvo ? alvo.id : null;
 
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Realizar Entrega</div><div class="page-subtitle">Confirmação de recebimento física na unidade escolar${emTransporte ? ' · Pedido #' + String(emTransporte.numero).padStart(3,'0') : ''}</div></div>
+    <div class="page-header"><div class="page-title">Realizar Entrega</div><div class="page-subtitle">Confirmação de recebimento física na unidade escolar${alvo ? ' · Pedido #' + String(alvo.numero).padStart(3,'0') : ''}</div></div>
+
+    ${emTransporteList.length > 0 ? `
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">🚚 Fila de Entregas (Em transporte)</div><span class="status-badge status-warning">${emTransporteList.length}</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Escola</th><th>Itens</th><th>Ação</th></tr></thead>
+          <tbody>
+            ${emTransporteList.map(o => `
+              <tr ${o.id === (alvo?.id) ? 'style="background:var(--primary-light)"' : ''}>
+                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
+                <td><strong>${o.school}</strong></td>
+                <td style="font-size:0.82rem">${(o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ') || '—'}</td>
+                <td><button class="btn btn-sm ${o.id === (alvo?.id) ? 'btn-primary' : 'btn-outline'}" onclick="selectDelivery('${o.id}')">${o.id === (alvo?.id) ? 'Selecionada' : 'Selecionar'}</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
+
     <div id="entrega-form-container" class="card mb-24" style="max-width: 600px; margin: 0 auto;">
       <div class="card-header"><div class="card-title">Confirmar Recibo de Alimentos: ${alvoNome}</div></div>
       <div class="card-body">
@@ -5264,13 +5695,19 @@ PAGE_RENDERERS.motorista_entregas = (el) => {
       if (window._currentDeliveryOrderId) {
         SharedState.confirmDelivery(window._currentDeliveryOrderId, rec, doc);
         window._currentDeliveryOrderId = null;
-        showToast('✅ Entrega confirmada. Escola, Cooperativa e SEMED foram notificados.');
+        window._selectedDeliveryOrderId = null;
+        showToast('✅ Entrega confirmada. Escola, Cooperativa e SEMED foram notificados. Estoque local incrementado.');
       } else {
         alert('Entrega confirmada com sucesso! Recibo digital assinado e foto enviada para a SEMED.');
       }
       navigateTo(null, 'dashboard');
     });
   }, 50);
+};
+
+window.selectDelivery = (orderId) => {
+  window._selectedDeliveryOrderId = orderId;
+  PAGE_RENDERERS.motorista_entregas(document.getElementById('page-content'));
 };
 
 window.simulateCamera = () => {
