@@ -75,6 +75,14 @@
             <div class="profile-icon">🥗</div>
             <span>Nutricionista</span>
           </button>
+          <button class="profile-btn" data-profile="diretor" id="btn-profile-diretor" type="button">
+            <div class="profile-icon">🎓</div>
+            <span>Diretor(a)</span>
+          </button>
+          <button class="profile-btn" data-profile="resp_estoque" id="btn-profile-resp_estoque" type="button">
+            <div class="profile-icon">📋</div>
+            <span>Resp. Estoque</span>
+          </button>
           <button class="profile-btn" data-profile="escola" id="btn-profile-escola" type="button">
             <div class="profile-icon">🏫</div>
             <span>Escola</span>
@@ -89,12 +97,28 @@
           </button>
           <button class="profile-btn" data-profile="estoque" id="btn-profile-estoque" type="button">
             <div class="profile-icon">📦</div>
-            <span>Estoque</span>
+            <span>Estoque Central</span>
           </button>
           <button class="profile-btn" data-profile="motorista" id="btn-profile-motorista" type="button">
             <div class="profile-icon">🚚</div>
             <span>Motorista</span>
           </button>
+        </div>
+
+        <!-- Seletor de escola — aparece para Diretor, Resp. Estoque e Escola -->
+        <div id="school-picker-row" style="display:none;margin-bottom:16px">
+          <label id="school-picker-label" for="school-picker-select" style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">Selecionar Escola</label>
+          <select id="school-picker-select" class="form-control" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.88rem;background:var(--bg);color:var(--text)">
+            <option value="">— Selecione a unidade escolar —</option>
+            <option value="1">EM ADV. DEMOSTHENES MARTINS (Segredo · 454 alunos)</option>
+            <option value="2">EM PROF. ANTÔNIO LOPES LINS (Lagoa · 1.698 alunos)</option>
+            <option value="3">EMRTI AGRICOLA GOV. ARNALDO ESTEVAO DE FIGUEREDO (Rural · 436 alunos)</option>
+            <option value="4">EMTI PROFª IRACEMA MARIA VICENTE (Bandeira · 539 alunos)</option>
+            <option value="5">EMEI CLEOMAR BAPTISTA DOS SANTOS (Anhanduizinho · 128 alunos)</option>
+            <option value="6">EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA (Prosa · 191 alunos)</option>
+            <option value="7">EMEI CLOTILDE CHAIA (Imbirussu · 192 alunos)</option>
+            <option value="8">EMEI ELEODES ESTEVAN (Centro · 354 alunos)</option>
+          </select>
         </div>
         <form id="login-form" novalidate>
           <div class="form-group">

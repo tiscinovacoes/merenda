@@ -70,14 +70,70 @@ window.showToast = (msg, type='success') => {
 // ============================
 const DATA = {
   schools: [
-    { id: 1, name: 'EM ADV. DEMOSTHENES MARTINS', region: 'Segredo', director: 'Maria Santos', students: 454, stockStatus: 'ok', lastDelivery: '2026-07-10', stockPct: 82 },
-    { id: 2, name: 'EM PROF. ANTÔNIO LOPES LINS', region: 'Lagoa', director: 'João Oliveira', students: 1698, stockStatus: 'warning', lastDelivery: '2026-07-05', stockPct: 38 },
-    { id: 3, name: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', region: 'Rural', director: 'Ana Costa', students: 436, stockStatus: 'ok', lastDelivery: '2026-07-12', stockPct: 91 },
-    { id: 4, name: 'EMTI PROFª IRACEMA MARIA VICENTE', region: 'Bandeira', director: 'Carlos Pereira', students: 539, stockStatus: 'danger', lastDelivery: '2026-06-28', stockPct: 15 },
-    { id: 5, name: 'EMEI CLEOMAR BAPTISTA DOS SANTOS', region: 'Anhanduizinho', director: 'Fernanda Lima', students: 128, stockStatus: 'ok', lastDelivery: '2026-07-11', stockPct: 75 },
-    { id: 6, name: 'EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA', region: 'Prosa', director: 'Roberto Alves', students: 191, stockStatus: 'ok', lastDelivery: '2026-07-09', stockPct: 88 },
-    { id: 7, name: 'EMEI CLOTILDE CHAIA', region: 'Imbirussu', director: 'Patricia Souza', students: 192, stockStatus: 'warning', lastDelivery: '2026-07-02', stockPct: 42 },
-    { id: 8, name: 'EMEI ELEODES ESTEVAN', region: 'Centro', director: 'Marcos Silva', students: 354, stockStatus: 'ok', lastDelivery: '2026-07-14', stockPct: 95 },
+    {
+      id: 1, name: 'EM ADV. DEMOSTHENES MARTINS', sigla: 'EM', tipo: 'Escola Municipal',
+      region: 'Segredo', students: 454, refeicoesDia: 2, grade_levels: 'EF I + EF II',
+      stockStatus: 'ok', lastDelivery: '2026-07-10', stockPct: 82,
+      attendance_pct: 91, attendance_avg: 413, monthly_budget: 12500,
+      diretor: { name: 'Profa. Maria Amélia Santos', matricula: 'SEMED-11001', cpf: '111.222.333-01', telefone: '(67) 98111-0001', email: 'direcao.demosthenes@semed.ms.gov.br', initials: 'MS' },
+      respEstoque: { name: 'Carlos Eduardo Lima', matricula: 'SEMED-11002', cpf: '111.222.333-02', telefone: '(67) 98111-0002', email: 'estoque.demosthenes@semed.ms.gov.br', initials: 'CL' },
+    },
+    {
+      id: 2, name: 'EM PROF. ANTÔNIO LOPES LINS', sigla: 'EM', tipo: 'Escola Municipal',
+      region: 'Lagoa', students: 1698, refeicoesDia: 2, grade_levels: 'EF I + EF II',
+      stockStatus: 'warning', lastDelivery: '2026-07-05', stockPct: 38,
+      attendance_pct: 88, attendance_avg: 1494, monthly_budget: 45000,
+      diretor: { name: 'Prof. João Carlos Oliveira', matricula: 'SEMED-12001', cpf: '222.333.444-01', telefone: '(67) 98222-0001', email: 'direcao.antoniolins@semed.ms.gov.br', initials: 'JO' },
+      respEstoque: { name: 'Fernanda Aparecida Costa', matricula: 'SEMED-12002', cpf: '222.333.444-02', telefone: '(67) 98222-0002', email: 'estoque.antoniolins@semed.ms.gov.br', initials: 'FC' },
+    },
+    {
+      id: 3, name: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', sigla: 'EMRTI', tipo: 'Escola Rural Integral',
+      region: 'Rural', students: 436, refeicoesDia: 4, grade_levels: 'EF I + EF II + EM',
+      stockStatus: 'ok', lastDelivery: '2026-07-12', stockPct: 91,
+      attendance_pct: 94, attendance_avg: 410, monthly_budget: 22000,
+      diretor: { name: 'Profa. Ana Cristina Pereira', matricula: 'SEMED-13001', cpf: '333.444.555-01', telefone: '(67) 98333-0001', email: 'direcao.arnaldo@semed.ms.gov.br', initials: 'AP' },
+      respEstoque: { name: 'Sebastião Gonçalves Neto', matricula: 'SEMED-13002', cpf: '333.444.555-02', telefone: '(67) 98333-0002', email: 'estoque.arnaldo@semed.ms.gov.br', initials: 'SN' },
+    },
+    {
+      id: 4, name: 'EMTI PROFª IRACEMA MARIA VICENTE', sigla: 'EMTI', tipo: 'Escola de Tempo Integral',
+      region: 'Bandeira', students: 539, refeicoesDia: 4, grade_levels: 'EF I + EF II',
+      stockStatus: 'danger', lastDelivery: '2026-06-28', stockPct: 15,
+      attendance_pct: 86, attendance_avg: 463, monthly_budget: 28000,
+      diretor: { name: 'Prof. Antônio Carlos Mendes', matricula: 'SEMED-14001', cpf: '444.555.666-01', telefone: '(67) 98444-0001', email: 'direcao.iracema@semed.ms.gov.br', initials: 'AM' },
+      respEstoque: { name: 'Rosa Maria Alves Barbosa', matricula: 'SEMED-14002', cpf: '444.555.666-02', telefone: '(67) 98444-0002', email: 'estoque.iracema@semed.ms.gov.br', initials: 'RB' },
+    },
+    {
+      id: 5, name: 'EMEI CLEOMAR BAPTISTA DOS SANTOS', sigla: 'EMEI', tipo: 'Educação Infantil',
+      region: 'Anhanduizinho', students: 128, refeicoesDia: 4, grade_levels: 'Maternal + Pré-escola',
+      stockStatus: 'ok', lastDelivery: '2026-07-11', stockPct: 75,
+      attendance_pct: 90, attendance_avg: 115, monthly_budget: 8500,
+      diretor: { name: 'Profa. Fernanda Lima Souza', matricula: 'SEMED-15001', cpf: '555.666.777-01', telefone: '(67) 98555-0001', email: 'direcao.cleomar@semed.ms.gov.br', initials: 'FS' },
+      respEstoque: { name: 'Paulo Roberto Santos', matricula: 'SEMED-15002', cpf: '555.666.777-02', telefone: '(67) 98555-0002', email: 'estoque.cleomar@semed.ms.gov.br', initials: 'PS' },
+    },
+    {
+      id: 6, name: 'EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA', sigla: 'EMEI', tipo: 'Educação Infantil',
+      region: 'Prosa', students: 191, refeicoesDia: 4, grade_levels: 'Maternal + Pré-escola',
+      stockStatus: 'ok', lastDelivery: '2026-07-09', stockPct: 88,
+      attendance_pct: 92, attendance_avg: 176, monthly_budget: 11000,
+      diretor: { name: 'Profa. Sandra Ishida Martins', matricula: 'SEMED-16001', cpf: '666.777.888-01', telefone: '(67) 98666-0001', email: 'direcao.emy@semed.ms.gov.br', initials: 'SM' },
+      respEstoque: { name: 'Marcos Vinícius Rodrigues', matricula: 'SEMED-16002', cpf: '666.777.888-02', telefone: '(67) 98666-0002', email: 'estoque.emy@semed.ms.gov.br', initials: 'MR' },
+    },
+    {
+      id: 7, name: 'EMEI CLOTILDE CHAIA', sigla: 'EMEI', tipo: 'Educação Infantil',
+      region: 'Imbirussu', students: 192, refeicoesDia: 4, grade_levels: 'Maternal + Pré-escola',
+      stockStatus: 'warning', lastDelivery: '2026-07-02', stockPct: 42,
+      attendance_pct: 89, attendance_avg: 171, monthly_budget: 11200,
+      diretor: { name: 'Profa. Patrícia da Silva Chaia', matricula: 'SEMED-17001', cpf: '777.888.999-01', telefone: '(67) 98777-0001', email: 'direcao.clotilde@semed.ms.gov.br', initials: 'PC' },
+      respEstoque: { name: 'Gilberto Nascimento Costa', matricula: 'SEMED-17002', cpf: '777.888.999-02', telefone: '(67) 98777-0002', email: 'estoque.clotilde@semed.ms.gov.br', initials: 'GC' },
+    },
+    {
+      id: 8, name: 'EMEI ELEODES ESTEVAN', sigla: 'EMEI', tipo: 'Educação Infantil',
+      region: 'Centro', students: 354, refeicoesDia: 4, grade_levels: 'Maternal + Pré-escola',
+      stockStatus: 'ok', lastDelivery: '2026-07-14', stockPct: 95,
+      attendance_pct: 93, attendance_avg: 329, monthly_budget: 19500,
+      diretor: { name: 'Prof. Roberto Estevan Filho', matricula: 'SEMED-18001', cpf: '888.999.000-01', telefone: '(67) 98888-0001', email: 'direcao.eleodes@semed.ms.gov.br', initials: 'RE' },
+      respEstoque: { name: 'Cleusa Maria Santos', matricula: 'SEMED-18002', cpf: '888.999.000-02', telefone: '(67) 98888-0002', email: 'estoque.eleodes@semed.ms.gov.br', initials: 'CS' },
+    },
   ],
   products: [
     { id: 1, name: 'Arroz Tipo 1', category: 'Grãos', unit: 'kg', stock: 12500, avgConsume: 850, daysLeft: 14, familyFarm: false },
@@ -280,6 +336,37 @@ const PROFILES = {
       { id: 'lotes', icon: '📋', label: 'Controle de Lotes', badge: null },
     ]
   },
+  diretor: {
+    get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
+    get name() { const sc = this._sc; return sc && sc.diretor ? sc.diretor.name : 'Diretor(a)'; },
+    get role() { const sc = this._sc; return sc ? sc.name : 'Direção Escolar'; },
+    get initials() { const sc = this._sc; return sc && sc.diretor ? sc.diretor.initials : 'DE'; },
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Painel da Escola', badge: null },
+      { id: 'estoque', icon: '📦', label: 'Estoque da Escola', badge: null },
+      { id: 'pedidos', icon: '🛒', label: 'Solicitar Reposição', badge: null },
+      { id: 'entregas', icon: '🚚', label: 'Acompanhar Entregas', badge: null },
+      { id: 'consumo', icon: '📝', label: 'Consumo Registrado', badge: null },
+      { id: 'cardapios', icon: '🍽️', label: 'Cardápio Vigente', badge: null },
+      { id: 'historico', icon: '📜', label: 'Histórico', badge: null },
+      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+    ]
+  },
+  resp_estoque: {
+    get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
+    get name() { const sc = this._sc; return sc && sc.respEstoque ? sc.respEstoque.name : 'Resp. Estoque'; },
+    get role() { const sc = this._sc; return sc ? 'Estoque · ' + (sc.sigla||'') + ' ' + sc.name.split(' ').slice(-2).join(' ') : 'Responsável de Estoque'; },
+    get initials() { const sc = this._sc; return sc && sc.respEstoque ? sc.respEstoque.initials : 'RE'; },
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Dashboard de Estoque', badge: null },
+      { id: 'inventario', icon: '🏢', label: 'Inventário Físico', badge: null },
+      { id: 'entradas', icon: '📥', label: 'Confirmar Entregas', badge: null },
+      { id: 'consumo', icon: '📝', label: 'Lançar Consumo', badge: null },
+      { id: 'pedidos', icon: '🛒', label: 'Pedidos em Aberto', badge: null },
+      { id: 'validades', icon: '📅', label: 'Controle de Validades', badge: null },
+      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+    ]
+  },
   motorista: {
     name: 'José Souza',
     role: 'Motorista de Entrega',
@@ -302,6 +389,8 @@ let state = {
   currentPage: 'dashboard',
   charts: {},
   sidebarCollapsed: false,
+  selectedSchoolId: null,   // id da escola piloto selecionada no login
+  selectedSchool: null,     // objeto escola capturado antes do hydrateData (imutável durante sessão)
   pilotoAtivo: (() => { try { return localStorage.getItem('saged_piloto_v1') === '1'; } catch { return false; } })(),
 };
 
@@ -682,6 +771,10 @@ const SharedState = {
 SharedState.init();
 window.SharedState = SharedState;
 
+// Escolas piloto — capturadas UMA VEZ antes de qualquer hydrateData do Supabase.
+// Este array nunca é sobrescrito pelo DB e é a fonte canônica para login de diretor/resp_estoque.
+window._PILOT_SCHOOLS = DATA.schools.filter(sc => sc.diretor).slice();
+
 // Helper de UI: mostra um toast rápido de sucesso/erro
 function showToast(msg, kind) {
   const t = document.createElement('div');
@@ -727,9 +820,19 @@ function navigateTo(profile, page) {
   renderPage();
 }
 
-async function login(profile) {
+async function login(profile, schoolId) {
   state.currentProfile = profile;
   state.currentPage = 'dashboard';
+  if (schoolId) {
+    state.selectedSchoolId = schoolId;
+    // Usa _PILOT_SCHOOLS (imutável) — nunca sofre sobrescrita do Supabase hydrateData
+    state.selectedSchool = (window._PILOT_SCHOOLS || []).find(s => s.id === schoolId)
+                         || DATA.schools.find(s => s.id === schoolId)
+                         || null;
+  } else {
+    state.selectedSchoolId = null;
+    state.selectedSchool = null;
+  }
   $('#screen-login').classList.remove('active');
   $('#screen-login').hidden = true;
   const app = $('#screen-app');
@@ -4352,13 +4455,43 @@ window.applyIaFiberSuggestion = () => {
 
 // ─── ESCOLA: helpers ───
 function getCurrentSchool() {
-  const name = (window._STATE && window._STATE.schoolName) ? window._STATE.schoolName : 'EM Arlindo Lima';
+  // Prioridade 1: escola capturada no login (antes do hydrateData poder sobrescrever DATA.schools)
+  if (state.selectedSchool) return _normalizeSchool(state.selectedSchool);
+
   const all = (typeof DATA !== 'undefined' && DATA.schools) ? DATA.schools : [];
-  return all.find(sc => sc.name === name) || {
-    name, students: 620, attendance_avg: 572, attendance_pct: 92,
-    stock_pct: 82, grade_levels: 'EF I + EF II', meals_per_day: 2,
-    monthly_budget: 18500, region: 'Anhanduizinho', director: 'Maria Santos'
+
+  // Prioridade 2: busca por id no DATA.schools atual
+  if (state.selectedSchoolId) {
+    const byId = all.find(sc => sc.id === state.selectedSchoolId);
+    if (byId) return _normalizeSchool(byId);
+  }
+  // Prioridade 3: fallback legado via window._STATE.schoolName
+  const name = (window._STATE && window._STATE.schoolName) ? window._STATE.schoolName : null;
+  if (name) {
+    const byName = all.find(sc => sc.name === name);
+    if (byName) return _normalizeSchool(byName);
+  }
+  // Fallback final: primeira escola do piloto
+  const pilotSchools = all.filter(sc => sc.diretor); // escolas piloto têm campo diretor
+  const first = pilotSchools[0] || all[0];
+  return first ? _normalizeSchool(first) : {
+    id: 0, name: 'EM Demo', students: 620, attendance_avg: 572, attendance_pct: 92,
+    stockPct: 82, grade_levels: 'EF I + EF II', refeicoesDia: 2,
+    monthly_budget: 18500, region: 'Centro', diretor: { name: 'Maria Santos', initials: 'MS' },
+    respEstoque: { name: 'Carlos Lima', initials: 'CL' }
   };
+}
+
+function _normalizeSchool(sc) {
+  // Compatibilidade com campos legados usados pelos renderers existentes
+  return Object.assign({
+    meals_per_day: sc.refeicoesDia || 2,
+    attendance_avg: sc.attendance_avg || Math.round((sc.students || 0) * 0.9),
+    attendance_pct: sc.attendance_pct || 90,
+    monthly_budget: sc.monthly_budget || Math.round((sc.students || 0) * 35),
+    director: sc.diretor ? sc.diretor.name : (sc.director || ''),
+    grade_levels: sc.grade_levels || (sc.sigla === 'EMEI' ? 'Maternal + Pré-escola' : 'EF I + EF II'),
+  }, sc);
 }
 
 // ─── ESCOLA: DASHBOARD ───
@@ -6548,6 +6681,692 @@ PAGE_RENDERERS.motorista_historico = (el) => {
   `;
 };
 
+// ============================================================
+// ─── DIRETOR: RENDERERS ─────────────────────────────────────
+// ============================================================
+
+PAGE_RENDERERS.diretor_dashboard = (el) => {
+  const sc = getCurrentSchool();
+  const students = sc.students || 0;
+  const att = sc.attendance_avg || Math.round(students * 0.9);
+  const attPct = sc.attendance_pct || 90;
+  const refeicoes = sc.refeicoesDia || sc.meals_per_day || 2;
+  const budget = sc.monthly_budget || Math.round(students * 35);
+  const products = DATA.products || [];
+  const localStock = SharedState.getSchoolStock(sc.name);
+  const rows = products.map(p => {
+    const local = localStock.find(l => l.produto === p.name);
+    const qty = local ? local.qtd : Math.round((p.stock || 0) / 20);
+    const avgDay = Math.max(1, Math.round((p.avgConsume || 0) / 20));
+    return { daysLeft: avgDay > 0 ? Math.round(qty / avgDay) : 999 };
+  });
+  const critical = rows.filter(r => r.daysLeft <= 3).length;
+  const warning = rows.filter(r => r.daysLeft > 3 && r.daysLeft <= 7).length;
+  const orders = SharedState.getOrders().filter(o => o.school === sc.name);
+  const pendingOrders = orders.filter(o => o.status === 'Pendente').length;
+  const deliveries = SharedState.getDeliveries().filter(d => d.school === sc.name);
+  const inTransit = deliveries.filter(d => d.status === 'Em transporte').length;
+  const consumed = Math.round(att * refeicoes * 0.3);
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">Painel da Direção — ${sc.name}</div>
+        <div class="page-subtitle">${sc.tipo || sc.sigla} · ${sc.region} · ${students.toLocaleString('pt-BR')} alunos · ${refeicoes} refeições/dia</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="navigateTo('diretor','pedidos')">🛒 Solicitar Reposição</button>
+        <button class="btn btn-outline btn-sm" onclick="navigateTo('diretor','estoque')">📦 Ver Estoque</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px">
+      <div class="kpi-card blue"><div class="kpi-icon">👨‍🎓</div><div class="kpi-value">${students.toLocaleString('pt-BR')}</div><div class="kpi-label">Matriculados</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${att.toLocaleString('pt-BR')}</div><div class="kpi-label">Presentes Hoje</div></div>
+      <div class="kpi-card ${critical > 0 ? 'red' : 'orange'}"><div class="kpi-icon">📦</div><div class="kpi-value">${critical > 0 ? critical + ' crítico(s)' : warning + ' atenção'}</div><div class="kpi-label">Status Estoque</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">🛒</div><div class="kpi-value">${pendingOrders}</div><div class="kpi-label">Pedidos Pendentes</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">🚚</div><div class="kpi-value">${inTransit}</div><div class="kpi-label">Em Transporte</div></div>
+    </div>
+
+    <div class="grid-2-1">
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        ${(critical > 0 || warning > 0) ? `
+        <div class="card" style="border-left:4px solid var(--danger)">
+          <div class="card-header"><div class="card-title">🚨 Alertas de Estoque</div><span class="status-badge status-danger">${critical + warning} itens</span></div>
+          <div class="card-body">
+            <div class="alert-list">
+              ${critical > 0 ? `<div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>${critical} produto(s) crítico(s)</strong> — estoque para menos de 3 dias. <a href="#" onclick="navigateTo('diretor','estoque');return false">Ver estoque</a></div></div>` : ''}
+              ${warning > 0 ? `<div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>${warning} produto(s) em atenção</strong> — estoque para menos de 7 dias.</div></div>` : ''}
+              <div class="alert-item" style="background:#e3f2fd;border-left:4px solid #1565C0"><span class="alert-icon">💡</span><div class="alert-text">Solicite reposição agora para garantir continuidade das refeições. <button class="btn btn-sm btn-primary" style="margin-top:6px" onclick="navigateTo('diretor','pedidos')">🛒 Criar Pedido</button></div></div>
+            </div>
+          </div>
+        </div>` : `
+        <div class="card" style="border-left:4px solid var(--success)">
+          <div class="card-body"><div class="alert-item" style="background:#e8f5e9;border-left:none"><span class="alert-icon">✅</span><div class="alert-text"><strong>Estoque saudável</strong> — nenhum item crítico no momento.</div></div></div>
+        </div>`}
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">📦 Últimos Pedidos de Reposição</div><button class="btn btn-primary btn-sm" onclick="navigateTo('diretor','pedidos')">+ Novo Pedido</button></div>
+          <div class="card-body" style="padding:0">
+            ${orders.length > 0 ? `
+            <table class="data-table">
+              <thead><tr><th>Data</th><th>Cooperativa</th><th>Valor</th><th>Status</th></tr></thead>
+              <tbody>
+                ${orders.slice(-5).reverse().map(o => `
+                  <tr>
+                    <td>${new Date(o.date).toLocaleDateString('pt-BR')}</td>
+                    <td>${o.coop || '—'}</td>
+                    <td>R$ ${(o.value||0).toLocaleString('pt-BR')}</td>
+                    <td><span class="status-badge ${o.status==='Entregue'?'status-ok':o.status==='Pendente'?'status-warning':'status-info'}">${o.status}</span></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>` : `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Nenhum pedido ainda</div></div>`}
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">🚚 Entregas Recentes</div></div>
+          <div class="card-body" style="padding:0">
+            ${deliveries.length > 0 ? `
+            <table class="data-table">
+              <thead><tr><th>Data</th><th>Recebido por</th><th>Status</th></tr></thead>
+              <tbody>
+                ${deliveries.slice(-5).reverse().map(d => `
+                  <tr>
+                    <td>${d.data ? new Date(d.data).toLocaleDateString('pt-BR') : '—'}</td>
+                    <td>${d.receiver || '—'}</td>
+                    <td><span class="status-badge ${d.status==='Confirmada'?'status-ok':'status-info'}">${d.status||'—'}</span></td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>` : `<div class="empty-state"><div class="empty-icon">🚚</div><div class="empty-text">Nenhuma entrega registrada</div></div>`}
+          </div>
+        </div>
+
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card" style="background:var(--primary);color:white">
+          <div class="card-body">
+            <div style="font-size:0.8rem;opacity:0.8;margin-bottom:4px">Orçamento Mensal</div>
+            <div style="font-size:2rem;font-weight:800">R$ ${Math.round(budget*0.55).toLocaleString('pt-BR')}</div>
+            <div style="font-size:0.78rem;opacity:0.8;margin-bottom:10px">de R$ ${budget.toLocaleString('pt-BR')} (55% executado)</div>
+            <div style="background:rgba(255,255,255,0.2);border-radius:4px;height:6px"><div style="width:55%;height:100%;background:white;border-radius:4px"></div></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">📋 Perfil da Unidade</div></div>
+          <div class="card-body" style="display:flex;flex-direction:column;gap:8px;font-size:0.88rem">
+            <div><strong>Tipo:</strong> ${sc.tipo || sc.sigla}</div>
+            <div><strong>Região:</strong> ${sc.region}</div>
+            <div><strong>Níveis:</strong> ${sc.grade_levels || '—'}</div>
+            <div><strong>Refeições/dia:</strong> ${refeicoes}</div>
+            <div><strong>Consumo estimado:</strong> ~${consumed} kg/dia</div>
+            <div><strong>Frequência hoje:</strong> ${attPct}% (${att}/${students})</div>
+            <hr style="border:none;border-top:1px solid var(--border);margin:4px 0">
+            <div><strong>Diretor(a):</strong> ${sc.diretor ? sc.diretor.name : '—'}</div>
+            <div style="font-size:0.78rem;color:var(--text-secondary)">${sc.diretor ? sc.diretor.email : ''}</div>
+            <hr style="border:none;border-top:1px solid var(--border);margin:4px 0">
+            <div><strong>Resp. Estoque:</strong> ${sc.respEstoque ? sc.respEstoque.name : '—'}</div>
+            <div style="font-size:0.78rem;color:var(--text-secondary)">${sc.respEstoque ? sc.respEstoque.email : ''}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">⚡ Acesso Rápido</div></div>
+          <div class="card-body" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button class="btn btn-ghost" onclick="navigateTo('diretor','estoque')" style="font-size:0.82rem">📦 Estoque</button>
+            <button class="btn btn-ghost" onclick="navigateTo('diretor','pedidos')" style="font-size:0.82rem">🛒 Pedido</button>
+            <button class="btn btn-ghost" onclick="navigateTo('diretor','entregas')" style="font-size:0.82rem">🚚 Entregas</button>
+            <button class="btn btn-ghost" onclick="navigateTo('diretor','historico')" style="font-size:0.82rem">📜 Histórico</button>
+            <button class="btn btn-ghost" onclick="navigateTo('diretor','consumo')" style="font-size:0.82rem">📝 Consumo</button>
+            <button class="btn btn-ghost" onclick="navigateTo('diretor','cardapios')" style="font-size:0.82rem">🍽️ Cardápio</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+};
+
+PAGE_RENDERERS.diretor_estoque = (el) => {
+  const sc = getCurrentSchool();
+  const products = DATA.products || [];
+  const localStock = SharedState.getSchoolStock(sc.name);
+  const rows = products.map(p => {
+    const local = localStock.find(l => l.produto === p.name);
+    const qty = local ? local.qtd : Math.round((p.stock || 0) / 20);
+    const avgDay = Math.max(1, Math.round((p.avgConsume || 0) / 20));
+    const daysLeft = avgDay > 0 ? Math.round(qty / avgDay) : 999;
+    return { name: p.name, category: p.category, unit: p.unit, qty, daysLeft, unidade: local?.unidade || p.unit, isReal: !!local };
+  });
+  const critical = rows.filter(r => r.daysLeft <= 3).length;
+  const warning = rows.filter(r => r.daysLeft > 3 && r.daysLeft <= 7).length;
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Estoque — ${sc.name}</div>
+      <div class="page-subtitle">Visão gerencial · atualizado automaticamente por entregas e consumo</div>
+      <button class="btn btn-primary" onclick="navigateTo('diretor','pedidos')">🛒 Solicitar Reposição</button>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${rows.length}</div><div class="kpi-label">Produtos</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${rows.length-critical-warning}</div><div class="kpi-label">Estoque Normal</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⚡</div><div class="kpi-value">${warning}</div><div class="kpi-label">Em Atenção</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${critical}</div><div class="kpi-label">Crítico</div></div>
+    </div>
+    <div class="card">
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Produto</th><th>Categoria</th><th style="text-align:right">Qtd. Escola</th><th>Un.</th><th style="text-align:right">Dias Restantes</th><th>Status</th></tr></thead>
+          <tbody>
+            ${rows.map(r => {
+              const [cls, label] = r.daysLeft<=3 ? ['status-danger','Crítico'] : r.daysLeft<=7 ? ['status-warning','Atenção'] : ['status-ok','Normal'];
+              return `<tr>
+                <td><strong>${r.name}</strong>${r.isReal ? ' <span class="tag tag-blue" style="font-size:0.65rem">REAL</span>' : ''}</td>
+                <td><span class="status-badge status-info" style="font-size:0.72rem">${r.category||'—'}</span></td>
+                <td style="text-align:right;font-family:var(--font-mono)">${r.qty.toLocaleString('pt-BR')}</td>
+                <td>${r.unidade||'kg'}</td>
+                <td style="text-align:right;font-weight:700;color:${r.daysLeft<=3?'var(--danger)':r.daysLeft<=7?'var(--warning)':'var(--success)'}">${r.daysLeft}d</td>
+                <td><span class="status-badge ${cls}">${label}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+PAGE_RENDERERS.diretor_pedidos = (el) => {
+  const sc = getCurrentSchool();
+  const orders = SharedState.getOrders().filter(o => o.school === sc.name);
+  const products = DATA.products || [];
+  const criticalProducts = products.filter(p => {
+    const local = SharedState.getSchoolStock(sc.name).find(l => l.produto === p.name);
+    const qty = local ? local.qtd : Math.round((p.stock || 0) / 20);
+    const avgDay = Math.max(1, Math.round((p.avgConsume || 0) / 20));
+    return (avgDay > 0 ? Math.round(qty / avgDay) : 999) <= 7;
+  });
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Solicitação de Reposição — ${sc.name}</div>
+      <div class="page-subtitle">Pedidos de abastecimento enviados à Cooperativa via SAGED</div>
+    </div>
+
+    ${criticalProducts.length > 0 ? `
+    <div class="card mb-16" style="border-left:4px solid var(--warning)">
+      <div class="card-header"><div class="card-title">⚡ Sugestão de Pedido — Produtos Críticos</div></div>
+      <div class="card-body">
+        <p style="margin:0 0 12px;font-size:0.88rem;color:var(--text-secondary)">Os seguintes produtos estão com estoque baixo. Inclua no pedido:</p>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+          ${criticalProducts.map(p => `<span class="status-badge status-warning">${p.name}</span>`).join('')}
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="window._dirPedido=true;renderPage()">🛒 Criar Pedido com Esses Itens</button>
+      </div>
+    </div>` : ''}
+
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">📋 Novo Pedido de Reposição</div></div>
+      <div class="card-body">
+        <div class="form-group">
+          <label>Escola</label>
+          <input type="text" class="form-control" value="${sc.name}" readonly style="background:var(--surface-2)">
+        </div>
+        <div class="form-group">
+          <label>Cooperativa</label>
+          <select class="form-control" id="dir-pedido-coop">
+            ${DATA.cooperatives.map(c => `<option value="${c.name}">${c.name}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Observações / Urgência</label>
+          <textarea class="form-control" id="dir-pedido-obs" rows="2" placeholder="Ex.: Pedido urgente — arroz em nível crítico"></textarea>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table" style="min-width:520px">
+            <thead><tr><th>Produto</th><th>Un.</th><th>Qtd. Sugerida</th><th style="text-align:center">Incluir?</th></tr></thead>
+            <tbody>
+              ${criticalProducts.slice(0, 8).map(p => `
+              <tr>
+                <td><strong>${p.name}</strong></td>
+                <td>${p.unit}</td>
+                <td><input type="number" class="form-control" style="width:100px;display:inline-block" value="${Math.round((p.avgConsume||0)/2)}" id="dir-qtd-${p.id}" min="1"></td>
+                <td style="text-align:center"><input type="checkbox" checked id="dir-chk-${p.id}"></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="dirSubmitPedido('${sc.name}')">✅ Enviar Pedido</button>
+          <button class="btn btn-outline" onclick="navigateTo('diretor','dashboard')">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><div class="card-title">📋 Histórico de Pedidos</div><span class="status-badge status-info">${orders.length}</span></div>
+      <div class="card-body" style="padding:0">
+        ${orders.length > 0 ? `
+        <table class="data-table">
+          <thead><tr><th>Data</th><th>Cooperativa</th><th>Valor Estimado</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${orders.slice().reverse().map(o => `
+              <tr>
+                <td>${new Date(o.date).toLocaleDateString('pt-BR')}</td>
+                <td>${o.coop||'—'}</td>
+                <td>R$ ${(o.value||0).toLocaleString('pt-BR')}</td>
+                <td><span class="status-badge ${o.status==='Entregue'?'status-ok':o.status==='Pendente'?'status-warning':'status-info'}">${o.status}</span></td>
+                <td><button class="table-action" onclick="navigateTo('diretor','entregas')">Acompanhar</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>` : `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">Nenhum pedido registrado ainda</div></div>`}
+      </div>
+    </div>`;
+};
+
+window.dirSubmitPedido = (schoolName) => {
+  const coop = document.getElementById('dir-pedido-coop')?.value || 'COOPAGRAN';
+  const obs = document.getElementById('dir-pedido-obs')?.value || '';
+  const items = (DATA.products || []).filter(p => {
+    const chk = document.getElementById(`dir-chk-${p.id}`);
+    return chk && chk.checked;
+  }).map(p => {
+    const qtd = parseFloat(document.getElementById(`dir-qtd-${p.id}`)?.value || 0);
+    return { productId: p.id, name: p.name, qtd, unit: p.unit };
+  }).filter(i => i.qtd > 0);
+
+  const value = items.reduce((s, i) => {
+    const pr = (DATA.products || []).find(p => p.id === i.productId);
+    return s + i.qtd * (pr ? (pr.avgPrice || 5) : 5);
+  }, 0);
+
+  SharedState.addOrder({
+    school: schoolName, date: new Date().toISOString().split('T')[0],
+    status: 'Pendente', coop, obs, items,
+    value: Math.round(value || items.length * 500),
+    solicitante: PROFILES.diretor.name,
+  });
+  showToast('✅ Pedido enviado com sucesso!');
+  navigateTo('diretor', 'pedidos');
+};
+
+PAGE_RENDERERS.diretor_entregas = PAGE_RENDERERS.escola_entregas;
+PAGE_RENDERERS.diretor_consumo  = PAGE_RENDERERS.escola_consumo;
+PAGE_RENDERERS.diretor_cardapios = PAGE_RENDERERS.escola_cardapios;
+PAGE_RENDERERS.diretor_historico = PAGE_RENDERERS.escola_historico;
+PAGE_RENDERERS.diretor_relatorios = PAGE_RENDERERS.escola_relatorios;
+
+// ============================================================
+// ─── RESP_ESTOQUE: RENDERERS ─────────────────────────────────
+// ============================================================
+
+PAGE_RENDERERS.resp_estoque_dashboard = (el) => {
+  const sc = getCurrentSchool();
+  const products = DATA.products || [];
+  const localStock = SharedState.getSchoolStock(sc.name);
+  const rows = products.map(p => {
+    const local = localStock.find(l => l.produto === p.name);
+    const qty = local ? local.qtd : Math.round((p.stock || 0) / 20);
+    const avgDay = Math.max(1, Math.round((p.avgConsume || 0) / 20));
+    const daysLeft = avgDay > 0 ? Math.round(qty / avgDay) : 999;
+    return { ...p, qty, daysLeft, isReal: !!local };
+  });
+  const critical = rows.filter(r => r.daysLeft <= 3).length;
+  const warning = rows.filter(r => r.daysLeft > 3 && r.daysLeft <= 7).length;
+  const ok = rows.length - critical - warning;
+  const movs = SharedState.getStockAdjust().filter(a => a.escola === sc.name).slice(0, 6);
+  const deliveries = SharedState.getDeliveries().filter(d => d.school === sc.name && d.status !== 'Confirmada');
+  const consumo = SharedState.getConsumo(sc.name).slice(-5).reverse();
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">Dashboard de Estoque — ${sc.name}</div>
+        <div class="page-subtitle">Responsável: ${sc.respEstoque ? sc.respEstoque.name : '—'} · ${sc.region}</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="navigateTo('resp_estoque','consumo')">📝 Lançar Consumo</button>
+        <button class="btn btn-outline btn-sm" onclick="navigateTo('resp_estoque','entradas')">📥 Confirmar Entrega</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${ok}</div><div class="kpi-label">Produtos OK</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⚡</div><div class="kpi-value">${warning}</div><div class="kpi-label">Em Atenção</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${critical}</div><div class="kpi-label">Estoque Crítico</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${movs.length}</div><div class="kpi-label">Movimentações Recentes</div></div>
+    </div>
+
+    <div class="grid-2-1">
+      <div style="display:flex;flex-direction:column;gap:16px">
+
+        ${deliveries.length > 0 ? `
+        <div class="card" style="border-left:4px solid var(--primary)">
+          <div class="card-header"><div class="card-title">🚚 Entregas Aguardando Confirmação</div><span class="status-badge status-info">${deliveries.length}</span></div>
+          <div class="card-body">
+            ${deliveries.map(d => `
+              <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+                <div>
+                  <div style="font-weight:600">${d.escola || d.school || sc.name}</div>
+                  <div style="font-size:0.8rem;color:var(--text-secondary)">${d.data ? new Date(d.data).toLocaleDateString('pt-BR') : '—'}</div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="navigateTo('resp_estoque','entradas')">Confirmar →</button>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">📦 Posição de Estoque</div><button class="btn btn-ghost btn-sm" onclick="navigateTo('resp_estoque','inventario')">Ver tudo →</button></div>
+          <div class="card-body" style="padding:0">
+            <table class="data-table">
+              <thead><tr><th>Produto</th><th style="text-align:right">Qtd</th><th>Un.</th><th>Dias</th><th>Status</th></tr></thead>
+              <tbody>
+                ${rows.slice(0, 8).map(r => {
+                  const [cls, label] = r.daysLeft<=3 ? ['status-danger','Crítico'] : r.daysLeft<=7 ? ['status-warning','Atenção'] : ['status-ok','OK'];
+                  return `<tr>
+                    <td><strong>${r.name}</strong>${r.isReal ? ' <span class="tag tag-blue" style="font-size:0.65rem">REAL</span>' : ''}</td>
+                    <td style="text-align:right;font-family:var(--font-mono)">${r.qty}</td>
+                    <td>${r.unit||'kg'}</td>
+                    <td style="font-weight:700;color:${r.daysLeft<=3?'var(--danger)':r.daysLeft<=7?'var(--warning)':'var(--success)'}">${r.daysLeft}d</td>
+                    <td><span class="status-badge ${cls}">${label}</span></td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        ${consumo.length > 0 ? `
+        <div class="card">
+          <div class="card-header"><div class="card-title">📝 Últimos Lançamentos de Consumo</div></div>
+          <div class="card-body" style="padding:0">
+            <table class="data-table">
+              <thead><tr><th>Data</th><th>Produto</th><th>Refeição</th><th>Qtd</th></tr></thead>
+              <tbody>
+                ${consumo.map(c => `<tr>
+                  <td>${new Date(c.data).toLocaleDateString('pt-BR')}</td>
+                  <td>${c.produto}</td>
+                  <td>${c.refeicao||'—'}</td>
+                  <td style="font-family:var(--font-mono)">-${c.qtd} ${c.unidade||'kg'}</td>
+                </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>` : ''}
+
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📋 Movimentações de Hoje</div></div>
+          <div class="card-body" style="padding:0">
+            ${movs.length > 0 ? movs.map(a => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--border)">
+                <div>
+                  <div style="font-weight:600;font-size:0.88rem">${a.produto}</div>
+                  <div style="font-size:0.76rem;color:var(--text-secondary)">${a.motivo}</div>
+                </div>
+                <span style="font-family:var(--font-mono);font-weight:700;color:${a.delta>0?'var(--success)':'var(--danger)'}">${a.delta>0?'+':''}${a.delta} ${a.unidade||'kg'}</span>
+              </div>`).join('') :
+              `<div class="empty-state" style="padding:24px"><div class="empty-text">Nenhuma movimentação</div></div>`}
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">⚡ Ações Rápidas</div></div>
+          <div class="card-body" style="display:grid;grid-template-columns:1fr;gap:8px">
+            <button class="btn btn-primary" onclick="navigateTo('resp_estoque','consumo')">📝 Lançar Consumo Diário</button>
+            <button class="btn btn-outline" onclick="navigateTo('resp_estoque','entradas')">📥 Confirmar Entrega</button>
+            <button class="btn btn-outline" onclick="navigateTo('resp_estoque','inventario')">🏢 Inventário Completo</button>
+            <button class="btn btn-outline" onclick="navigateTo('resp_estoque','validades')">📅 Controle de Validades</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+};
+
+PAGE_RENDERERS.resp_estoque_inventario = (el) => {
+  const sc = getCurrentSchool();
+  const products = DATA.products || [];
+  const localStock = SharedState.getSchoolStock(sc.name);
+  const rows = products.map(p => {
+    const local = localStock.find(l => l.produto === p.name);
+    const qty = local ? local.qtd : Math.round((p.stock || 0) / 20);
+    const avgDay = Math.max(1, Math.round((p.avgConsume || 0) / 20));
+    return { ...p, qty, daysLeft: avgDay > 0 ? Math.round(qty / avgDay) : 999, isReal: !!local };
+  });
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Inventário Físico — ${sc.name}</div>
+      <div class="page-subtitle">Contagem de todos os itens no estoque da escola</div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📦 Inventário Completo</div>
+        <div style="display:flex;gap:8px">
+          <span class="status-badge status-ok">${rows.filter(r=>r.daysLeft>7).length} OK</span>
+          <span class="status-badge status-warning">${rows.filter(r=>r.daysLeft>3&&r.daysLeft<=7).length} Atenção</span>
+          <span class="status-badge status-danger">${rows.filter(r=>r.daysLeft<=3).length} Crítico</span>
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Produto</th><th>Categoria</th><th style="text-align:right">Qtd. Atual</th><th>Un.</th><th>Consumo/Dia</th><th style="text-align:right">Dias</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${rows.map(r => {
+              const avgDay = Math.max(1, Math.round((r.avgConsume || 0) / 20));
+              const [cls, label] = r.daysLeft<=3 ? ['status-danger','Crítico'] : r.daysLeft<=7 ? ['status-warning','Atenção'] : ['status-ok','Normal'];
+              return `<tr>
+                <td><strong>${r.name}</strong>${r.isReal ? ' <span class="tag tag-blue" style="font-size:0.65rem">REAL</span>' : ''}</td>
+                <td><span class="status-badge status-info" style="font-size:0.72rem">${r.category||'—'}</span></td>
+                <td style="text-align:right;font-family:var(--font-mono);font-weight:700">${r.qty.toLocaleString('pt-BR')}</td>
+                <td>${r.unit||'kg'}</td>
+                <td style="font-size:0.82rem">${avgDay} ${r.unit||'kg'}/dia</td>
+                <td style="text-align:right;font-weight:700;color:${r.daysLeft<=3?'var(--danger)':r.daysLeft<=7?'var(--warning)':'var(--success)'}">${r.daysLeft}d</td>
+                <td><span class="status-badge ${cls}">${label}</span></td>
+                <td><button class="table-action" onclick="respAjusteEstoque('${r.name}','${r.unit||'kg'}',${r.qty})">Ajustar</button></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+window.respAjusteEstoque = (produto, unidade, atual) => {
+  showModal('Ajuste de Estoque — ' + produto, `
+    <div class="form-group">
+      <label>Qtd. Atual no Sistema</label>
+      <input type="number" class="form-control" value="${atual}" readonly style="background:var(--surface-2)">
+    </div>
+    <div class="form-group">
+      <label>Qtd. Real Contada</label>
+      <input type="number" class="form-control" id="ajuste-qtd" value="${atual}" min="0">
+    </div>
+    <div class="form-group">
+      <label>Motivo do Ajuste</label>
+      <select class="form-control" id="ajuste-motivo">
+        <option>Inventário físico</option><option>Perda/Avaria</option><option>Vencimento</option><option>Sobra de produção</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-primary" onclick="respConfirmarAjuste('${produto}','${unidade}',${atual})">Confirmar Ajuste</button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>`);
+};
+
+window.respConfirmarAjuste = (produto, unidade, atual) => {
+  const nova = parseFloat(document.getElementById('ajuste-qtd')?.value || atual);
+  const motivo = document.getElementById('ajuste-motivo')?.value || 'Inventário físico';
+  const sc = getCurrentSchool();
+  const delta = nova - atual;
+  if (delta !== 0) {
+    SharedState._data.stockAdjust.push({ id: Date.now(), escola: sc.name, produto, delta: Math.round(delta), unidade, motivo, criadoEm: new Date().toISOString() });
+    if (!SharedState._data.schoolStocks[sc.name]) SharedState._data.schoolStocks[sc.name] = {};
+    if (!SharedState._data.schoolStocks[sc.name][produto]) SharedState._data.schoolStocks[sc.name][produto] = { qtd: nova, unidade };
+    else SharedState._data.schoolStocks[sc.name][produto].qtd = nova;
+    SharedState._persist();
+    SharedState._notify();
+  }
+  closeModal();
+  showToast('✅ Estoque ajustado: ' + produto);
+  renderPage();
+};
+
+PAGE_RENDERERS.resp_estoque_entradas = (el) => {
+  const sc = getCurrentSchool();
+  const orders = SharedState.getOrders().filter(o => o.school === sc.name && (o.status === 'Em transporte' || o.status === 'Em separação'));
+  const deliveries = SharedState.getDeliveries().filter(d => d.school === sc.name && d.status === 'Confirmada').slice(-5).reverse();
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Confirmar Entregas — ${sc.name}</div>
+      <div class="page-subtitle">Recebimento de mercadorias e atualização automática do estoque</div>
+    </div>
+
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">🚚 Entregas Aguardando Confirmação</div><span class="status-badge status-info">${orders.length}</span></div>
+      <div class="card-body">
+        ${orders.length > 0 ? orders.map(o => `
+          <div class="card mb-8" style="border:1px solid var(--border);box-shadow:none">
+            <div class="card-body">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                <div>
+                  <div style="font-weight:700;font-size:1rem">Pedido #${o.id} — ${o.coop||'Cooperativa'}</div>
+                  <div style="font-size:0.82rem;color:var(--text-secondary)">Data pedido: ${new Date(o.date).toLocaleDateString('pt-BR')} · Status: <strong>${o.status}</strong></div>
+                </div>
+                <span class="status-badge status-warning">${o.status}</span>
+              </div>
+              <div style="margin:12px 0">
+                <div class="form-group" style="margin:0">
+                  <label style="font-size:0.82rem">Nome do Recebedor</label>
+                  <input type="text" class="form-control" id="recv-${o.id}" value="${sc.respEstoque ? sc.respEstoque.name : ''}" placeholder="Quem está recebendo?">
+                </div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn btn-primary btn-sm" onclick="respConfirmarEntrega('${o.id}')">✅ Confirmar Recebimento</button>
+                <button class="btn btn-outline btn-sm" onclick="respReportarDivergencia('${o.id}')">⚠️ Divergência</button>
+              </div>
+            </div>
+          </div>`).join('') :
+          `<div class="empty-state"><div class="empty-icon">🚚</div><div class="empty-text">Nenhuma entrega aguardando confirmação</div></div>`}
+      </div>
+    </div>
+
+    ${deliveries.length > 0 ? `
+    <div class="card">
+      <div class="card-header"><div class="card-title">✅ Entregas Confirmadas Recentemente</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Data</th><th>Pedido</th><th>Recebido por</th><th>Status</th></tr></thead>
+          <tbody>
+            ${deliveries.map(d => `<tr>
+              <td>${d.data ? new Date(d.data).toLocaleDateString('pt-BR') : '—'}</td>
+              <td>#${d.orderId || '—'}</td>
+              <td>${d.receiver || '—'}</td>
+              <td><span class="status-badge status-ok">Confirmada</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}`;
+};
+
+window.respConfirmarEntrega = (orderId) => {
+  const sc = getCurrentSchool();
+  const recv = document.getElementById(`recv-${orderId}`)?.value || (sc.respEstoque ? sc.respEstoque.name : 'Responsável');
+  SharedState.confirmDelivery(orderId, recv, 'REC-' + Date.now());
+  showToast('✅ Entrega confirmada! Estoque atualizado automaticamente.');
+  renderPage();
+};
+
+window.respReportarDivergencia = (orderId) => {
+  showModal('Registrar Divergência', `
+    <div class="form-group"><label>Descrição da Divergência</label>
+      <textarea class="form-control" id="div-desc" rows="3" placeholder="Ex.: Quantidade recebida diferente do pedido, produto avariado..."></textarea>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn btn-primary" onclick="
+        const sc = getCurrentSchool();
+        SharedState.addIncident({ escola: sc.name, descricao: document.getElementById('div-desc').value, tipo: 'Divergência de entrega', status: 'Aberta', criadoEm: new Date().toISOString() });
+        closeModal(); showToast('⚠️ Divergência registrada.'); renderPage();">
+        Registrar
+      </button>
+      <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+    </div>`);
+};
+
+PAGE_RENDERERS.resp_estoque_consumo = PAGE_RENDERERS.escola_consumo;
+PAGE_RENDERERS.resp_estoque_pedidos = PAGE_RENDERERS.escola_pedidos;
+
+PAGE_RENDERERS.resp_estoque_validades = (el) => {
+  const sc = getCurrentSchool();
+  const nfs = SharedState.getNFs();
+  const hoje = new Date();
+  const validades = nfs.map(nf => {
+    const dias = nf.validade ? Math.round((new Date(nf.validade) - hoje) / 86400000) : 999;
+    return { ...nf, diasVencimento: dias };
+  }).sort((a, b) => a.diasVencimento - b.diasVencimento);
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Controle de Validades — ${sc.name}</div>
+      <div class="page-subtitle">Monitoramento de lotes por data de vencimento (FEFO)</div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${validades.filter(v=>v.diasVencimento<=7).length}</div><div class="kpi-label">Vencendo em 7 dias</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⚡</div><div class="kpi-value">${validades.filter(v=>v.diasVencimento>7&&v.diasVencimento<=30).length}</div><div class="kpi-label">Vencendo em 30 dias</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${validades.filter(v=>v.diasVencimento>30).length}</div><div class="kpi-label">Dentro do prazo</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">📅 Lotes por Validade</div></div>
+      <div class="card-body" style="padding:0">
+        ${validades.length > 0 ? `
+        <table class="data-table">
+          <thead><tr><th>Lote</th><th>NF</th><th>Qtd</th><th>Validade</th><th>Dias Restantes</th><th>Status</th></tr></thead>
+          <tbody>
+            ${validades.map(v => {
+              const [cls, label] = v.diasVencimento<=7 ? ['status-danger','Crítico'] : v.diasVencimento<=30 ? ['status-warning','Atenção'] : ['status-ok','OK'];
+              return `<tr>
+                <td><strong>${v.lote||'—'}</strong></td>
+                <td>${v.numero||'—'}</td>
+                <td style="font-family:var(--font-mono)">${v.qtd||0}</td>
+                <td>${v.validade ? new Date(v.validade).toLocaleDateString('pt-BR') : '—'}</td>
+                <td style="font-weight:700;color:${v.diasVencimento<=7?'var(--danger)':v.diasVencimento<=30?'var(--warning)':'var(--success)'}">${v.diasVencimento}d</td>
+                <td><span class="status-badge ${cls}">${label}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>` :
+        `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">Nenhum lote cadastrado ainda — confirme uma entrega para gerar lotes.</div></div>`}
+      </div>
+    </div>`;
+};
+
+PAGE_RENDERERS.resp_estoque_relatorios = (el) => {
+  const sc = getCurrentSchool();
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Relatórios — ${sc.name}</div>
+      <div class="page-subtitle">Relatórios de estoque, consumo e movimentações desta unidade</div>
+    </div>
+    <div class="grid-2-1">
+      ${[
+        { icon: '📦', title: 'Posição de Estoque', desc: 'Inventário atual com quantidades e dias restantes', key: 'escola' },
+        { icon: '📝', title: 'Registro de Consumo', desc: 'Lançamentos de consumo por data e refeição', key: 'consumo' },
+        { icon: '🚚', title: 'Histórico de Entregas', desc: 'Entregas confirmadas e datas', key: 'entregas' },
+        { icon: '📋', title: 'Movimentações de Estoque', desc: 'Todas as entradas e saídas com auditoria', key: 'stockAdjust' },
+      ].map(r => `
+        <div class="card">
+          <div class="card-body" style="display:flex;align-items:flex-start;gap:12px">
+            <div style="font-size:2rem">${r.icon}</div>
+            <div style="flex:1">
+              <div style="font-weight:700;margin-bottom:4px">${r.title}</div>
+              <div style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:12px">${r.desc}</div>
+              <button class="btn btn-primary btn-sm" onclick="exportRelatorio('${r.key}')">⬇️ Exportar CSV</button>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+};
+
 // ─── GENERIC CRUD SCREEN HELPER ───
 function renderCrudScreen(title, subtitle, headers, rows) {
   return `
@@ -6577,11 +7396,24 @@ function renderGenericPage(el) {
 // EVENT LISTENERS
 // ============================
 document.addEventListener('DOMContentLoaded', () => {
+  const SCHOOL_PROFILES = ['escola', 'diretor', 'resp_estoque'];
+
   // Profile selector
   $$('.profile-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       $$('.profile-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      const profile = btn.dataset.profile;
+      const picker = $('#school-picker-row');
+      if (picker) {
+        picker.style.display = SCHOOL_PROFILES.includes(profile) ? 'block' : 'none';
+        const lbl = $('#school-picker-label');
+        if (lbl) {
+          if (profile === 'diretor') lbl.textContent = 'Escola (Diretor)';
+          else if (profile === 'resp_estoque') lbl.textContent = 'Escola (Resp. Estoque)';
+          else lbl.textContent = 'Selecionar Escola';
+        }
+      }
     });
   });
 
@@ -6590,7 +7422,12 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     const activeProfile = $('.profile-btn.active');
     const profile = activeProfile ? activeProfile.dataset.profile : 'gestor';
-    await login(profile);
+    let schoolId = null;
+    if (SCHOOL_PROFILES.includes(profile)) {
+      const sel = $('#school-picker-select');
+      if (sel && sel.value) schoolId = parseInt(sel.value, 10);
+    }
+    await login(profile, schoolId);
   });
 
   // Logout
