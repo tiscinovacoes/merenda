@@ -302,7 +302,21 @@ let state = {
   currentPage: 'dashboard',
   charts: {},
   sidebarCollapsed: false,
+  pilotoAtivo: (() => { try { return localStorage.getItem('saged_piloto_v1') === '1'; } catch { return false; } })(),
 };
+
+window.togglePilotoMode = () => {
+  state.pilotoAtivo = !state.pilotoAtivo;
+  try { localStorage.setItem('saged_piloto_v1', state.pilotoAtivo ? '1' : '0'); } catch {}
+  applyPiloto();
+  showToast(state.pilotoAtivo ? '🎯 Modo Piloto ativado: 8 escolas.' : '🌐 Modo completo: ' + (window._DATA_SCHOOLS_FULL||[]).length + ' escolas.');
+  renderPage();
+};
+
+function applyPiloto() {
+  if (!window._DATA_SCHOOLS_FULL) window._DATA_SCHOOLS_FULL = DATA.schools.slice();
+  DATA.schools = state.pilotoAtivo ? window._DATA_SCHOOLS_FULL.slice(0, 8) : window._DATA_SCHOOLS_FULL.slice();
+}
 
 // ============================
 // SHARED STATE
@@ -488,6 +502,28 @@ const SharedState = {
     this._persist(); this._emit('order:add');
     return o;
   },
+  // Atribui itens do pedido aos agricultores conforme produção disponível
+  distributeOrderToFarmers(orderId) {
+    const o = this._data.orders.find(x => x.id === orderId);
+    if (!o) return null;
+    const producoes = this._data.productions || [];
+    const distribuicao = [];
+    (o.itens || []).forEach(item => {
+      // Prioriza agricultor com maior disponibilidade do produto
+      const cand = producoes.filter(p => (p.produto || '').toLowerCase().includes((item.produto || '').toLowerCase().split(' ')[0]))
+                            .sort((a, b) => (b.disponivel || 0) - (a.disponivel || 0));
+      if (cand.length > 0) {
+        distribuicao.push({ agricultor: cand[0].agricultor, produto: item.produto, qtd: item.qtd, unidade: item.unidade });
+      } else {
+        // fallback: primeiro agricultor da cooperativa
+        distribuicao.push({ agricultor: 'A definir', produto: item.produto, qtd: item.qtd, unidade: item.unidade });
+      }
+    });
+    o.distribuicao = distribuicao;
+    this._persist(); this._emit('order:distribute');
+    return distribuicao;
+  },
+
   updateOrderStatus(orderId, status, extra) {
     const o = this._data.orders.find(x => x.id === orderId);
     if (!o) return null;
@@ -722,6 +758,7 @@ async function login(profile) {
     updateDbStatusBadge();
   }
 
+  applyPiloto();
   renderPage();
 }
 
@@ -902,8 +939,11 @@ PAGE_RENDERERS.gestor_dashboard = (el) => {
 
   el.innerHTML = `
     <div class="page-header">
-      <div class="page-title">Dashboard Executivo</div>
-      <div class="page-subtitle">Visão geral da alimentação escolar do município · Atualizado em ${new Date().toLocaleDateString('pt-BR')}</div>
+      <div>
+        <div class="page-title">Dashboard Executivo</div>
+        <div class="page-subtitle">Visão geral da alimentação escolar · Atualizado em ${new Date().toLocaleDateString('pt-BR')}${state.pilotoAtivo ? ' · <span class="tag tag-blue" style="font-size:0.7rem">🎯 MODO PILOTO (8 escolas)</span>' : ''}</div>
+      </div>
+      <button class="btn btn-sm ${state.pilotoAtivo ? 'btn-outline' : 'btn-primary'}" onclick="togglePilotoMode()" style="margin-left:auto">${state.pilotoAtivo ? 'Sair do Piloto' : '🎯 Ativar Modo Piloto (8)'}</button>
     </div>
 
     <div class="kpi-grid">
@@ -1804,23 +1844,24 @@ PAGE_RENDERERS.gestor_planejamento = (el) => {
 
 // ─── GESTOR: RELATÓRIOS ───
 PAGE_RENDERERS.gestor_relatorios = (el) => {
+  const relatorios = [
+    { icon: '📊', title: 'Produtos Mais Consumidos', desc: 'Ranking de consumo por produto', key: 'produtos_consumo' },
+    { icon: '🏫', title: 'Consumo por Escola', desc: 'Detalhamento por unidade', key: 'consumo_escola' },
+    { icon: '🚚', title: 'Entregas Realizadas', desc: 'Histórico de entregas do SharedState', key: 'entregas' },
+    { icon: '📋', title: 'Execução de Empenhos', desc: 'Saldo consumido por empenho', key: 'empenhos' },
+    { icon: '💼', title: 'NFs Recebidas', desc: 'Notas fiscais registradas', key: 'nfs' },
+    { icon: '🌾', title: 'Produção Agrícola Familiar', desc: 'Produção declarada dos agricultores', key: 'producoes' },
+  ];
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Relatórios Gerenciais</div><div class="page-subtitle">Relatórios consolidados para gestão executiva</div></div>
+    <div class="page-header"><div class="page-title">Relatórios Gerenciais</div><div class="page-subtitle">Exportação em CSV dos dados consolidados do sistema</div></div>
     <div class="grid-3">
-      ${[
-        { icon: '📊', title: 'Produtos Mais Consumidos', desc: 'Ranking de consumo por produto e período' },
-        { icon: '🏫', title: 'Consumo por Escola', desc: 'Detalhamento por unidade escolar' },
-        { icon: '🗺️', title: 'Consumo por Região', desc: 'Análise regional de consumo' },
-        { icon: '🚚', title: 'Entregas Realizadas', desc: 'Histórico de entregas e performance' },
-        { icon: '📋', title: 'Execução das Atas', desc: 'Acompanhamento financeiro dos contratos' },
-        { icon: '🌾', title: 'Agricultura Familiar', desc: 'Participação e indicadores da AF' },
-      ].map(r => `
-        <div class="card" style="cursor:pointer">
+      ${relatorios.map(r => `
+        <div class="card">
           <div class="card-body" style="text-align:center;padding:30px">
             <div style="font-size:2.5rem;margin-bottom:12px">${r.icon}</div>
             <div style="font-weight:700;font-size:0.95rem;margin-bottom:6px">${r.title}</div>
-            <div style="font-size:0.82rem;color:var(--text-secondary)">${r.desc}</div>
-            <button class="btn btn-outline btn-sm" style="margin-top:14px">Gerar Relatório</button>
+            <div style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:14px">${r.desc}</div>
+            <button class="btn btn-primary btn-sm" onclick="exportRelatorio('${r.key}')">📥 Exportar CSV</button>
           </div>
         </div>
       `).join('')}
@@ -1828,16 +1869,108 @@ PAGE_RENDERERS.gestor_relatorios = (el) => {
   `;
 };
 
+window.exportRelatorio = (key) => {
+  let rows = [];
+  let headers = [];
+  let fname = 'relatorio.csv';
+
+  switch (key) {
+    case 'produtos_consumo': {
+      const acc = {};
+      SharedState.getConsumo().forEach(c => { acc[c.produto] = (acc[c.produto] || 0) + (c.qtd || 0); });
+      headers = ['Produto', 'Qtd Total', 'Unidade'];
+      rows = Object.entries(acc).sort((a,b) => b[1]-a[1]).map(([p, q]) => [p, q, 'kg/L']);
+      fname = 'produtos_consumidos.csv';
+      break;
+    }
+    case 'consumo_escola': {
+      const acc = {};
+      SharedState.getConsumo().forEach(c => { acc[c.escola] = acc[c.escola] || { qtd:0, n:0 }; acc[c.escola].qtd += (c.qtd||0); acc[c.escola].n++; });
+      headers = ['Escola', 'Qtd Total', 'Nº Registros'];
+      rows = Object.entries(acc).sort((a,b) => b[1].qtd - a[1].qtd).map(([e, d]) => [e, d.qtd, d.n]);
+      fname = 'consumo_por_escola.csv';
+      break;
+    }
+    case 'entregas': {
+      headers = ['Pedido', 'Escola', 'Cooperativa', 'Status', 'Recebido por', 'Data Confirmação'];
+      rows = SharedState.getDeliveries().map(d => [
+        '#' + String(d.orderNumero).padStart(3,'0'),
+        d.school || '', d.cooperative || '', d.status || '',
+        d.receiver || '', d.confirmadoEm ? new Date(d.confirmadoEm).toLocaleString('pt-BR') : '',
+      ]);
+      fname = 'entregas.csv';
+      break;
+    }
+    case 'empenhos': {
+      headers = ['Empenho', 'Ata', 'Produto', 'Qtd Total', 'Consumido', 'Saldo', 'Status'];
+      rows = SharedState.getEmpenhos().map(e => [
+        e.numero, e.ataNumero, e.produto,
+        e.qtdTotal, e.qtdConsumida || 0, (e.qtdTotal||0) - (e.qtdConsumida||0), e.status,
+      ]);
+      fname = 'empenhos.csv';
+      break;
+    }
+    case 'nfs': {
+      headers = ['NF', 'Empenho', 'Qtd', 'Valor', 'Data', 'Lote', 'Ateste'];
+      rows = SharedState.getNFs().map(n => [n.numero, n.empenhoNumero, n.qtd, n.valor, n.dataRec, n.lote, n.ateste]);
+      fname = 'nfs_recebidas.csv';
+      break;
+    }
+    case 'producoes': {
+      headers = ['Agricultor', 'Produto', 'Área (ha)', 'Prevista', 'Disponível', 'Status'];
+      rows = SharedState.getProductions().map(p => [p.agricultor, p.produto, p.area, p.previsto, p.disponivel, p.status]);
+      fname = 'producoes.csv';
+      break;
+    }
+  }
+
+  if (rows.length === 0) {
+    showToast('⚠️ Sem dados para exportar. Use o sistema para gerar registros.', 'error');
+    return;
+  }
+
+  const csv = [headers.join(',')].concat(rows.map(r => r.map(c => {
+    const v = String(c ?? '');
+    return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v.replace(/"/g,'""') + '"' : v;
+  }).join(','))).join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 ' + fname + ' baixado (' + rows.length + ' linhas).');
+};
+
 // ─── GESTOR: IA DE PREVISÃO ───
 PAGE_RENDERERS.gestor_ia = (el) => {
+  // 🔗 Alertas baseados em dados reais: DATA.products.daysLeft + pedidos SharedState + central stock
+  const criticos = DATA.products.filter(p => (p.daysLeft || 99) <= 5).sort((a,b) => (a.daysLeft||0) - (b.daysLeft||0));
+  const monitorar = DATA.products.filter(p => (p.daysLeft || 99) > 5 && (p.daysLeft || 99) <= 10);
+  const demandaPrevista30d = DATA.products.reduce((s, p) => s + (p.avgConsume || 0) * 30, 0);
+  const demandaPrevista90d = demandaPrevista30d * 3;
+  const pedidosPendentes = SharedState.getOrders().filter(o => o.status === 'Pendente').length;
+
+  const alerts = [
+    ...criticos.slice(0, 5).map(p => {
+      const emoji = p.daysLeft <= 2 ? '🔴' : p.daysLeft <= 4 ? '🟡' : '🟢';
+      return `<div class="ia-suggestion">${emoji} <strong>${p.name}</strong> esgota em <strong>${p.daysLeft} dia${p.daysLeft>1?'s':''}</strong> — ${p.daysLeft <= 2 ? '92' : p.daysLeft <= 4 ? '78' : '65'}% de probabilidade</div>`;
+    }),
+    ...monitorar.slice(0, 2).map(p => `<div class="ia-suggestion">🟢 <strong>${p.name}</strong> estoque em <strong>${p.daysLeft} dias</strong> — monitorar</div>`),
+  ].join('') || '<div class="ia-suggestion">✅ Sem alertas críticos no momento</div>';
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">🤖 Inteligência Artificial — Previsão de Demanda</div><div class="page-subtitle">Motor de IA para previsão, simulação e otimização do abastecimento escolar</div></div>
+    <div class="page-header"><div class="page-title">🤖 Inteligência Artificial — Previsão de Demanda</div><div class="page-subtitle">Motor de IA · Alertas calculados a partir do consumo diário real</div></div>
 
     <div class="kpi-grid">
-      <div class="kpi-card blue"><div class="kpi-icon">📊</div><div class="kpi-value">43.200</div><div class="kpi-label">Demanda Prevista 30 dias (kg)</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">📈</div><div class="kpi-value">128.500</div><div class="kpi-label">Demanda Prevista 90 dias (kg)</div></div>
-      <div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value">5</div><div class="kpi-label">Produtos Críticos</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">94%</div><div class="kpi-label">Acurácia do Modelo</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📊</div><div class="kpi-value">${(demandaPrevista30d/1000).toFixed(1)}k</div><div class="kpi-label">Demanda 30 dias (kg)</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">📈</div><div class="kpi-value">${(demandaPrevista90d/1000).toFixed(1)}k</div><div class="kpi-label">Demanda 90 dias (kg)</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value">${criticos.length}</div><div class="kpi-label">Produtos Críticos (≤5d)</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🛒</div><div class="kpi-value">${pedidosPendentes}</div><div class="kpi-label">Pedidos Pendentes</div></div>
     </div>
 
     <div class="grid-2-1 mb-24">
@@ -1846,12 +1979,8 @@ PAGE_RENDERERS.gestor_ia = (el) => {
         <div class="card-body"><div class="chart-container h-300"><canvas id="chart-ia-projecao"></canvas></div></div>
       </div>
       <div class="ia-card">
-        <div class="ia-card-title">🧠 Alertas Preditivos</div>
-        <div class="ia-suggestion">🔴 <strong>Alface Crespa</strong> esgota em <strong>2 dias</strong> — 87% de probabilidade</div>
-        <div class="ia-suggestion">🔴 <strong>Banana Nanica</strong> esgota em <strong>3 dias</strong> — 92% de probabilidade</div>
-        <div class="ia-suggestion">🟡 <strong>Melancia</strong> esgota em <strong>4 dias</strong> — 78% de probabilidade</div>
-        <div class="ia-suggestion">🟡 <strong>Tomate</strong> abaixo do ideal em <strong>5 dias</strong> — 71% de probabilidade</div>
-        <div class="ia-suggestion">🟢 <strong>Batata Doce</strong> estoque em <strong>7 dias</strong> — monitorar</div>
+        <div class="ia-card-title">🧠 Alertas Preditivos (Real)</div>
+        ${alerts}
       </div>
     </div>
 
@@ -2063,9 +2192,22 @@ function _renderFichaCard(f) {
   `;
 }
 
+// Fonte única de fichas técnicas: mescla _FICHAS_DEMO + localStorage + SharedState (dedup por id/nome)
+function mergeFichas() {
+  const legacy = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
+  const shared = SharedState.getFichas ? SharedState.getFichas() : [];
+  const all = [..._FICHAS_DEMO, ...legacy, ...shared];
+  const seen = new Set();
+  return all.filter(f => {
+    const k = (f.id || f.nome || '').toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
 PAGE_RENDERERS.nutricionista_fichas = (el) => {
-  const fichasSalvas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
-  const todas = [..._FICHAS_DEMO, ...fichasSalvas];
+  const todas = mergeFichas();
 
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Fichas Técnicas de Preparação</div><div class="page-subtitle">Gestão de receitas, ingredientes e cálculo nutricional (Padrão FNDE/PNAE)</div></div>
@@ -3248,7 +3390,7 @@ window.showMenuPlanner = (preselectRecipeId) => {
     <div class="page-header"><div class="page-title">Planejador Semanal de Cardápio</div><div class="page-subtitle">Monte as refeições diárias e verifique o valor nutricional acumulado</div></div>
     
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Período do Cardápio</div></div>
+      <div class="card-header"><div class="card-title">Período e Escopo</div></div>
       <div class="card-body">
         <div class="grid-3" style="align-items:end">
           <div class="form-group">
@@ -3261,9 +3403,29 @@ window.showMenuPlanner = (preselectRecipeId) => {
           </div>
           <button class="btn btn-primary" onclick="generatePlannerDays()">Gerar Dias</button>
         </div>
+        <div style="margin-top:14px">
+          <label style="font-weight:600;font-size:0.9rem;display:block;margin-bottom:6px">Escolas Vinculadas</label>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="radio" name="planner-escopo" value="rede" id="planner-escopo-rede" checked onchange="togglePlannerEscolas()">
+              <span>Toda a rede (${(DATA.schools||[]).length} escolas)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="radio" name="planner-escopo" value="lista" onchange="togglePlannerEscolas()">
+              <span>Escolas específicas</span>
+            </label>
+          </div>
+          <div id="planner-escolas-list" style="display:none;padding:10px;border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto">
+            ${(DATA.schools||[]).map(s => `
+              <label style="display:block;padding:4px 0;font-size:0.85rem;cursor:pointer">
+                <input type="checkbox" class="planner-escola-chk" value="${s.name.replace(/"/g,'&quot;')}" style="margin-right:6px">${s.name} <span style="color:var(--text-tertiary);font-size:0.78rem">· ${s.region}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
       </div>
     </div>
-    
+
     <div class="card mb-24">
       <div class="card-header"><div class="card-title">Elaboração do Menu</div></div>
       <div class="card-body">
@@ -3286,6 +3448,12 @@ window.showMenuPlanner = (preselectRecipeId) => {
     </div>
   `;
   setTimeout(() => window.generatePlannerDays(), 50);
+};
+
+window.togglePlannerEscolas = () => {
+  const isLista = document.getElementById('planner-escopo-rede') && !document.getElementById('planner-escopo-rede').checked;
+  const box = document.getElementById('planner-escolas-list');
+  if (box) box.style.display = isLista ? 'block' : 'none';
 };
 
 window.calculatePlannerKcal = () => {
@@ -3325,11 +3493,40 @@ window.saveWeeklyMenu = () => {
   const totalSchools = (DATA.schools||[]).length || 183;
   const prof = PROFILES[state.currentProfile] || {};
 
+  // Coleta escolas vinculadas
+  const escopoRede = document.getElementById('planner-escopo-rede')?.checked !== false;
+  let escolasVinculadas = [];
+  let escolaLabel = 'Toda a Rede';
+  if (escopoRede) {
+    escolasVinculadas = (DATA.schools || []).map(s => s.name);
+  } else {
+    escolasVinculadas = Array.from(document.querySelectorAll('.planner-escola-chk:checked')).map(c => c.value);
+    if (escolasVinculadas.length === 0) return alert('Marque ao menos uma escola ou selecione "Toda a rede".');
+    escolaLabel = escolasVinculadas.length + ' escola(s)';
+  }
+
+  // Coleta refeições dia a dia
+  const refeicoes = [];
+  document.querySelectorAll('.planner-day-block').forEach(block => {
+    const dia = block.dataset.date;
+    block.querySelectorAll('.planner-select-kcal').forEach(sel => {
+      const id = sel.id || '';
+      let tipo = 'Almoço';
+      if (id.includes('bkf') || id.includes('breakfast')) tipo = 'Café da Manhã';
+      else if (id.includes('snk') || id.includes('snack')) tipo = 'Lanche';
+      else if (id.includes('lun') || id.includes('lunch')) tipo = 'Almoço';
+      const itemText = sel.options[sel.selectedIndex]?.text || '';
+      const kcal = parseInt(sel.value) || 0;
+      if (itemText && !itemText.startsWith('Selecione')) refeicoes.push({ dia, tipo, item: itemText, kcal });
+    });
+  });
+
   // Grava no SharedState (visível em todos os perfis)
   SharedState.addMenu({
     nome: name,
     periodo: `${d1} a ${d2}`,
-    escolas: totalSchools,
+    escolas: escolasVinculadas.length,
+    escolasVinculadas,
     status: 'Publicado',
     tipo: 'Semanal',
     autor: prof.name || 'Dra. Camila Andrade',
@@ -3338,17 +3535,19 @@ window.saveWeeklyMenu = () => {
     nome: name,
     periodo: `${d1} a ${d2}`,
     semana: `${d1} a ${d2}`,
-    escola: 'Toda a Rede',
+    escola: escolaLabel,
+    escolasVinculadas,
+    refeicoes,
     kcalMedia,
     autor: prof.name || 'Dra. Camila Andrade',
   });
 
   // Mantém compatibilidade com localStorage legado
   const novosCardapios = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
-  novosCardapios.unshift({ nome: name, periodo: `${d1} a ${d2}`, status: 'Publicado', escolas: 'Todas', statusCls: 'status-ok' });
+  novosCardapios.unshift({ nome: name, periodo: `${d1} a ${d2}`, status: 'Publicado', escolas: escolaLabel, statusCls: 'status-ok' });
   localStorage.setItem('cardapios_publicados', JSON.stringify(novosCardapios));
 
-  showToast('✅ Cardápio publicado! Já visível para as ' + totalSchools + ' escolas e para o Gestor.');
+  showToast('✅ Cardápio publicado! Já visível para ' + escolaLabel + ' e para o Gestor.');
   const container = document.getElementById('page-content');
   PAGE_RENDERERS.nutricionista_cardapios(container);
 };
@@ -3385,53 +3584,70 @@ PAGE_RENDERERS.nutricionista_planejamento = (el) => {
     header.insertAdjacentHTML('afterend', `<div style="background:var(--warning-light);border:1px solid var(--warning);padding:12px;border-radius:var(--radius-md);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;"><div><strong>⚠️ Área em Validação:</strong> Esta tela de planejamento está em fase de testes e co-criação com a equipe de nutrição.</div><button class="btn btn-primary btn-sm" onclick="alert('Formulário de feedback da Nutricionista aberto!')">Dar Feedback</button></div>`);
   }
 };
-PAGE_RENDERERS.nutricionista_escolas = (el) => { PAGE_RENDERERS.gestor_escolas(el); };
+// Nutricionista tem visão consultiva das escolas (sem edição)
+PAGE_RENDERERS.nutricionista_escolas = (el) => {
+  PAGE_RENDERERS.gestor_escolas(el);
+  const header = el.querySelector('.page-header');
+  if (header) {
+    header.insertAdjacentHTML('afterend', '<div style="background:var(--surface-2);border-left:4px solid var(--primary);padding:12px;border-radius:0 8px 8px 0;margin-bottom:16px;font-size:0.85rem"><strong>ℹ️ Modo consulta:</strong> Nutricionista tem acesso somente-leitura às escolas para elaborar cardápios e planejamento nutricional.</div>');
+  }
+  // Remove qualquer botão de ação/edição
+  el.querySelectorAll('button.table-action, .btn-primary').forEach(b => {
+    if (b.textContent.includes('Editar') || b.textContent.includes('Novo') || b.textContent.includes('Excluir')) b.remove();
+  });
+};
 
-// Painel de escolas compartilhado: escola vê todas da rede (para referência),
-// cooperativa vê pontos de entrega, almoxarifado vê destinos, motorista vê sua rota
+// Escola vê apenas a sua própria unidade em foco (drill-down local)
 PAGE_RENDERERS.escola_escolas = (el) => {
-  const schools = DATA.schools || [];
+  const sc = getCurrentSchool();
+  const localStock = SharedState.getSchoolStock(sc.name);
+  const consumo = SharedState.getConsumo(sc.name).slice(0, 8);
+  const pedidos = SharedState.getOrders().filter(o => o.school === sc.name);
+
   el.innerHTML = `
     <div class="page-header">
-      <div class="page-title">Escolas da Rede Municipal</div>
-      <div class="page-subtitle">${schools.length} unidades — consulte contatos e situação de abastecimento</div>
+      <div class="page-title">Minha Escola — ${sc.name}</div>
+      <div class="page-subtitle">Visão consolidada da unidade · ${sc.region} · Diretor(a): ${sc.director}</div>
     </div>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Listagem de Escolas</div>
-        <div class="filter-bar" style="margin:0">
-          <select id="filter-region-e" onchange="window._filterEscolasTable('filter-region-e','filter-status-e','table-escolas-e')">
-            <option value="">Todas as Regiões</option>
-            ${[...new Set(schools.map(s=>s.region))].sort().map(r=>`<option>${r}</option>`).join('')}
-          </select>
-          <select id="filter-status-e" onchange="window._filterEscolasTable('filter-region-e','filter-status-e','table-escolas-e')">
-            <option value="">Todos os Status</option>
-            <option value="ok">Abastecida</option><option value="warning">Atenção</option><option value="danger">Risco</option>
-          </select>
+
+    <div class="grid-2 mb-24">
+      <div class="card">
+        <div class="card-header"><div class="card-title">📇 Dados da Unidade</div></div>
+        <div class="card-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;font-size:0.9rem">
+            <div><strong>Nome:</strong><br>${sc.name}</div>
+            <div><strong>Região:</strong><br>${sc.region}</div>
+            <div><strong>Modalidade:</strong><br>${sc.modality || 'Escolar Urbana (Regular)'}</div>
+            <div><strong>Diretor(a):</strong><br>${sc.director}</div>
+            <div><strong>Alunos:</strong><br>${(sc.students || 0).toLocaleString('pt-BR')}</div>
+            <div><strong>Frequência Média:</strong><br>${sc.attendance_avg || 0} (${sc.attendance_pct || 0}%)</div>
+            <div><strong>Refeições/Dia:</strong><br>${sc.meals_per_day || 2}</div>
+            <div><strong>Orçamento Mensal:</strong><br>${formatCurrency(sc.monthly_budget || 0)}</div>
+            <div><strong>Última Entrega:</strong><br>${sc.lastDelivery ? formatDate(sc.lastDelivery) : '—'}</div>
+            <div><strong>Estoque Atual:</strong><br><span class="status-badge ${statusClass(sc.stockStatus)}">${statusLabel(sc.stockStatus)}</span></div>
+          </div>
         </div>
       </div>
-      <div class="card-body">
-        <div class="table-wrapper">
-          <table class="data-table" id="table-escolas-e">
-            <thead><tr><th>Escola</th><th>Região</th><th>Modalidade</th><th>Diretor(a)</th><th>Alunos</th><th>Estoque</th><th>Status</th><th>Última Entrega</th></tr></thead>
-            <tbody>
-              ${schools.map(s => `
-              <tr>
-                <td><strong>${s.name}</strong></td>
-                <td><span class="tag tag-blue">${s.region}</span></td>
-                <td><span class="tag tag-teal" style="font-size:0.7rem">${s.modality || 'Escolar Urbana'}</span></td>
-                <td>${s.director}</td>
-                <td style="font-family:var(--font-mono)">${s.students}</td>
-                <td><div style="display:flex;align-items:center;gap:8px">
-                  <div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
-                  <span style="font-family:var(--font-mono);font-size:0.78rem">${s.stockPct}%</span>
-                </div></td>
-                <td><span class="status-badge ${statusClass(s.stockStatus)}">${statusLabel(s.stockStatus)}</span></td>
-                <td style="font-size:0.82rem">${s.lastDelivery ? formatDate(s.lastDelivery) : '—'}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
+      <div class="card">
+        <div class="card-header"><div class="card-title">📊 Indicadores em Tempo Real</div></div>
+        <div class="card-body">
+          <div class="kpi-grid" style="grid-template-columns:1fr 1fr;gap:12px">
+            <div class="kpi-card blue" style="padding:12px"><div class="kpi-icon">📦</div><div class="kpi-value" style="font-size:1.4rem">${localStock.length}</div><div class="kpi-label">Produtos em Estoque</div></div>
+            <div class="kpi-card green" style="padding:12px"><div class="kpi-icon">📝</div><div class="kpi-value" style="font-size:1.4rem">${SharedState.getConsumo(sc.name).length}</div><div class="kpi-label">Consumos Registrados</div></div>
+            <div class="kpi-card orange" style="padding:12px"><div class="kpi-icon">🛒</div><div class="kpi-value" style="font-size:1.4rem">${pedidos.length}</div><div class="kpi-label">Pedidos Totais</div></div>
+            <div class="kpi-card teal" style="padding:12px"><div class="kpi-icon">🚚</div><div class="kpi-value" style="font-size:1.4rem">${pedidos.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregas Recebidas</div></div>
+          </div>
         </div>
+      </div>
+    </div>
+
+    <div class="card mb-16">
+      <div class="card-header"><div class="card-title">🚀 Acesso Rápido</div></div>
+      <div class="card-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <button class="btn btn-outline" onclick="navigateTo('escola','estoque')">📦 Ver Estoque Detalhado</button>
+        <button class="btn btn-outline" onclick="navigateTo('escola','consumo')">📝 Registrar Consumo</button>
+        <button class="btn btn-outline" onclick="navigateTo('escola','pedidos')">🛒 Solicitar Pedido</button>
+        <button class="btn btn-outline" onclick="navigateTo('escola','entregas')">🚚 Confirmar Entregas</button>
       </div>
     </div>
   `;
@@ -3488,33 +3704,40 @@ PAGE_RENDERERS.agricultor_escolas = (el) => { PAGE_RENDERERS.cooperativa_escolas
 PAGE_RENDERERS.motorista_escolas = (el) => {
   const schools = DATA.schools || [];
   const hoje = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
+  // Filtra escolas apenas dos pedidos em transporte
+  const inTransit = SharedState.getOrders().filter(o => o.status === 'Em transporte');
+  const rotaNomes = new Set(inTransit.map(o => o.school));
+  const escolasRota = schools.filter(s => rotaNomes.has(s.name));
+  const escolasParaMostrar = escolasRota.length > 0 ? escolasRota : schools.slice(0, 3); // fallback: 3 primeiras
+
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Escolas da Rota</div>
-      <div class="page-subtitle">Destinos de entrega · ${hoje}</div>
+      <div class="page-subtitle">Destinos das entregas em transporte · ${hoje}</div>
     </div>
     <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px">
-      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${schools.length}</div><div class="kpi-label">Total de Escolas</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${schools.filter(s=>s.stockStatus!=='ok').length}</div><div class="kpi-label">Aguardam Entrega</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${schools.filter(s=>s.stockStatus==='ok').length}</div><div class="kpi-label">Abastecidas</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${escolasParaMostrar.length}</div><div class="kpi-label">Escolas na Rota</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${inTransit.length}</div><div class="kpi-label">Pedidos em Transporte</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${SharedState.getOrders().filter(o => o.status === 'Entregue').length}</div><div class="kpi-label">Entregues Hoje</div></div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-title">Lista de Escolas para Entrega</div></div>
+      <div class="card-header"><div class="card-title">${escolasRota.length > 0 ? 'Escolas da Rota Ativa' : 'Sem pedidos ativos — exibindo referência'}</div></div>
       <div class="card-body">
         <div style="display:flex;flex-direction:column;gap:10px">
-          ${schools.sort((a,b) => (a.stockStatus==='danger'?0:a.stockStatus==='warning'?1:2) - (b.stockStatus==='danger'?0:b.stockStatus==='warning'?1:2)).map((s,i) => `
+          ${escolasParaMostrar.map((s,i) => {
+            const pedidoDaEscola = inTransit.find(o => o.school === s.name);
+            return `
           <div style="display:flex;align-items:center;gap:14px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-1)">
             <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-100);color:var(--primary);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">${i+1}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-weight:600">${s.name}</div>
+              <div style="font-weight:600">${s.name} ${pedidoDaEscola ? '<span class="tag tag-blue" style="font-size:0.65rem">Pedido #' + String(pedidoDaEscola.numero).padStart(3,'0') + '</span>' : ''}</div>
               <div style="font-size:0.78rem;color:var(--text-secondary)">${s.region} · ${s.director} · ${s.students} alunos</div>
             </div>
             <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
-              <div class="progress-bar" style="width:60px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
-              <span style="font-size:0.78rem;font-family:var(--font-mono)">${s.stockPct}%</span>
-              <span class="status-badge ${statusClass(s.stockStatus)}" style="font-size:0.7rem">${statusLabel(s.stockStatus)}</span>
+              ${pedidoDaEscola ? `<button class="btn btn-sm btn-primary" onclick="selectDelivery('${pedidoDaEscola.id}');navigateTo('motorista','entregas')">Entregar</button>` : `<span class="status-badge ${statusClass(s.stockStatus)}" style="font-size:0.7rem">${statusLabel(s.stockStatus)}</span>`}
             </div>
-          </div>`).join('')}
+          </div>`;
+          }).join('')}
         </div>
       </div>
     </div>
@@ -3522,10 +3745,89 @@ PAGE_RENDERERS.motorista_escolas = (el) => {
 };
 
 PAGE_RENDERERS.nutricionista_consumo = (el) => {
+  // Consolida todos os registros de consumo do SharedState
+  const todos = SharedState.getConsumo();
+  const porProduto = {};
+  const porEscola = {};
+  todos.forEach(c => {
+    porProduto[c.produto] = (porProduto[c.produto] || 0) + (c.qtd || 0);
+    porEscola[c.escola] = (porEscola[c.escola] || 0) + (c.qtd || 0);
+  });
+  const rankProdutos = Object.entries(porProduto).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const rankEscolas = Object.entries(porEscola).sort((a,b) => b[1]-a[1]).slice(0, 10);
+  const totalKg = todos.reduce((s,c) => s + (c.qtd||0), 0);
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Monitoramento de Consumo</div><div class="page-subtitle">Comparativo entre consumo previsto e realizado</div></div>
-    <div style="background:var(--warning-light);border:1px solid var(--warning);padding:12px;border-radius:var(--radius-md);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;"><div><strong>⚠️ Área em Validação:</strong> O Controle de Consumo está em fase de testes e validação com a equipe técnica.</div><button class="btn btn-primary btn-sm" onclick="alert('Formulário de feedback da Nutricionista aberto!')">Dar Feedback</button></div>
-    <div class="card"><div class="card-header"><div class="card-title">📊 Comparativo por Produto</div></div><div class="card-body"><div class="chart-container h-300"><canvas id="chart-comparativo"></canvas></div></div></div>
+    <div class="page-header">
+      <div class="page-title">Monitoramento de Consumo</div>
+      <div class="page-subtitle">Consolidação em tempo real dos registros das escolas · Comparativo previsto vs realizado</div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="kpi-card blue"><div class="kpi-icon">📝</div><div class="kpi-value">${todos.length}</div><div class="kpi-label">Registros das Escolas</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">⚖️</div><div class="kpi-value">${totalKg.toLocaleString('pt-BR')}</div><div class="kpi-label">Total Consumido</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🏫</div><div class="kpi-value">${Object.keys(porEscola).length}</div><div class="kpi-label">Escolas Reportando</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">🥕</div><div class="kpi-value">${Object.keys(porProduto).length}</div><div class="kpi-label">Produtos Diferentes</div></div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header"><div class="card-title">🥇 Produtos Mais Consumidos (Real)</div></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table"><thead><tr><th>Produto</th><th>Total</th><th>%</th></tr></thead><tbody>
+            ${rankProdutos.map(([p, q]) => {
+              const pct = totalKg > 0 ? Math.round(q / totalKg * 100) : 0;
+              return `<tr>
+                <td><strong>${p}</strong></td>
+                <td style="font-family:var(--font-mono)">${q.toLocaleString('pt-BR')}</td>
+                <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="width:60px"><div class="progress-fill blue" style="width:${pct}%"></div></div><span style="font-family:var(--font-mono);font-size:0.78rem">${pct}%</span></div></td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-secondary)">Aguardando registros das escolas</td></tr>'}
+          </tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">🏫 Consumo por Escola</div></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table"><thead><tr><th>Escola</th><th>Total</th><th>Registros</th></tr></thead><tbody>
+            ${rankEscolas.map(([e, q]) => {
+              const n = todos.filter(c => c.escola === e).length;
+              return `<tr>
+                <td><strong>${e}</strong></td>
+                <td style="font-family:var(--font-mono)">${q.toLocaleString('pt-BR')}</td>
+                <td style="font-family:var(--font-mono)">${n}</td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-secondary)">—</td></tr>'}
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><div class="card-title">📋 Registros Recentes</div>${todos.length ? '<span class="status-badge status-ok">'+todos.length+'</span>' : ''}</div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Data</th><th>Escola</th><th>Refeição</th><th>Produto</th><th>Qtd</th><th>Responsável</th></tr></thead>
+          <tbody>
+            ${todos.slice(0, 15).map(c => `
+              <tr>
+                <td style="font-size:0.82rem">${c.data || (c.criadoEm||'').slice(0,10)}</td>
+                <td>${c.escola}</td>
+                <td>${c.refeicao || '—'}</td>
+                <td><strong>${c.produto}</strong></td>
+                <td style="font-family:var(--font-mono)">${c.qtd} ${c.unidade || ''}</td>
+                <td style="font-size:0.82rem">${c.responsavel || '—'}</td>
+              </tr>
+            `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum registro — aguardando escolas registrarem consumo em /consumo</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><div class="card-title">📊 Previsto vs Realizado (Referência mensal)</div></div>
+      <div class="card-body"><div class="chart-container h-300"><canvas id="chart-comparativo"></canvas></div></div>
+    </div>
   `;
   setTimeout(() => {
     createChart('chart-comparativo', {
@@ -3543,14 +3845,53 @@ PAGE_RENDERERS.nutricionista_consumo = (el) => {
 };
 
 PAGE_RENDERERS.nutricionista_desperdicios = (el) => {
+  // Estima desperdício por escola: total recebido (stockAdjust +) - total consumido = sobra estimada
+  const adj = SharedState.getStockAdjust();
+  const consumo = SharedState.getConsumo();
+  const perEsc = {};
+  adj.filter(a => a.delta > 0).forEach(a => {
+    perEsc[a.escola] = perEsc[a.escola] || { recebido: 0, consumido: 0 };
+    perEsc[a.escola].recebido += a.delta;
+  });
+  consumo.forEach(c => {
+    perEsc[c.escola] = perEsc[c.escola] || { recebido: 0, consumido: 0 };
+    perEsc[c.escola].consumido += c.qtd || 0;
+  });
+  const sobras = Object.entries(perEsc).map(([e, d]) => ({ escola: e, recebido: d.recebido, consumido: d.consumido, sobra: Math.max(0, d.recebido - d.consumido) }));
+  const totalSobra = sobras.reduce((s, x) => s + x.sobra, 0);
+  const totalRec = sobras.reduce((s, x) => s + x.recebido, 0);
+  const pctReal = totalRec > 0 ? Math.round(totalSobra / totalRec * 1000) / 10 : 0;
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Desperdícios</div><div class="page-subtitle">Monitoramento e controle de sobras e desperdício de alimentos</div></div>
-    
+    <div class="page-header"><div class="page-title">Gestão de Desperdícios</div><div class="page-subtitle">Monitoramento e controle de sobras · Cálculo real: recebido - consumido por escola</div></div>
+
     <div class="kpi-grid">
-      <div class="kpi-card red"><div class="kpi-icon">🗑️</div><div class="kpi-value" id="waste-total-pct">3,7%</div><div class="kpi-label">Índice Geral</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value" id="waste-total-kg">1.598</div><div class="kpi-label">kg Desperdiçados/Mês</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">📉</div><div class="kpi-value">-0,5%</div><div class="kpi-label">vs Mês Anterior</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🗑️</div><div class="kpi-value" id="waste-total-pct">${pctReal || '3,7'}%</div><div class="kpi-label">Índice ${pctReal ? 'Real' : 'Estimado'}</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value" id="waste-total-kg">${totalSobra ? totalSobra.toLocaleString('pt-BR') : '1.598'}</div><div class="kpi-label">kg Sobrando</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">📉</div><div class="kpi-value">${sobras.length}</div><div class="kpi-label">Escolas c/ Registro</div></div>
     </div>
+
+    ${sobras.length > 0 ? `
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">🏫 Balanço por Escola (Recebido vs Consumido)</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Escola</th><th>Recebido</th><th>Consumido</th><th>Sobra</th><th>% Sobra</th></tr></thead>
+          <tbody>
+            ${sobras.sort((a,b)=>b.sobra-a.sobra).map(x => {
+              const pct = x.recebido > 0 ? Math.round(x.sobra / x.recebido * 100) : 0;
+              return `<tr>
+                <td><strong>${x.escola}</strong></td>
+                <td style="font-family:var(--font-mono)">${x.recebido.toLocaleString('pt-BR')}</td>
+                <td style="font-family:var(--font-mono);color:var(--success)">${x.consumido.toLocaleString('pt-BR')}</td>
+                <td style="font-family:var(--font-mono);color:${x.sobra > 0 ? 'var(--warning)' : 'var(--text-secondary)'}">${x.sobra.toLocaleString('pt-BR')}</td>
+                <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="width:60px"><div class="progress-fill ${pct>20?'red':pct>10?'orange':'green'}" style="width:${pct}%"></div></div><span style="font-family:var(--font-mono);font-size:0.78rem">${pct}%</span></div></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
 
     <div class="grid-2 mb-24">
       <div class="card">
@@ -3939,38 +4280,54 @@ window.runPnaeSimulation = (event) => {
 PAGE_RENDERERS.nutricionista_relatorios = (el) => { PAGE_RENDERERS.gestor_relatorios(el); };
 
 PAGE_RENDERERS.nutricionista_ia = (el) => {
+  // Sugestões dinâmicas: produção AF em alta + produtos críticos
+  const producoes = SharedState.getProductions();
+  const produtosAFAltaOferta = producoes.filter(p => (p.disponivel || 0) > 500).slice(0, 3);
+  const criticos = DATA.products.filter(p => (p.daysLeft || 99) <= 5).slice(0, 3);
+
+  const sugestoes = [
+    ...produtosAFAltaOferta.map(p => ({
+      titulo: '🌾 Aproveitar Produção Local de ' + p.produto,
+      desc: `${p.agricultor} tem ${p.disponivel} kg de ${p.produto} disponíveis. Considere incorporar no cardápio da semana.`,
+      benef: '✓ Fortalece agricultura familiar / ✓ Preço competitivo / ✓ Frescor garantido',
+    })),
+    ...criticos.map(p => ({
+      titulo: '🔄 Substituir ' + p.name + ' (estoque crítico)',
+      desc: `${p.name} tem apenas ${p.daysLeft} dias de estoque. Sugestão: substituir por produto com maior disponibilidade nas próximas refeições.`,
+      benef: '✓ Evita ruptura no cardápio / ✓ Reduz dependência de reposição urgente',
+    })),
+    { titulo: '🌾 Integração de Tubérculos Familiares', desc: 'Aumentar Mandioca cozida (2x/semana) reduzindo 10g de arroz por porção.', benef: '✓ +12% fibras / ✓ Absorve excedente da AF' },
+  ].slice(0, 6);
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">IA Nutricional — Assistente Preditivo</div><div class="page-subtitle">Análise de carências nutricionais e otimização por IA</div></div>
-    
+    <div class="page-header"><div class="page-title">IA Nutricional — Assistente Preditivo</div><div class="page-subtitle">Sugestões baseadas em produção real dos agricultores + estoque crítico</div></div>
+
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">🤖 Sugestões do Assistente de IA</div></div>
+      <div class="card-header"><div class="card-title">🤖 Sugestões do Assistente de IA</div><span class="status-badge status-info">${sugestoes.length}</span></div>
       <div class="card-body">
         <div style="display:flex;flex-direction:column;gap:16px">
-          <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:1rem;color:var(--primary)">🔄 Substituição Estratégica de Safra</div>
-              <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">Substituir Melancia por Manga Tommy no cardápio de lanche. A Manga Tommy está com alta oferta de produtores da COOPAGRAN este mês.</div>
-              <div style="font-size:0.8rem;color:var(--success);margin-top:6px;font-weight:600">✓ Redução de 18% no custo global / ✓ Fortalece a agricultura familiar local</div>
+          ${sugestoes.map((s, i) => `
+            <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px">
+              <div style="flex:1">
+                <div style="font-weight:700;font-size:1rem;color:var(--primary)">${s.titulo}</div>
+                <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">${s.desc}</div>
+                <div style="font-size:0.8rem;color:var(--success);margin-top:6px;font-weight:600">${s.benef}</div>
+              </div>
+              <div>
+                <button class="btn btn-primary btn-sm" id="btn-ia-${i}" onclick="applyIaSuggestion(${i})">Aplicar</button>
+              </div>
             </div>
-            <div>
-              <button class="btn btn-primary btn-sm" id="btn-ia-apply-crop" onclick="applyIaCropSuggestion()">Aplicar no Cardápio</button>
-            </div>
-          </div>
-
-          <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px">
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:1rem;color:var(--primary)">🌾 Integração de Tubérculos Familiares</div>
-              <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">Aumentar a porção de Mandioca cozida nas refeições escolares, reduzindo 10g da porção de arroz.</div>
-              <div style="font-size:0.8rem;color:var(--success);margin-top:6px;font-weight:600">✓ Aumenta consumo de fibras em 12% / ✓ Absorve o excedente de produção local</div>
-            </div>
-            <div>
-              <button class="btn btn-primary btn-sm" id="btn-ia-apply-fiber" onclick="applyIaFiberSuggestion()">Aplicar no Cardápio</button>
-            </div>
-          </div>
+          `).join('')}
         </div>
       </div>
     </div>
   `;
+};
+
+window.applyIaSuggestion = (i) => {
+  const btn = document.getElementById('btn-ia-' + i);
+  if (btn) { btn.textContent = '✓ Aplicado'; btn.className = 'btn btn-sm btn-outline'; btn.disabled = true; }
+  showToast('✅ Sugestão da IA registrada. Considere no próximo cardápio.');
 };
 
 window.applyIaCropSuggestion = () => {
@@ -4112,20 +4469,25 @@ PAGE_RENDERERS.escola_dashboard = (el) => {
 // ─── ESCOLA: PLANEJAMENTO ───
 PAGE_RENDERERS.escola_planejamento = (el) => {
   const sc = getCurrentSchool();
-  const lanche = ['Vitamina de Banana','Pão c/ Manteiga','Mingau de Aveia','Vitamina de Banana','Pão c/ Queijo'];
-  const almoco = ['Arroz, Feijão, Frango Grelhado','Macarrão c/ Carne Moída','Arroz, Feijão, Peixe Assado','Arroz, Feijão, Ovo Cozido','Sopa de Legumes c/ Frango'];
   const dias = ['Seg','Ter','Qua','Qui','Sex'];
-  const weeklyPublicados = SharedState.getWeeklyMenus();
-  const menus = SharedState.getMenus().filter(m => m.status === 'Publicado');
+  const allWeekly = SharedState.getWeeklyMenus();
+  // Filtra cardápios vinculados a esta escola (ou "Toda a Rede")
+  const weeklyPublicados = allWeekly.filter(w => !w.escolasVinculadas || w.escolasVinculadas.length === 0 || w.escolasVinculadas.includes(sc.name));
+  const cardapioAtivo = weeklyPublicados[0]; // Mais recente
+
+  // Calcula necessidade semanal a partir do cardápio ativo, se houver
+  const alunos = sc.attendance_avg || 572;
+  const necessidade = computeSchoolNecessity(cardapioAtivo, alunos);
+
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Planejamento Alimentar — ${sc.name}</div>
-      <div class="page-subtitle">Cardápio semanal aprovado pelo Nutricionista — Junho 2026</div>
+      <div class="page-subtitle">${cardapioAtivo ? 'Cardápio ativo: ' + (cardapioAtivo.nome || 'Semanal') : 'Cardápio semanal aprovado pelo Nutricionista'}</div>
     </div>
 
     ${weeklyPublicados.length > 0 ? `
     <div class="card mb-16" style="border-left:4px solid var(--primary)">
-      <div class="card-header"><div class="card-title">🆕 Cardápios Semanais Recentes da Nutricionista</div><span class="status-badge status-ok">${weeklyPublicados.length}</span></div>
+      <div class="card-header"><div class="card-title">🆕 Cardápios Vinculados a esta Escola</div><span class="status-badge status-ok">${weeklyPublicados.length}</span></div>
       <div class="card-body" style="padding:0">
         <table class="data-table"><thead><tr><th>Cardápio</th><th>Período</th><th>Autor</th><th>Publicado em</th><th>Kcal/Dia</th></tr></thead><tbody>
           ${weeklyPublicados.slice(0, 5).map(w => `
@@ -4140,43 +4502,125 @@ PAGE_RENDERERS.escola_planejamento = (el) => {
         </tbody></table>
       </div>
     </div>` : ''}
+
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-      <div class="kpi-card blue"><div class="kpi-icon">👨‍🎓</div><div class="kpi-value">${sc.attendance_avg||572}</div><div class="kpi-label">Alunos p/ Refeição</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">👨‍🎓</div><div class="kpi-value">${alunos}</div><div class="kpi-label">Alunos p/ Refeição</div></div>
       <div class="kpi-card green"><div class="kpi-icon">🍽️</div><div class="kpi-value">${sc.meals_per_day||2}</div><div class="kpi-label">Refeições/Dia</div></div>
       <div class="kpi-card orange"><div class="kpi-icon">📅</div><div class="kpi-value">5</div><div class="kpi-label">Dias Letivos/Sem.</div></div>
       <div class="kpi-card teal"><div class="kpi-icon">💰</div><div class="kpi-value">R$ 1,06</div><div class="kpi-label">Per Capita/Refeição</div></div>
     </div>
+
+    ${cardapioAtivo && cardapioAtivo.refeicoes && cardapioAtivo.refeicoes.length > 0 ? `
     <div class="card">
-      <div class="card-header"><div class="card-title">📅 Cardápio — Semana 23–27/Jun</div><span class="status-badge status-ok">✓ Aprovado</span></div>
+      <div class="card-header"><div class="card-title">📅 Cardápio Ativo — ${cardapioAtivo.periodo}</div><span class="status-badge status-ok">✓ Publicado</span></div>
+      <div class="card-body" style="padding:0;overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Dia</th><th>Café da Manhã</th><th>Almoço</th><th>Lanche</th><th>Total Kcal</th></tr></thead>
+          <tbody>
+            ${renderMenuByDay(cardapioAtivo.refeicoes)}
+          </tbody>
+        </table>
+      </div>
+    </div>` : `
+    <div class="card">
+      <div class="card-header"><div class="card-title">📅 Cardápio — Semana Padrão</div><span class="status-badge status-info">Modelo Referência</span></div>
       <div class="card-body" style="padding:0;overflow-x:auto">
         <table class="data-table">
           <thead><tr><th style="width:130px">Refeição</th>${dias.map(d=>`<th style="text-align:center">${d}</th>`).join('')}</tr></thead>
           <tbody>
-            <tr>
-              <td><strong>☀️ Lanche</strong><div style="font-size:0.75rem;color:var(--text-secondary)">09h30</div></td>
-              ${lanche.map(m=>`<td style="text-align:center;font-size:0.82rem;padding:12px 8px">${m}</td>`).join('')}
-            </tr>
-            <tr>
-              <td><strong>🍽️ Almoço</strong><div style="font-size:0.75rem;color:var(--text-secondary)">11h30</div></td>
-              ${almoco.map(m=>`<td style="text-align:center;font-size:0.82rem;padding:12px 8px">${m}</td>`).join('')}
-            </tr>
+            <tr><td><strong>☀️ Lanche</strong></td>${['Vitamina de Banana','Pão c/ Manteiga','Mingau de Aveia','Vitamina de Banana','Pão c/ Queijo'].map(m=>`<td style="text-align:center;font-size:0.82rem">${m}</td>`).join('')}</tr>
+            <tr><td><strong>🍽️ Almoço</strong></td>${['Arroz, Feijão, Frango','Macarrão c/ Carne','Arroz, Feijão, Peixe','Arroz, Feijão, Ovo','Sopa de Legumes'].map(m=>`<td style="text-align:center;font-size:0.82rem">${m}</td>`).join('')}</tr>
           </tbody>
         </table>
       </div>
-    </div>
+    </div>`}
+
     <div class="card" style="margin-top:16px">
-      <div class="card-header"><div class="card-title">📦 Necessidade Semanal</div></div>
+      <div class="card-header">
+        <div class="card-title">📦 Necessidade Semanal ${cardapioAtivo ? '(calculada do cardápio ativo)' : '(estimada)'}</div>
+        ${cardapioAtivo ? '<span class="status-badge status-ok">Automático</span>' : ''}
+      </div>
       <div class="card-body">
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
-          ${[['Arroz Tipo 1','210 kg'],['Feijão Carioca','90 kg'],['Frango','175 kg'],['Banana Nanica','125 kg'],['Leite Integral','240 L'],['Tomate','60 kg'],['Cenoura','75 kg'],['Mandioca','80 kg']].map(([n,q])=>`
+          ${necessidade.map(n => `
             <div style="background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px">
-              <div style="font-weight:600;font-size:0.85rem">${n}</div>
-              <div style="font-size:1.3rem;font-weight:700;color:var(--primary);margin-top:4px">${q}</div>
+              <div style="font-weight:600;font-size:0.85rem">${n.produto}</div>
+              <div style="font-size:1.3rem;font-weight:700;color:var(--primary);margin-top:4px">${n.qtd} ${n.unidade}</div>
+              <div style="font-size:0.72rem;color:var(--text-tertiary);margin-top:4px">${n.motivo}</div>
             </div>`).join('')}
         </div>
       </div>
     </div>`;
 };
+
+// Helpers do cardápio semanal
+function renderMenuByDay(refeicoes) {
+  // Agrupa por dia
+  const byDia = {};
+  refeicoes.forEach(r => {
+    byDia[r.dia] = byDia[r.dia] || { 'Café da Manhã':'', 'Almoço':'', 'Lanche':'', kcal: 0 };
+    byDia[r.dia][r.tipo] = r.item;
+    byDia[r.dia].kcal += r.kcal || 0;
+  });
+  return Object.keys(byDia).map(d => `
+    <tr>
+      <td><strong>${d}</strong></td>
+      <td style="font-size:0.82rem">${byDia[d]['Café da Manhã'] || '—'}</td>
+      <td style="font-size:0.82rem">${byDia[d]['Almoço'] || '—'}</td>
+      <td style="font-size:0.82rem">${byDia[d]['Lanche'] || '—'}</td>
+      <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${byDia[d].kcal} kcal</td>
+    </tr>
+  `).join('');
+}
+
+function computeSchoolNecessity(cardapio, alunos) {
+  // Se não tem cardápio, fallback estimado
+  if (!cardapio || !cardapio.refeicoes || cardapio.refeicoes.length === 0) {
+    return [
+      { produto: 'Arroz Tipo 1', qtd: Math.round(alunos * 0.12 * 5), unidade: 'kg', motivo: 'Estimado (média histórica)' },
+      { produto: 'Feijão Carioca', qtd: Math.round(alunos * 0.05 * 5), unidade: 'kg', motivo: 'Estimado' },
+      { produto: 'Frango', qtd: Math.round(alunos * 0.10 * 3), unidade: 'kg', motivo: 'Estimado' },
+      { produto: 'Banana Nanica', qtd: Math.round(alunos * 0.07 * 5), unidade: 'kg', motivo: 'Estimado' },
+      { produto: 'Leite Integral', qtd: Math.round(alunos * 0.15 * 5), unidade: 'L', motivo: 'Estimado' },
+      { produto: 'Tomate', qtd: Math.round(alunos * 0.03 * 5), unidade: 'kg', motivo: 'Estimado' },
+      { produto: 'Cenoura', qtd: Math.round(alunos * 0.04 * 5), unidade: 'kg', motivo: 'Estimado' },
+      { produto: 'Mandioca', qtd: Math.round(alunos * 0.05 * 5), unidade: 'kg', motivo: 'Estimado' },
+    ];
+  }
+  // Calcula a partir das refeições — extrai ingredientes por palavras-chave
+  const INGRED_MAP = {
+    'arroz': { produto: 'Arroz Tipo 1', porPessoa: 0.08, unidade: 'kg' },
+    'feijão': { produto: 'Feijão Carioca', porPessoa: 0.04, unidade: 'kg' },
+    'feijao': { produto: 'Feijão Carioca', porPessoa: 0.04, unidade: 'kg' },
+    'frango': { produto: 'Frango', porPessoa: 0.10, unidade: 'kg' },
+    'peixe': { produto: 'Peixe', porPessoa: 0.10, unidade: 'kg' },
+    'ovo': { produto: 'Ovo de Galinha', porPessoa: 1, unidade: 'un' },
+    'banana': { produto: 'Banana Nanica', porPessoa: 0.10, unidade: 'kg' },
+    'leite': { produto: 'Leite Integral', porPessoa: 0.20, unidade: 'L' },
+    'pão': { produto: 'Pão', porPessoa: 0.08, unidade: 'kg' },
+    'pao': { produto: 'Pão', porPessoa: 0.08, unidade: 'kg' },
+    'aveia': { produto: 'Aveia', porPessoa: 0.03, unidade: 'kg' },
+    'queijo': { produto: 'Queijo', porPessoa: 0.03, unidade: 'kg' },
+    'carne': { produto: 'Carne Bovina', porPessoa: 0.10, unidade: 'kg' },
+    'macarrão': { produto: 'Macarrão', porPessoa: 0.08, unidade: 'kg' },
+    'macarrao': { produto: 'Macarrão', porPessoa: 0.08, unidade: 'kg' },
+    'tomate': { produto: 'Tomate', porPessoa: 0.04, unidade: 'kg' },
+    'cenoura': { produto: 'Cenoura', porPessoa: 0.03, unidade: 'kg' },
+    'alface': { produto: 'Alface', porPessoa: 0.05, unidade: 'kg' },
+  };
+  const acc = {};
+  cardapio.refeicoes.forEach(r => {
+    const text = (r.item || '').toLowerCase();
+    Object.entries(INGRED_MAP).forEach(([kw, info]) => {
+      if (text.includes(kw)) {
+        acc[info.produto] = acc[info.produto] || { produto: info.produto, qtd: 0, unidade: info.unidade, motivo: 'Cardápio: ' + (r.dia || '') };
+        acc[info.produto].qtd += info.porPessoa * alunos;
+      }
+    });
+  });
+  const list = Object.values(acc).map(x => ({ ...x, qtd: Math.round(x.qtd) })).filter(x => x.qtd > 0);
+  return list.length > 0 ? list.slice(0, 12) : computeSchoolNecessity(null, alunos);
+}
 
 PAGE_RENDERERS.escola_cardapios = (el) => { PAGE_RENDERERS.nutricionista_cardapios(el); };
 
@@ -4528,55 +4972,105 @@ PAGE_RENDERERS.escola_entregas = (el) => {
     <div class="card">
       <div class="card-header"><div class="card-title">📍 Timeline da Entrega em Andamento</div></div>
       <div class="card-body">
-        <div class="timeline">
-          <div class="timeline-item completed"><div class="timeline-dot"></div><div class="timeline-title">Pedido Solicitado</div><div class="timeline-desc">${sc.name} enviou pedido</div><div class="timeline-time">22/06/2026 — 09:15</div></div>
-          <div class="timeline-item completed"><div class="timeline-dot"></div><div class="timeline-title">Aceito pela Cooperativa</div><div class="timeline-desc">COOPAGRAN confirmou e iniciou separação</div><div class="timeline-time">22/06/2026 — 14:30</div></div>
-          <div class="timeline-item completed"><div class="timeline-dot"></div><div class="timeline-title">Em Separação</div><div class="timeline-desc">Produtos sendo separados pelos agricultores</div><div class="timeline-time">23/06/2026 — 08:00</div></div>
-          <div class="timeline-item active"><div class="timeline-dot"></div><div class="timeline-title">Em Transporte</div><div class="timeline-desc">Veículo saiu — ETA: amanhã até 10h</div><div class="timeline-time">24/06/2026 — 07:30</div></div>
-          <div class="timeline-item pending"><div class="timeline-dot"></div><div class="timeline-title">Aguardando Confirmação na Escola</div><div class="timeline-desc">Conferir itens e assinar recibo</div><div class="timeline-time">—</div></div>
-        </div>
+        ${renderDeliveryTimeline(sharedActive[0], sc)}
       </div>
     </div>`;
 };
 
+function renderDeliveryTimeline(order, sc) {
+  if (!order) {
+    return `<div style="color:var(--text-secondary);padding:16px;text-align:center">Nenhuma entrega em andamento no momento.</div>`;
+  }
+  const delivery = SharedState.getDeliveries().find(d => d.orderId === order.id);
+  const timeline = delivery?.timeline || [];
+  const stages = [
+    { key: 'Pendente',       label: 'Pedido Solicitado',       desc: sc.name + ' enviou pedido' },
+    { key: 'Em separação',   label: 'Em Separação (FIFO)',     desc: 'Estoque Central aplica FIFO nos lotes' },
+    { key: 'Em transporte',  label: 'Em Transporte',           desc: 'Motorista a caminho' },
+    { key: 'Entregue',       label: 'Confirmação da Escola',   desc: 'Conferir itens e assinar recibo' },
+  ];
+  const statusIdx = stages.findIndex(s => s.key === order.status);
+  return `
+    <div class="timeline">
+      ${stages.map((s, i) => {
+        const evento = timeline.find(t => (t.evento||'').includes(s.key));
+        const time = evento ? new Date(evento.at).toLocaleString('pt-BR') : (i <= statusIdx ? '✓' : '—');
+        const cls = i < statusIdx ? 'completed' : (i === statusIdx ? 'active' : 'pending');
+        return `<div class="timeline-item ${cls}">
+          <div class="timeline-dot"></div>
+          <div class="timeline-title">${s.label}</div>
+          <div class="timeline-desc">${s.desc}</div>
+          <div class="timeline-time">${time}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  `;
+}
+
 // ─── ESCOLA: HISTÓRICO ───
 PAGE_RENDERERS.escola_historico = (el) => {
   const sc = getCurrentSchool();
-  const orders = (typeof DATA !== 'undefined' && DATA.orders) ? DATA.orders : [];
+  // Unifica: pedidos + consumo + ajustes de estoque em ordem cronológica reversa
+  const eventos = [];
+  SharedState.getOrders().filter(o => o.school === sc.name).forEach(o => {
+    eventos.push({ tipo: 'Pedido', ref: '#' + String(o.numero).padStart(3,'0'), data: o.date, detalhes: (o.cooperative||'—') + ' — ' + ((o.itens||[]).length) + ' item(ns)', valor: 'R$ ' + (o.value||0).toLocaleString('pt-BR'), status: o.status, ts: new Date(o.date || Date.now()).getTime() });
+  });
+  SharedState.getConsumo(sc.name).forEach(c => {
+    eventos.push({ tipo: 'Consumo', ref: c.refeicao || '—', data: c.data || (c.criadoEm||'').slice(0,10), detalhes: c.produto + ' — ' + (c.responsavel || '—'), valor: c.qtd + ' ' + (c.unidade||''), status: 'Registrado', ts: new Date(c.criadoEm || Date.now()).getTime() });
+  });
+  SharedState.getStockAdjust().filter(a => a.escola === sc.name).forEach(a => {
+    if (a.delta > 0) eventos.push({ tipo: 'Entrada Estoque', ref: '', data: (a.criadoEm||'').slice(0,10), detalhes: a.produto + ' — ' + a.motivo, valor: '+' + a.delta + ' ' + (a.unidade||''), status: 'Efetivado', ts: new Date(a.criadoEm || Date.now()).getTime() });
+  });
+  eventos.sort((a,b) => b.ts - a.ts);
+  const total = eventos.length;
+
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Histórico — ${sc.name}</div>
-      <div class="page-subtitle">Consulta histórica de pedidos, consumo e entregas</div>
+      <div class="page-subtitle">Timeline unificada de pedidos, consumo e entregas · Fonte: SharedState</div>
     </div>
     <div class="card mb-16">
       <div class="card-header">
         <div class="card-title">Filtros</div>
         <div style="display:flex;gap:8px">
-          <select style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.82rem"><option>Todos os tipos</option><option>Pedido</option><option>Consumo</option><option>Entrega</option></select>
-          <input type="month" value="2026-06" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.82rem">
-          <button class="btn btn-primary btn-sm">🔍 Filtrar</button>
+          <select id="hist-tipo" onchange="_filterHist()" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.82rem">
+            <option value="">Todos os tipos</option><option>Pedido</option><option>Consumo</option><option>Entrada Estoque</option>
+          </select>
+          <input id="hist-search" placeholder="Buscar produto/detalhes..." oninput="_filterHist()" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.82rem">
         </div>
       </div>
     </div>
     <div class="card">
+      <div class="card-header"><div class="card-title">Eventos</div><span class="status-badge status-info">${total}</span></div>
       <div class="card-body" style="padding:0">
-        <table class="data-table">
+        <table class="data-table" id="hist-table">
           <thead><tr><th>Tipo</th><th>Ref.</th><th>Data</th><th>Detalhes</th><th>Valor/Qtd</th><th>Status</th></tr></thead>
           <tbody>
-            <tr><td><span class="status-badge status-info">Pedido</span></td><td>#003</td><td>24/06</td><td>COOPAGRAN — 5 produtos</td><td>R$ 8.500</td><td><span class="status-badge status-danger">Pendente</span></td></tr>
-            <tr><td><span class="status-badge status-warning">Consumo</span></td><td>Jun/2026</td><td>24/06</td><td>Almoço — ${sc.attendance_avg||572} alunos</td><td>95 kg</td><td><span class="status-badge status-ok">Registrado</span></td></tr>
-            <tr><td><span class="status-badge status-ok">Entrega</span></td><td>#002</td><td>20/06</td><td>COOPAGRAN — 8 produtos</td><td>R$ 8.200</td><td><span class="status-badge status-ok">Confirmada</span></td></tr>
-            ${orders.slice(0,5).map((o,i)=>`<tr>
-              <td><span class="status-badge status-info">Pedido</span></td>
-              <td>#${String(i+10).padStart(3,'0')}</td><td>${o.date||'—'}</td>
-              <td>${o.cooperative||'—'}</td>
-              <td>R$ ${(o.value||0).toLocaleString('pt-BR')}</td>
-              <td><span class="status-badge ${o.status==='Entregue'?'status-ok':o.status==='Pendente'?'status-danger':'status-warning'}">${o.status||'—'}</span></td>
-            </tr>`).join('')}
+            ${eventos.map(e => {
+              const cls = e.tipo === 'Pedido' ? 'status-info' : e.tipo === 'Consumo' ? 'status-warning' : 'status-ok';
+              return `<tr data-tipo="${e.tipo}" data-search="${(e.detalhes+' '+e.ref).toLowerCase()}">
+                <td><span class="status-badge ${cls}">${e.tipo}</span></td>
+                <td>${e.ref}</td>
+                <td style="font-size:0.82rem">${e.data || '—'}</td>
+                <td style="font-size:0.85rem">${e.detalhes}</td>
+                <td style="font-family:var(--font-mono)">${e.valor}</td>
+                <td><span class="status-badge ${e.status==='Entregue'||e.status==='Registrado'||e.status==='Efetivado'?'status-ok':e.status==='Pendente'?'status-danger':'status-warning'}">${e.status}</span></td>
+              </tr>`;
+            }).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum evento — histórico será alimentado com o uso do sistema.</td></tr>'}
           </tbody>
         </table>
       </div>
     </div>`;
+};
+
+window._filterHist = () => {
+  const t = document.getElementById('hist-tipo')?.value || '';
+  const s = (document.getElementById('hist-search')?.value || '').toLowerCase();
+  document.querySelectorAll('#hist-table tbody tr[data-tipo]').forEach(tr => {
+    const okT = !t || tr.dataset.tipo === t;
+    const okS = !s || tr.dataset.search.includes(s);
+    tr.style.display = (okT && okS) ? '' : 'none';
+  });
 };
 
 // ─── ESCOLA: RELATÓRIOS ───
@@ -4800,8 +5294,10 @@ PAGE_RENDERERS.cooperativa_pedidos = (el) => {
 };
 
 window.acceptOrder = (id) => {
+  const dist = SharedState.distributeOrderToFarmers(id);
   SharedState.updateOrderStatus(id, 'Em separação');
-  showToast('✅ Pedido aceito. Já visível no Almoxarifado para separação.');
+  const nAgr = new Set((dist||[]).map(d => d.agricultor)).size;
+  showToast('✅ Pedido aceito. ' + nAgr + ' agricultor(es) atribuído(s). Estoque Central pode separar.');
   renderPage();
 };
 window.dispatchOrder = (id) => {
@@ -4819,38 +5315,139 @@ window.confirmSchoolDelivery = (id, receiver) => {
 
 PAGE_RENDERERS.cooperativa_planejamento = (el) => { PAGE_RENDERERS.escola_planejamento(el); };
 PAGE_RENDERERS.cooperativa_rotas = (el) => {
+  // Pedidos "Em transporte" da COOPAGRAN se transformam em paradas
+  const emTransporte = SharedState.getOrders().filter(o => o.status === 'Em transporte' || o.status === 'Em separação');
+  const porRegiao = {};
+  emTransporte.forEach(o => {
+    const sc = (DATA.schools || []).find(s => s.name === o.school);
+    const r = sc?.region || 'A definir';
+    (porRegiao[r] = porRegiao[r] || []).push(o);
+  });
+  const rotas = Object.entries(porRegiao);
+  const totalKm = rotas.length * 42; // estimativa 42km/rota
+  const custoEst = totalKm * 2.7;
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Rotas</div><div class="page-subtitle">Otimização de rotas de entrega</div></div>
-    <div class="card"><div class="card-header"><div class="card-title">🗺️ Mapa de Rotas — Campo Grande</div></div><div class="card-body"><div class="map-container" id="map-container-rotas"></div></div></div>
-    <div class="grid-3" style="margin-top:20px">
-      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">🚚</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">3</div><div style="font-size:0.82rem;color:var(--text-secondary)">Rotas Otimizadas</div></div></div>
-      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">📏</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">127 km</div><div style="font-size:0.82rem;color:var(--text-secondary)">Distância Total</div></div></div>
-      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">💰</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">R$ 340</div><div style="font-size:0.82rem;color:var(--text-secondary)">Custo Estimado</div></div></div>
+    <div class="page-header"><div class="page-title">Gestão de Rotas</div><div class="page-subtitle">Rotas geradas automaticamente a partir dos pedidos em transporte</div></div>
+    <div class="card mb-16"><div class="card-header"><div class="card-title">🗺️ Mapa de Rotas — Campo Grande</div></div><div class="card-body"><div class="map-container" id="map-container-rotas"></div></div></div>
+    <div class="grid-3" style="margin-bottom:20px">
+      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">🚚</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">${rotas.length}</div><div style="font-size:0.82rem;color:var(--text-secondary)">Rotas Ativas</div></div></div>
+      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">📏</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">${totalKm} km</div><div style="font-size:0.82rem;color:var(--text-secondary)">Distância Estimada</div></div></div>
+      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">💰</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">R$ ${custoEst.toFixed(0)}</div><div style="font-size:0.82rem;color:var(--text-secondary)">Custo Estimado</div></div></div>
     </div>
+    ${rotas.length > 0 ? rotas.map(([regiao, pedidos]) => `
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-header">
+          <div class="card-title">📍 Rota ${regiao}</div>
+          <span class="tag tag-blue">${pedidos.length} parada${pedidos.length>1?'s':''}</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Ordem</th><th>#</th><th>Escola</th><th>Itens</th><th>Status</th></tr></thead>
+            <tbody>
+              ${pedidos.map((o, i) => `
+                <tr>
+                  <td style="font-family:var(--font-mono);font-weight:700">${i+1}º</td>
+                  <td style="font-family:var(--font-mono);color:var(--primary)">#${String(o.numero).padStart(3,'0')}</td>
+                  <td><strong>${o.school}</strong></td>
+                  <td style="font-size:0.82rem">${(o.itens||[]).length} itens</td>
+                  <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `).join('') : '<div class="card"><div class="card-body" style="text-align:center;color:var(--text-secondary);padding:24px">Nenhum pedido em transporte no momento.</div></div>'}
   `;
   setTimeout(() => {
     const c = document.getElementById('map-container-rotas');
     if (c) { renderMap(); }
   }, 100);
 };
-PAGE_RENDERERS.cooperativa_contratos = (el) => { PAGE_RENDERERS.gestor_atas(el); };
+
+// Chamamentos: pequena lista mock persistida em localStorage (podem ser criados pelo gestor no futuro)
+function getChamamentos() {
+  try { return JSON.parse(localStorage.getItem('saged_chamamentos_v1') || 'null') || _DEFAULT_CHAMAMENTOS(); }
+  catch { return _DEFAULT_CHAMAMENTOS(); }
+}
+function _DEFAULT_CHAMAMENTOS() {
+  return [
+    { id: 'ch1', titulo: 'Chamada Pública 001/2026 — Hortaliças Verão', abertura: '2026-07-01', encerramento: '2026-07-31', valor: 480000, produtos: ['Alface','Tomate','Cenoura','Abóbora'], candidatos: 12, status: 'Aberta' },
+    { id: 'ch2', titulo: 'Chamada Pública 002/2026 — Frutas', abertura: '2026-06-15', encerramento: '2026-07-20', valor: 320000, produtos: ['Banana','Melancia','Maçã'], candidatos: 8, status: 'Em Análise' },
+    { id: 'ch3', titulo: 'Chamada Pública 003/2026 — Tubérculos', abertura: '2026-08-01', encerramento: '2026-08-31', valor: 210000, produtos: ['Mandioca','Batata Doce'], candidatos: 0, status: 'Aberta' },
+  ];
+}
+
+PAGE_RENDERERS.cooperativa_contratos = (el) => {
+  const chamamentos = getChamamentos();
+  const abertos = chamamentos.filter(c => c.status === 'Aberta').length;
+  el.innerHTML = `
+    <div class="page-header"><div class="page-title">Contratos e Chamamentos</div><div class="page-subtitle">Acompanhe atas, empenhos e chamadas públicas abertas para agricultores</div></div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${chamamentos.length}</div><div class="kpi-label">Chamamentos Cadastrados</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${abertos}</div><div class="kpi-label">Abertos p/ Habilitação</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">${chamamentos.reduce((s,c)=>s+(c.candidatos||0),0)}</div><div class="kpi-label">Candidatos Totais</div></div>
+    </div>
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">📢 Chamamentos Ativos</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Chamada</th><th>Abertura</th><th>Encerramento</th><th>Valor Global</th><th>Produtos</th><th>Candidatos</th><th>Status</th></tr></thead>
+          <tbody>
+            ${chamamentos.map(c => `
+              <tr>
+                <td><strong>${c.titulo}</strong></td>
+                <td>${c.abertura}</td>
+                <td>${c.encerramento}</td>
+                <td style="font-family:var(--font-mono)">${formatCurrency(c.valor)}</td>
+                <td style="font-size:0.82rem">${(c.produtos||[]).map(p => '<span class="tag tag-green" style="margin:1px">' + p + '</span>').join(' ')}</td>
+                <td style="font-family:var(--font-mono);text-align:center">${c.candidatos}</td>
+                <td><span class="status-badge ${c.status === 'Aberta' ? 'status-ok' : 'status-warning'}">${c.status}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">💼 Atas e Empenhos Vinculados</div></div>
+      <div class="card-body" style="padding:0" id="coop-atas-embed"></div>
+    </div>
+  `;
+  // Embed rápido da view Atas do Gestor no card interno
+  const embed = document.getElementById('coop-atas-embed');
+  if (embed) {
+    const tmp = document.createElement('div');
+    PAGE_RENDERERS.gestor_atas(tmp);
+    // pega só as tabelas
+    embed.innerHTML = tmp.innerHTML;
+  }
+};
 PAGE_RENDERERS.cooperativa_entregas = (el) => { PAGE_RENDERERS.escola_entregas(el); };
 PAGE_RENDERERS.cooperativa_relatorios = (el) => { PAGE_RENDERERS.gestor_relatorios(el); };
 PAGE_RENDERERS.cooperativa_indicadores = (el) => {
+  const prof = PROFILES[state.currentProfile] || {};
+  const coopName = prof.role || 'COOPAGRAN';
+  const orders = SharedState.getOrders().filter(o => (o.cooperative||'').toUpperCase() === coopName.toUpperCase());
+  const entregues = orders.filter(o => o.status === 'Entregue');
+  const taxaAtendimento = orders.length > 0 ? Math.round(entregues.length / orders.length * 100) : 89;
+  const volumeKg = entregues.reduce((s, o) => s + (o.itens || []).reduce((a, i) => a + (i.qtd||0), 0), 0);
+  const agricAtivos = DATA.farmers.filter(f => f.coop === coopName).length || 28;
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Indicadores de Performance</div><div class="page-subtitle">Métricas de desempenho da COOPAGRAN</div></div>
+    <div class="page-header"><div class="page-title">Indicadores de Performance</div><div class="page-subtitle">Métricas de desempenho da ${coopName} · Dados sincronizados</div></div>
     <div class="kpi-grid">
-      <div class="kpi-card green"><div class="kpi-icon">🎯</div><div class="kpi-value">89%</div><div class="kpi-label">Taxa de Atendimento</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">📅</div><div class="kpi-value">94%</div><div class="kpi-label">Entregas no Prazo</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">📊</div><div class="kpi-value">12.4t</div><div class="kpi-label">Volume Fornecido</div></div>
-      <div class="kpi-card purple"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">28</div><div class="kpi-label">Participação por Agricultor</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">🎯</div><div class="kpi-value">${taxaAtendimento}%</div><div class="kpi-label">Taxa de Atendimento</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${entregues.length}</div><div class="kpi-label">Entregas Concluídas</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">📊</div><div class="kpi-value">${(volumeKg/1000).toFixed(1)}t</div><div class="kpi-label">Volume Fornecido</div></div>
+      <div class="kpi-card purple"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">${agricAtivos}</div><div class="kpi-label">Agricultores Ativos</div></div>
     </div>
     <div class="card"><div class="card-header"><div class="card-title">📈 Evolução da Taxa de Atendimento</div></div><div class="card-body"><div class="chart-container h-300"><canvas id="chart-indicadores"></canvas></div></div></div>
   `;
   setTimeout(() => {
     createChart('chart-indicadores', {
       type: 'line',
-      data: { labels: DATA.months.slice(0,6), datasets: [{ label: 'Taxa de Atendimento (%)', data: [82, 85, 88, 86, 91, 89], borderColor: CHART_COLORS.green, backgroundColor: CHART_COLORS.greenFill, fill: true, tension: 0.4 }] },
+      data: { labels: DATA.months.slice(0,6), datasets: [{ label: 'Taxa de Atendimento (%)', data: [82, 85, 88, 86, 91, taxaAtendimento], borderColor: CHART_COLORS.green, backgroundColor: CHART_COLORS.greenFill, fill: true, tension: 0.4 }] },
       options: { ...CHART_DEFAULTS, scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, min: 70, max: 100 } } }
     });
   }, 100);
@@ -4936,52 +5533,75 @@ PAGE_RENDERERS.agricultor_producao = (el) => {
   });
 };
 PAGE_RENDERERS.agricultor_estoque = (el) => {
+  const prof = PROFILES[state.currentProfile] || {};
+  const nome = prof.name;
+  const producoes = SharedState.getProductions().filter(p => p.agricultor === nome);
+  // Calcula reservado a partir dos pedidos com distribuicao para este agricultor
+  const reservadoMap = {};
+  SharedState.getOrders().filter(o => o.status !== 'Entregue').forEach(o => {
+    (o.distribuicao || []).filter(d => d.agricultor === nome).forEach(d => {
+      reservadoMap[d.produto] = (reservadoMap[d.produto] || 0) + d.qtd;
+    });
+  });
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Estoque</div><div class="page-subtitle">Controle de produtos disponíveis para venda</div></div>
+    <div class="page-header"><div class="page-title">Meu Estoque</div><div class="page-subtitle">Produção declarada + reservas de pedidos atribuídos</div></div>
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Estoque Atual</div><button class="btn btn-primary btn-sm">Atualizar Estoque</button></div>
-      <div class="card-body">
-        <table class="data-table"><thead><tr><th>Produto</th><th>Disponível (kg)</th><th>Reservado (kg)</th><th>Livre (kg)</th></tr></thead><tbody>
-          <tr><td><strong>Mandioca</strong></td><td style="font-family:var(--font-mono)">1.200</td><td style="font-family:var(--font-mono)">200</td><td style="font-family:var(--font-mono);color:var(--success)">1.000</td></tr>
-          <tr><td><strong>Banana Nanica</strong></td><td style="font-family:var(--font-mono)">800</td><td style="font-family:var(--font-mono)">150</td><td style="font-family:var(--font-mono);color:var(--success)">650</td></tr>
-          <tr><td><strong>Abóbora Cabotiá</strong></td><td style="font-family:var(--font-mono)">200</td><td style="font-family:var(--font-mono)">0</td><td style="font-family:var(--font-mono);color:var(--success)">200</td></tr>
-        </tbody></table>
+      <div class="card-header"><div class="card-title">Estoque Atual</div><button class="btn btn-primary btn-sm" onclick="navigateTo('agricultor','producao')">Atualizar Produção</button></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Produto</th><th>Disponível</th><th>Reservado</th><th>Livre</th></tr></thead>
+          <tbody>
+            ${producoes.map(p => {
+              const disp = p.disponivel || 0;
+              const res = reservadoMap[p.produto] || 0;
+              const livre = Math.max(0, disp - res);
+              return `<tr>
+                <td><strong>${p.produto}</strong></td>
+                <td style="font-family:var(--font-mono)">${disp.toLocaleString('pt-BR')} kg</td>
+                <td style="font-family:var(--font-mono);color:${res > 0 ? 'var(--warning)' : 'var(--text-tertiary)'}">${res.toLocaleString('pt-BR')} kg</td>
+                <td style="font-family:var(--font-mono);color:var(--success)">${livre.toLocaleString('pt-BR')} kg</td>
+              </tr>`;
+            }).join('') || `
+              <tr><td><strong>Mandioca</strong></td><td style="font-family:var(--font-mono)">1.200 kg</td><td style="font-family:var(--font-mono)">${(reservadoMap['Mandioca']||200)} kg</td><td style="font-family:var(--font-mono);color:var(--success)">${1200-(reservadoMap['Mandioca']||200)} kg</td></tr>
+              <tr><td><strong>Banana Nanica</strong></td><td style="font-family:var(--font-mono)">800 kg</td><td style="font-family:var(--font-mono)">${(reservadoMap['Banana Nanica']||150)} kg</td><td style="font-family:var(--font-mono);color:var(--success)">${800-(reservadoMap['Banana Nanica']||150)} kg</td></tr>
+              <tr><td><strong>Abóbora Cabotiá</strong></td><td style="font-family:var(--font-mono)">200 kg</td><td style="font-family:var(--font-mono)">0 kg</td><td style="font-family:var(--font-mono);color:var(--success)">200 kg</td></tr>
+            `}
+          </tbody>
+        </table>
       </div>
     </div>
+    ${producoes.length === 0 ? '<div style="background:var(--surface-2);padding:12px;border-radius:8px;font-size:0.85rem;color:var(--text-secondary)">💡 Cadastre sua produção em <strong>/producao</strong> para que apareça aqui e no painel da cooperativa.</div>' : ''}
   `;
 };
 
 PAGE_RENDERERS.agricultor_pedidos = (el) => {
   const prof = PROFILES[state.currentProfile] || {};
-  // Pedidos distribuídos ao agricultor pela cooperativa (todo pedido "Em separação" da COOPAGRAN pode envolver este agricultor)
-  const shared = SharedState.getOrders().filter(o => o.status === 'Em separação' || o.status === 'Em transporte' || o.status === 'Pendente');
+  const nome = prof.name;
+  // Filtra pedidos onde este agricultor foi atribuído em distribuicao[]
+  const meus = SharedState.getOrders().filter(o => (o.distribuicao || []).some(d => d.agricultor === nome));
 
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Pedidos Distribuídos pela Cooperativa</div><div class="page-subtitle">Solicitações vindas da COOPAGRAN em tempo real</div></div>
+    <div class="page-header"><div class="page-title">Meus Pedidos Atribuídos</div><div class="page-subtitle">Itens distribuídos automaticamente pela cooperativa conforme sua produção declarada</div></div>
     <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
-      <div class="kpi-card red"><div class="kpi-icon">⏳</div><div class="kpi-value">${shared.filter(o=>o.status==='Pendente').length}</div><div class="kpi-label">Aguardando Aceite</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${shared.filter(o=>o.status==='Em separação').length}</div><div class="kpi-label">Em Separação</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">🚚</div><div class="kpi-value">${shared.filter(o=>o.status==='Em transporte').length}</div><div class="kpi-label">Em Transporte</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">⏳</div><div class="kpi-value">${meus.filter(o=>o.status==='Em separação').length}</div><div class="kpi-label">Aguardando Colheita/Envio</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🚚</div><div class="kpi-value">${meus.filter(o=>o.status==='Em transporte').length}</div><div class="kpi-label">Em Transporte</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${meus.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues</div></div>
     </div>
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Pedidos Recebidos</div>${shared.length ? '<span class="status-badge status-ok">'+shared.length+' novos</span>' : ''}</div>
+      <div class="card-header"><div class="card-title">Pedidos com Meus Produtos</div>${meus.length ? '<span class="status-badge status-ok">'+meus.length+'</span>' : ''}</div>
       <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Pedido</th><th>Escola</th><th>Cooperativa</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-          ${shared.map(o => `<tr>
-            <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
-            <td><strong>${o.school}</strong></td>
-            <td><span class="tag tag-teal">${o.cooperative||'—'}</span></td>
-            <td style="font-size:0.82rem">${(o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ') || '—'}</td>
-            <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
-            <td>
-              ${o.status === 'Pendente' ? `<button class="btn btn-sm btn-success" onclick="acceptOrder('${o.id}')">Aceitar</button>` : ''}
-              ${o.status === 'Em separação' ? `<button class="btn btn-sm btn-primary" onclick="dispatchOrder('${o.id}')">Marcar Enviado</button>` : ''}
-            </td>
-          </tr>`).join('') || `
-            <tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum pedido no momento — assim que uma escola criar pedido para a COOPAGRAN, ele aparecerá aqui.</td></tr>
-          `}
-          <tr><td>#P-001</td><td>—</td><td>—</td><td><strong>Mandioca</strong> 200 kg</td><td><span class="status-badge status-danger">Pendente</span></td>
-            <td style="font-size:0.72rem;color:var(--text-tertiary)">exemplo</td></tr>
+        <table class="data-table"><thead><tr><th>Pedido</th><th>Escola</th><th>Cooperativa</th><th>Meus Itens</th><th>Status</th></tr></thead><tbody>
+          ${meus.map(o => {
+            const meusItens = (o.distribuicao || []).filter(d => d.agricultor === nome);
+            return `<tr>
+              <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
+              <td><strong>${o.school}</strong></td>
+              <td><span class="tag tag-teal">${o.cooperative||'—'}</span></td>
+              <td style="font-size:0.82rem">${meusItens.map(d => d.produto + ' (' + d.qtd + d.unidade + ')').join(', ')}</td>
+              <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+            </tr>`;
+          }).join('') || `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum pedido atribuído. Registre sua produção em /producao para aparecer nas distribuições.</td></tr>`}
         </tbody></table>
       </div>
     </div>
@@ -4992,33 +5612,71 @@ PAGE_RENDERERS.agricultor_entregas = (el) => { PAGE_RENDERERS.escola_entregas(el
 PAGE_RENDERERS.agricultor_calendario = (el) => { PAGE_RENDERERS.escola_planejamento(el); };
 PAGE_RENDERERS.agricultor_relatorios = (el) => { PAGE_RENDERERS.gestor_relatorios(el); };
 
+function _getAgriProfile() {
+  const defaults = { nome:'José Maria Rodrigues', cpf:'123.456.789-00', endereco:'Estrada Rural, Km 12 — Campo Grande, MS', telefone:'(67) 99123-4567', propriedade:'Sítio Boa Esperança', areaTotal:'15', areaProdutiva:'12', cooperativa:'COOPAGRAN', caf:'Válida até 12/2026' };
+  try { return { ...defaults, ...JSON.parse(localStorage.getItem('saged_agri_profile_v1') || '{}') }; } catch { return defaults; }
+}
+
 PAGE_RENDERERS.agricultor_perfil = (el) => {
+  const p = _getAgriProfile();
+  const readOnly = !window._editAgriProfile;
+  const producoes = SharedState.getProductions();
+  const produtosProduzidos = new Set(producoes.map(x => x.produto));
+  const produtosDefault = ['Mandioca', 'Banana Nanica', 'Abóbora Cabotiá'];
+  const produtos = produtosProduzidos.size > 0 ? Array.from(produtosProduzidos) : produtosDefault;
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Meu Perfil</div><div class="page-subtitle">Dados pessoais e da propriedade</div></div>
+    <div class="page-header">
+      <div class="page-title">Meu Perfil</div>
+      <div class="page-subtitle">Dados pessoais e da propriedade${readOnly ? '' : ' · Modo edição'}</div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;gap:8px">
+      ${readOnly
+        ? '<button class="btn btn-primary btn-sm" onclick="toggleAgriEdit(true)">✏️ Editar</button>'
+        : '<button class="btn btn-outline btn-sm" onclick="toggleAgriEdit(false)">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveAgriProfile()">💾 Salvar</button>'}
+    </div>
     <div class="grid-2">
       <div class="card"><div class="card-header"><div class="card-title">👤 Dados Pessoais</div></div><div class="card-body">
-        <div class="form-row"><div class="form-field"><label>Nome</label><div class="field-value">José Maria Rodrigues</div></div><div class="form-field"><label>CPF</label><div class="field-value">123.456.789-00</div></div></div>
-        <div class="form-row"><div class="form-field"><label>Endereço</label><div class="field-value">Estrada Rural, Km 12 — Campo Grande, MS</div></div><div class="form-field"><label>Telefone</label><div class="field-value">(67) 99123-4567</div></div></div>
+        <div class="form-row"><div class="form-field"><label>Nome</label>${_agriField('nome', p.nome, readOnly)}</div><div class="form-field"><label>CPF</label>${_agriField('cpf', p.cpf, readOnly)}</div></div>
+        <div class="form-row"><div class="form-field"><label>Endereço</label>${_agriField('endereco', p.endereco, readOnly)}</div><div class="form-field"><label>Telefone</label>${_agriField('telefone', p.telefone, readOnly)}</div></div>
       </div></div>
       <div class="card"><div class="card-header"><div class="card-title">🏡 Dados da Propriedade</div></div><div class="card-body">
-        <div class="form-row"><div class="form-field"><label>Nome da Propriedade</label><div class="field-value">Sítio Boa Esperança</div></div><div class="form-field"><label>Área Total</label><div class="field-value">15 hectares</div></div></div>
-        <div class="form-row"><div class="form-field"><label>Área Produtiva</label><div class="field-value">12 hectares</div></div><div class="form-field"><label>Cooperativa</label><div class="field-value">COOPAGRAN</div></div></div>
+        <div class="form-row"><div class="form-field"><label>Nome da Propriedade</label>${_agriField('propriedade', p.propriedade, readOnly)}</div><div class="form-field"><label>Área Total (ha)</label>${_agriField('areaTotal', p.areaTotal, readOnly, 'number')}</div></div>
+        <div class="form-row"><div class="form-field"><label>Área Produtiva (ha)</label>${_agriField('areaProdutiva', p.areaProdutiva, readOnly, 'number')}</div><div class="form-field"><label>Cooperativa</label>${_agriField('cooperativa', p.cooperativa, readOnly)}</div></div>
       </div></div>
     </div>
     <div class="grid-2" style="margin-top:20px">
-      <div class="card"><div class="card-header"><div class="card-title">🌱 Produtos Produzidos</div></div><div class="card-body">
+      <div class="card"><div class="card-header"><div class="card-title">🌱 Produtos Produzidos ${producoes.length > 0 ? '(via SharedState)' : ''}</div></div><div class="card-body">
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <span class="tag tag-green" style="font-size:0.85rem;padding:6px 16px">🥔 Mandioca</span>
-          <span class="tag tag-green" style="font-size:0.85rem;padding:6px 16px">🍌 Banana Nanica</span>
-          <span class="tag tag-green" style="font-size:0.85rem;padding:6px 16px">🎃 Abóbora Cabotiá</span>
+          ${produtos.map(pr => `<span class="tag tag-green" style="font-size:0.85rem;padding:6px 16px">${pr}</span>`).join('')}
         </div>
       </div></div>
       <div class="card"><div class="card-header"><div class="card-title">📄 Documentos</div></div><div class="card-body">
-        <div class="form-row"><div class="form-field"><label>CAF/DAP</label><div class="field-value"><span class="status-badge status-ok">Válida até 12/2026</span></div></div></div>
+        <div class="form-row"><div class="form-field"><label>CAF/DAP</label>${_agriField('caf', p.caf, readOnly)}</div></div>
         <div class="form-row"><div class="form-field"><label>Certificação Orgânica</label><div class="field-value"><span class="status-badge status-info">Em processo</span></div></div></div>
       </div></div>
     </div>
   `;
+};
+
+function _agriField(name, value, ro, type) {
+  if (ro) return `<div class="field-value">${value || '—'}</div>`;
+  return `<input type="${type || 'text'}" id="agri-${name}" value="${(value || '').replace(/"/g,'&quot;')}" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">`;
+}
+
+window.toggleAgriEdit = (on) => {
+  window._editAgriProfile = !!on;
+  PAGE_RENDERERS.agricultor_perfil(document.getElementById('page-content'));
+};
+
+window.saveAgriProfile = () => {
+  const fields = ['nome','cpf','endereco','telefone','propriedade','areaTotal','areaProdutiva','cooperativa','caf'];
+  const data = {};
+  fields.forEach(f => { const v = document.getElementById('agri-' + f)?.value; if (v !== undefined) data[f] = v; });
+  try { localStorage.setItem('saged_agri_profile_v1', JSON.stringify(data)); } catch {}
+  window._editAgriProfile = false;
+  showToast('✅ Perfil salvo.');
+  PAGE_RENDERERS.agricultor_perfil(document.getElementById('page-content'));
 };
 
 // ─── ESTOQUE: RENDERERS ───
@@ -5834,19 +6492,59 @@ PAGE_RENDERERS.motorista_ocorrencias = (el) => {
 };
 
 PAGE_RENDERERS.motorista_historico = (el) => {
+  const confirmadas = SharedState.getDeliveries().filter(d => d.status === 'Confirmada');
+  const incidents = SharedState.getIncidents();
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Histórico de Viagens & Entregas</div><div class="page-subtitle">Histórico de entregas realizadas por este veículo</div></div>
+    <div class="page-header"><div class="page-title">Histórico de Viagens & Entregas</div><div class="page-subtitle">Entregas confirmadas por este motorista e ocorrências registradas</div></div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${confirmadas.length}</div><div class="kpi-label">Entregas Confirmadas</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${new Set(confirmadas.map(d => d.school)).size}</div><div class="kpi-label">Escolas Atendidas</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${incidents.length}</div><div class="kpi-label">Ocorrências Registradas</div></div>
+    </div>
+
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Viagens Recentes</div></div>
-      <div class="card-body">
-        <table class="data-table"><thead><tr><th>Data</th><th>Veículo</th><th>Rota / Região</th><th>Escolas Atendidas</th><th>Status</th></tr></thead><tbody>
-          <tr><td style="font-family:var(--font-mono)">10/07/2026</td><td>ABC-1234</td><td>Anhanduizinho</td><td>EM Arlindo Lima, EM Elpídio Reis</td><td><span class="status-badge status-warning">Em andamento</span></td></tr>
-          <tr><td style="font-family:var(--font-mono)">09/07/2026</td><td>ABC-1234</td><td>Centro</td><td>EM Franklin Roosevelt, EM Plínio Mendes</td><td><span class="status-badge status-ok">Concluído</span></td></tr>
-          <tr><td style="font-family:var(--font-mono)">08/07/2026</td><td>ABC-1234</td><td>Segredo</td><td>EM Licurgo Bastos, EM Nazira Anache</td><td><span class="status-badge status-ok">Concluído</span></td></tr>
-          <tr><td style="font-family:var(--font-mono)">07/07/2026</td><td>ABC-1234</td><td>Lagoa</td><td>EM Benfica, EM Rita Cáceres</td><td><span class="status-badge status-ok">Concluído</span></td></tr>
-        </tbody></table>
+      <div class="card-header"><div class="card-title">🚚 Entregas Realizadas</div>${confirmadas.length ? '<span class="status-badge status-ok">'+confirmadas.length+'</span>' : ''}</div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Data</th><th>Pedido</th><th>Escola</th><th>Cooperativa</th><th>Recebido por</th><th>Doc.</th></tr></thead>
+          <tbody>
+            ${confirmadas.map(d => `
+              <tr>
+                <td style="font-family:var(--font-mono);font-size:0.82rem">${d.confirmadoEm ? new Date(d.confirmadoEm).toLocaleString('pt-BR') : '—'}</td>
+                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(d.orderNumero).padStart(3,'0')}</td>
+                <td><strong>${d.school}</strong></td>
+                <td><span class="tag tag-teal">${d.cooperative||'—'}</span></td>
+                <td>${d.receiver || '—'}</td>
+                <td style="font-size:0.82rem">${d.doc || '—'}</td>
+              </tr>
+            `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma entrega confirmada ainda</td></tr>'}
+          </tbody>
+        </table>
       </div>
     </div>
+
+    ${incidents.length > 0 ? `
+    <div class="card">
+      <div class="card-header"><div class="card-title">⚠️ Ocorrências Recentes</div></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Data</th><th>Escola</th><th>Tipo</th><th>Descrição</th><th>Status</th></tr></thead>
+          <tbody>
+            ${incidents.slice(0, 10).map(i => `
+              <tr>
+                <td style="font-size:0.82rem">${new Date(i.criadoEm).toLocaleString('pt-BR')}</td>
+                <td>${i.school || '—'}</td>
+                <td><strong>${i.tipo || '—'}</strong></td>
+                <td style="font-size:0.82rem">${i.descricao || '—'}</td>
+                <td><span class="status-badge status-warning">${i.status || 'Aberta'}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
   `;
 };
 
