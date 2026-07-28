@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.2.1';
+const APP_VERSION = '1.2.2';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -4237,18 +4237,24 @@ window.showMenuPlanner = (preselectRecipeId) => {
 };
 
 window.abrirModalGeradorIA = () => {
+  const totalAlunosPiloto = (DATA.schools && DATA.schools.length > 0) 
+    ? DATA.schools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
+    : 10380;
+
   const content = `
     <div style="padding:10px 0">
       <div style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px">
-        A Inteligência Artificial irá compor automaticamente as refeições PNAE da semana priorizando safras da Agricultura Familiar, combate ao desperdício por vencimento (FEFO) e cálculo exato de per capita.
+        A Inteligência Artificial irá compor automaticamente as refeições PNAE da semana com base na população das <strong>Escolas Piloto (${totalAlunosPiloto.toLocaleString('pt-BR')} alunos)</strong>, priorizando Agricultura Familiar, combate ao desperdício (FEFO) e per capita técnico.
       </div>
 
       <div class="form-group" style="margin-bottom:14px">
-        <label style="font-weight:600;display:block;margin-bottom:6px">Modalidade Escolar Alvo</label>
+        <label style="font-weight:600;display:block;margin-bottom:6px">Escopo & Modalidade Escolar Alvo</label>
         <select id="ia-modalidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px">
-          <option value="fundamental_integral" selected>Ensino Fundamental (Integral 7h-9h — 32.000 Alunos)</option>
-          <option value="fundamental_parcial">Ensino Fundamental (Parcial/Regular — 32.000 Alunos)</option>
-          <option value="creche">Creche / Educação Infantil (0 a 3 anos — 16.000 Alunos)</option>
+          <option value="piloto_completo" selected>🏫 Escolas Piloto SUALE 2026 (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Atendidos)</option>
+          <option value="fundamental_integral">Ensino Fundamental Integral (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
+          <option value="fundamental_parcial">Ensino Fundamental Parcial (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
+          <option value="creche">Creche / EMEIs Piloto (${Math.round(totalAlunosPiloto * 0.22).toLocaleString('pt-BR')} Alunos)</option>
+          <option value="rede_total">Projeção Toda a Rede Municipal (183 Escolas — 32.000 Alunos)</option>
         </select>
       </div>
 
@@ -4284,11 +4290,22 @@ window.abrirModalGeradorIA = () => {
 window.currentActiveIAMenu = null;
 
 window.executarGeracaoCardapioIA = () => {
-  const modalidade = document.getElementById('ia-modalidade')?.value || 'fundamental_integral';
+  const modalidade = document.getElementById('ia-modalidade')?.value || 'piloto_completo';
   const metaKcal = parseInt(document.getElementById('ia-meta-kcal')?.value) || 700;
   const priorizarFEFO = document.getElementById('ia-priorizar-fefo')?.checked !== false;
   const priorizarSazonal = document.getElementById('ia-priorizar-sazonal')?.checked !== false;
   const considerarRestricoes = document.getElementById('ia-considerar-restricoes')?.checked !== false;
+
+  const totalAlunosPiloto = (DATA.schools && DATA.schools.length > 0) 
+    ? DATA.schools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
+    : 10380;
+
+  let numAlunos = totalAlunosPiloto;
+  if (modalidade === 'rede_total') {
+    numAlunos = 32000;
+  } else if (modalidade === 'creche') {
+    numAlunos = Math.round(totalAlunosPiloto * 0.22);
+  }
 
   window.closeModal();
 
@@ -4301,6 +4318,7 @@ window.executarGeracaoCardapioIA = () => {
   const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
     modalidade,
     metaKcal,
+    numAlunos,
     priorizarFEFO,
     priorizarSazonal,
     considerarRestricoes

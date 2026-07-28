@@ -220,7 +220,7 @@
       const priorizarFEFO = params.priorizarFEFO !== false;
       const priorizarSazonal = params.priorizarSazonal !== false;
       const considerarRestricoes = params.considerarRestricoes !== false;
-      const numAlunos = parseInt(params.numAlunos) || (modalidade === 'creche' ? 12000 : 32000);
+      const numAlunos = parseInt(params.numAlunos) || (modalidade === 'creche' ? 2288 : 10380);
       const listaFEFO = getEstoqueFEFOAtivo();
 
       // 1. Filtrar receitas por modalidade
