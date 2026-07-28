@@ -1,6 +1,6 @@
 {
   "name": "saged-prototype-tests",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Testes automatizados do protótipo SAGED - Sistema de Gestão da Alimentação Escolar",
   "scripts": {
     "serve": "npx serve prototype -l 8080 --no-clipboard",

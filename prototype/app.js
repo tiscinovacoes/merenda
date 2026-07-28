@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -166,32 +166,48 @@ const DATA = {
       merendeira: { name: 'Vera Lúcia Estevan', matricula: 'SEMED-18003', cpf: '888.999.000-03', telefone: '(67) 98888-0003', email: 'cozinha.eleodes@semed.ms.gov.br', initials: 'VE' },
     },
   ],
+  // ============================================================
+  // ESTOQUE CENTRAL — 8 escolas piloto
+  // ------------------------------------------------------------
+  // Base de cálculo: 3.992 alunos · 11.664 refeições/dia · 22 dias letivos/mês
+  // avgConsume = refeições/dia × per capita técnico do produto (peso cru)
+  // unitPrice: preços reais de jul/2026 — ver `precoFonte` em cada item.
+  //   AF  = CODEAGRO/SP, Compras Públicas da Agricultura Familiar (abr-jun/2026)
+  //   CEASA = CEASA/MS, boletim 18ª semana/2026 (atacado)
+  //   FORT  = Fort Atacadista, encarte mai-jun/2026
+  //   PROCON = pesquisa PROCON-PB 2026
+  //   EST   = estimativa de mercado (não foi localizado preço oficial publicado)
+  // Memória de cálculo completa: vault SUALE → Precos_e_Estoque_Real_2026.md
+  // ============================================================
   products: [
-    { id: 1, name: 'Arroz Tipo 1', category: 'Grãos', unit: 'kg', stock: 12500, avgConsume: 850, daysLeft: 14, familyFarm: false },
-    { id: 2, name: 'Feijão Carioca', category: 'Grãos', unit: 'kg', stock: 4200, avgConsume: 420, daysLeft: 10, familyFarm: false },
-    { id: 3, name: 'Banana Nanica', category: 'Frutas', unit: 'kg', stock: 1800, avgConsume: 600, daysLeft: 3, familyFarm: true },
-    { id: 4, name: 'Maçã Fuji', category: 'Frutas', unit: 'kg', stock: 2300, avgConsume: 350, daysLeft: 6, familyFarm: false },
-    { id: 5, name: 'Alface Crespa', category: 'Hortaliças', unit: 'kg', stock: 520, avgConsume: 280, daysLeft: 2, familyFarm: true },
-    { id: 6, name: 'Tomate', category: 'Hortaliças', unit: 'kg', stock: 1950, avgConsume: 400, daysLeft: 5, familyFarm: true },
-    { id: 7, name: 'Cenoura', category: 'Hortaliças', unit: 'kg', stock: 3100, avgConsume: 310, daysLeft: 10, familyFarm: true },
-    { id: 8, name: 'Leite Integral', category: 'Laticínios', unit: 'L', stock: 8900, avgConsume: 1200, daysLeft: 7, familyFarm: false },
-    { id: 9, name: 'Frango (Coxa/Sobrecoxa)', category: 'Proteínas', unit: 'kg', stock: 5600, avgConsume: 780, daysLeft: 7, familyFarm: false },
-    { id: 10, name: 'Carne Bovina (Acém)', category: 'Proteínas', unit: 'kg', stock: 3200, avgConsume: 520, daysLeft: 6, familyFarm: false },
-    { id: 11, name: 'Mandioca', category: 'Tubérculos', unit: 'kg', stock: 4800, avgConsume: 380, daysLeft: 12, familyFarm: true },
-    { id: 12, name: 'Batata Doce', category: 'Tubérculos', unit: 'kg', stock: 2100, avgConsume: 290, daysLeft: 7, familyFarm: true },
-    { id: 13, name: 'Ovo de Galinha', category: 'Proteínas', unit: 'dz', stock: 3400, avgConsume: 480, daysLeft: 7, familyFarm: true },
-    { id: 14, name: 'Óleo de Soja', category: 'Gorduras', unit: 'L', stock: 2800, avgConsume: 180, daysLeft: 15, familyFarm: false },
-    { id: 15, name: 'Açúcar Cristal', category: 'Condimentos', unit: 'kg', stock: 4500, avgConsume: 250, daysLeft: 18, familyFarm: false },
-    { id: 16, name: 'Macarrão Espaguete', category: 'Grãos', unit: 'kg', stock: 3600, avgConsume: 320, daysLeft: 11, familyFarm: false },
-    { id: 17, name: 'Abóbora Cabotiá', category: 'Hortaliças', unit: 'kg', stock: 1400, avgConsume: 260, daysLeft: 5, familyFarm: true },
-    { id: 18, name: 'Melancia', category: 'Frutas', unit: 'kg', stock: 900, avgConsume: 450, daysLeft: 2, familyFarm: true },
-    { id: 19, name: 'Farinha de Trigo', category: 'Grãos', unit: 'kg', stock: 5200, avgConsume: 280, daysLeft: 18, familyFarm: false },
-    { id: 20, name: 'Leite em Pó', category: 'Laticínios', unit: 'kg', stock: 1800, avgConsume: 150, daysLeft: 12, familyFarm: false },
-    { id: 21, name: 'Fórmula infantil (Partida)', category: 'Especiais', unit: 'Lata', stock: 2000, avgConsume: 150, daysLeft: 13, familyFarm: false },
-    { id: 22, name: 'Fórmula infantil (Seguimento)', category: 'Especiais', unit: 'Lata', stock: 0, avgConsume: 100, daysLeft: 0, familyFarm: false },
-    { id: 23, name: 'Carne Bovina - Patinho', category: 'Proteínas', unit: 'kg', stock: 1500, avgConsume: 300, daysLeft: 5, familyFarm: false },
-    { id: 24, name: 'Carne Bovina - Músculo', category: 'Proteínas', unit: 'kg', stock: 2500, avgConsume: 400, daysLeft: 6, familyFarm: false },
-    { id: 25, name: 'Filé de Tilápia', category: 'Proteínas', unit: 'kg', stock: 450, avgConsume: 100, daysLeft: 4, familyFarm: false },
+    { id: 1,  name: 'Arroz Tipo 1',                  category: 'Grãos',       unit: 'kg',   unitPrice: 4.80,  precoFonte: 'EST',    stock: 7000, avgConsume: 350,  daysLeft: 20, familyFarm: false },
+    { id: 2,  name: 'Feijão Carioca',                category: 'Grãos',       unit: 'kg',   unitPrice: 9.39,  precoFonte: 'PROCON', stock: 4380, avgConsume: 292,  daysLeft: 15, familyFarm: false },
+    { id: 3,  name: 'Banana Nanica',                 category: 'Frutas',      unit: 'kg',   unitPrice: 4.26,  precoFonte: 'AF',     stock: 1680, avgConsume: 560,  daysLeft: 3,  familyFarm: true },
+    { id: 4,  name: 'Maçã Gala',                     category: 'Frutas',      unit: 'kg',   unitPrice: 9.28,  precoFonte: 'AF',     stock: 1398, avgConsume: 233,  daysLeft: 6,  familyFarm: false },
+    { id: 5,  name: 'Alface Crespa',                 category: 'Hortaliças',  unit: 'kg',   unitPrice: 5.50,  precoFonte: 'AF',     stock: 466,  avgConsume: 233,  daysLeft: 2,  familyFarm: true },
+    { id: 6,  name: 'Tomate',                        category: 'Hortaliças',  unit: 'kg',   unitPrice: 3.99,  precoFonte: 'AF',     stock: 1460, avgConsume: 292,  daysLeft: 5,  familyFarm: true },
+    { id: 7,  name: 'Cenoura',                       category: 'Hortaliças',  unit: 'kg',   unitPrice: 4.09,  precoFonte: 'AF',     stock: 3500, avgConsume: 350,  daysLeft: 10, familyFarm: true },
+    { id: 8,  name: 'Leite Integral',                category: 'Laticínios',  unit: 'L',    unitPrice: 3.41,  precoFonte: 'AF',     stock: 8400, avgConsume: 1200, daysLeft: 7,  familyFarm: false },
+    { id: 9,  name: 'Frango (Coxa/Sobrecoxa)',       category: 'Proteínas',   unit: 'kg',   unitPrice: 6.85,  precoFonte: 'FORT',   stock: 1960, avgConsume: 280,  daysLeft: 7,  familyFarm: false },
+    { id: 10, name: 'Carne Bovina (Acém)',           category: 'Proteínas',   unit: 'kg',   unitPrice: 28.50, precoFonte: 'EST',    stock: 1398, avgConsume: 233,  daysLeft: 6,  familyFarm: false },
+    { id: 11, name: 'Mandioca',                      category: 'Tubérculos',  unit: 'kg',   unitPrice: 3.47,  precoFonte: 'AF',     stock: 3360, avgConsume: 280,  daysLeft: 12, familyFarm: true },
+    { id: 12, name: 'Batata Doce',                   category: 'Tubérculos',  unit: 'kg',   unitPrice: 3.50,  precoFonte: 'AF',     stock: 819,  avgConsume: 117,  daysLeft: 7,  familyFarm: true },
+    { id: 13, name: 'Ovo de Galinha',                category: 'Proteínas',   unit: 'dz',   unitPrice: 12.00, precoFonte: 'EST',    stock: 679,  avgConsume: 97,   daysLeft: 7,  familyFarm: true },
+    { id: 14, name: 'Óleo de Soja',                  category: 'Gorduras',    unit: 'L',    unitPrice: 7.20,  precoFonte: 'EST',    stock: 870,  avgConsume: 58,   daysLeft: 15, familyFarm: false },
+    { id: 15, name: 'Açúcar Cristal',                category: 'Condimentos', unit: 'kg',   unitPrice: 3.90,  precoFonte: 'EST',    stock: 2106, avgConsume: 117,  daysLeft: 18, familyFarm: false },
+    { id: 16, name: 'Macarrão Espaguete',            category: 'Grãos',       unit: 'kg',   unitPrice: 6.50,  precoFonte: 'EST',    stock: 638,  avgConsume: 58,   daysLeft: 11, familyFarm: false },
+    { id: 17, name: 'Abóbora Cabotiá',               category: 'Hortaliças',  unit: 'kg',   unitPrice: 4.48,  precoFonte: 'AF',     stock: 935,  avgConsume: 187,  daysLeft: 5,  familyFarm: true },
+    { id: 18, name: 'Melancia',                      category: 'Frutas',      unit: 'kg',   unitPrice: 3.96,  precoFonte: 'AF',     stock: 466,  avgConsume: 233,  daysLeft: 2,  familyFarm: true },
+    { id: 19, name: 'Farinha de Trigo',              category: 'Grãos',       unit: 'kg',   unitPrice: 4.50,  precoFonte: 'EST',    stock: 1674, avgConsume: 93,   daysLeft: 18, familyFarm: false },
+    { id: 20, name: 'Leite em Pó',                   category: 'Laticínios',  unit: 'kg',   unitPrice: 32.00, precoFonte: 'EST',    stock: 720,  avgConsume: 60,   daysLeft: 12, familyFarm: false },
+    { id: 21, name: 'Fórmula infantil (Partida)',    category: 'Especiais',   unit: 'Lata', unitPrice: 38.00, precoFonte: 'EST',    stock: 260,  avgConsume: 20,   daysLeft: 13, familyFarm: false },
+    { id: 22, name: 'Fórmula infantil (Seguimento)', category: 'Especiais',   unit: 'Lata', unitPrice: 34.50, precoFonte: 'EST',    stock: 0,    avgConsume: 15,   daysLeft: 0,  familyFarm: false },
+    { id: 23, name: 'Carne Bovina - Patinho',        category: 'Proteínas',   unit: 'kg',   unitPrice: 34.90, precoFonte: 'EST',    stock: 1165, avgConsume: 233,  daysLeft: 5,  familyFarm: false },
+    { id: 24, name: 'Carne Bovina - Músculo Moído',  category: 'Proteínas',   unit: 'kg',   unitPrice: 29.90, precoFonte: 'FORT',   stock: 1398, avgConsume: 233,  daysLeft: 6,  familyFarm: false },
+    { id: 25, name: 'Filé de Tilápia',               category: 'Proteínas',   unit: 'kg',   unitPrice: 34.90, precoFonte: 'EST',    stock: 350,  avgConsume: 70,   daysLeft: 5,  familyFarm: false },
+    { id: 26, name: 'Beterraba',                     category: 'Hortaliças',  unit: 'kg',   unitPrice: 4.64,  precoFonte: 'AF',     stock: 1200, avgConsume: 120,  daysLeft: 10, familyFarm: true },
+    { id: 27, name: 'Couve Manteiga',                category: 'Hortaliças',  unit: 'kg',   unitPrice: 5.92,  precoFonte: 'AF',     stock: 340,  avgConsume: 85,   daysLeft: 4,  familyFarm: true },
+    { id: 28, name: 'Batata Inglesa',                category: 'Tubérculos',  unit: 'kg',   unitPrice: 4.20,  precoFonte: 'CEASA',  stock: 2100, avgConsume: 175,  daysLeft: 12, familyFarm: false },
   ],
   cooperatives: [
     { id: 1, name: 'COOPAGRAN', farmers: 28, orders: 47, delivered: 42, rate: 89, value: 1450000 },
@@ -217,11 +233,23 @@ const DATA = {
     { id: 14, name: 'Rosalina Gonçalves', coop: 'COOPAERGS', products: ['Banana Nanica', 'Batata Doce', 'Melancia'], production: 3400, stock: 950, area: 10 },
     { id: 15, name: 'Osvaldo Campos Neto', coop: 'COOPASUL', products: ['Ovo de Galinha', 'Cenoura'], production: 5200, stock: 2000, area: 18 },
   ],
+  // ============================================================
+  // ATAS DE REGISTRO DE PREÇO — rede municipal (183 escolas · 94,7 mil alunos)
+  // ------------------------------------------------------------
+  // Atas são instrumentos MUNICIPAIS; o piloto de 8 escolas consome ~4,2% do
+  // total (3.992 / 94.700 alunos). Por isso os empenhos do piloto são pequenos
+  // frente ao valor global — comportamento normal de registro de preço, que
+  // superdimensiona a quantidade registrada e executa só o necessário.
+  // Modalidade: 'chamada_publica' = Agricultura Familiar (mín. 45% do PNAE em
+  // 2026, subiu de 30%) · 'pregao' = licitação comum.
+  // ============================================================
   contracts: [
-    { id: 1, number: 'ATA-2026/001', start: '2026-01-15', end: '2026-12-31', supplier: 'COOPAGRAN', globalValue: 5200000, executedValue: 2860000, status: 'Vigente' },
-    { id: 2, number: 'ATA-2026/002', start: '2026-02-01', end: '2026-12-31', supplier: 'COOPRAN / COOPAERGS', globalValue: 4800000, executedValue: 2160000, status: 'Vigente' },
-    { id: 3, number: 'ATA-2025/049', start: '2025-05-10', end: '2026-05-09', supplier: 'COMERCIAL LOTUS LTDA', globalValue: 13141.78, executedValue: 2000, status: 'Vigente' },
-    { id: 4, number: 'ATA-2026/018', start: '2026-02-10', end: '2027-02-09', supplier: 'POLARIS COMÉRCIO DE ALIMENTOS LTDA', globalValue: 10817277.56, executedValue: 4250000, status: 'Vigente' },
+    { id: 1, number: 'ATA-2026/001', start: '2026-01-15', end: '2026-12-31', supplier: 'COOPAGRAN',                          modalidade: 'chamada_publica', globalValue: 5196400.00,  executedValue: 1719120.00, status: 'Vigente' },
+    { id: 2, number: 'ATA-2026/002', start: '2026-02-01', end: '2026-12-31', supplier: 'COOPRAN / COOPAERGS',                modalidade: 'chamada_publica', globalValue: 6829900.00,  executedValue: 2360245.00, status: 'Vigente' },
+    { id: 3, number: 'ATA-2025/049', start: '2025-05-10', end: '2026-05-09', supplier: 'COMERCIAL LOTUS LTDA',               modalidade: 'pregao',          globalValue: 13121.00,    executedValue: 3040.00,    status: 'Encerrada' },
+    { id: 4, number: 'ATA-2026/018', start: '2026-02-10', end: '2027-02-09', supplier: 'POLARIS COMÉRCIO DE ALIMENTOS LTDA', modalidade: 'pregao',          globalValue: 10806716.40, executedValue: 4250000.00, status: 'Vigente' },
+    { id: 5, number: 'ATA-2026/031', start: '2026-03-05', end: '2027-03-04', supplier: 'NUTRI ALIMENTOS DISTRIBUIDORA LTDA', modalidade: 'pregao',          globalValue: 10040700.00, executedValue: 3228210.00, status: 'Vigente' },
+    { id: 6, number: 'ATA-2026/042', start: '2026-04-12', end: '2027-04-11', supplier: 'AVINORTE DISTRIBUIDORA DE AVES LTDA',modalidade: 'pregao',          globalValue: 4176000.00,  executedValue: 1376100.00, status: 'Vigente' },
   ],
   orders: [
     { id: 1, school: 'EM Hércules Maymone', date: '2026-06-24', status: 'Pendente', coop: 'COOPAGRAN', value: 8500 },
@@ -233,27 +261,94 @@ const DATA = {
     { id: 7, school: 'EM Padre Tomaz Ghirardelli', date: '2026-06-21', status: 'Entregue', coop: 'COOPRAN', value: 4900 },
     { id: 8, school: 'EM Arlindo Lima', date: '2026-06-20', status: 'Entregue', coop: 'COOPAERGS', value: 8200 },
   ],
+  // Itens de cada ata. globalValue = maxQtd × unitPrice (quantidade registrada).
+  // executedValue = quanto já foi empenhado/consumido do item.
+  // Todo ataProduct aponta para o item de estoque correspondente via stockProductId.
   ataProducts: [
-    { id: 1, ataId: 3, name: 'Fórmula infantil - Tipo partida (Aptamil)', unit: 'Lata', maxQtd: 140800, unitPrice: 0.04, globalValue: 5632, executedValue: 2000, stockProductId: 21 },
-    { id: 2, ataId: 3, name: 'Fórmula infantil - Seguimento (Nestogeno)', unit: 'Lata', maxQtd: 250326, unitPrice: 0.03, globalValue: 7509.78, executedValue: 0, stockProductId: 22 },
-    { id: 3, ataId: 4, name: 'Carne Bovina - Patinho em cubos (Talismã)', unit: 'Kg', maxQtd: 117436, unitPrice: 23.85, globalValue: 2800848.60, executedValue: 1200000, stockProductId: 23 },
-    { id: 4, ataId: 4, name: 'Carne Bovina - Músculo Moído (Talismã)', unit: 'Kg', maxQtd: 421457, unitPrice: 16.88, globalValue: 7114194.16, executedValue: 3000000, stockProductId: 24 },
-    { id: 5, ataId: 4, name: 'Filé de Tilápia (Bello)', unit: 'Kg', maxQtd: 25852, unitPrice: 34.90, globalValue: 902234.80, executedValue: 50000, stockProductId: 25 }
+    // ── ATA-2026/001 · COOPAGRAN · Chamada Pública (Agricultura Familiar) ──
+    { id: 1,  ataId: 1, name: 'Banana Nanica',                     unit: 'kg',   maxQtd: 400000, unitPrice: 4.26,  globalValue: 1704000.00, executedValue: 612000.00,  stockProductId: 3 },
+    { id: 2,  ataId: 1, name: 'Mandioca (raiz, descascada)',       unit: 'kg',   maxQtd: 200000, unitPrice: 3.47,  globalValue: 694000.00,  executedValue: 208200.00,  stockProductId: 11 },
+    { id: 3,  ataId: 1, name: 'Abóbora Cabotiá',                   unit: 'kg',   maxQtd: 120000, unitPrice: 4.48,  globalValue: 537600.00,  executedValue: 161280.00,  stockProductId: 17 },
+    { id: 4,  ataId: 1, name: 'Melancia',                          unit: 'kg',   maxQtd: 150000, unitPrice: 3.96,  globalValue: 594000.00,  executedValue: 237600.00,  stockProductId: 18 },
+    { id: 5,  ataId: 1, name: 'Batata Doce Rosada',                unit: 'kg',   maxQtd: 100000, unitPrice: 3.50,  globalValue: 350000.00,  executedValue: 105000.00,  stockProductId: 12 },
+    { id: 6,  ataId: 1, name: 'Couve Manteiga',                    unit: 'kg',   maxQtd: 40000,  unitPrice: 5.92,  globalValue: 236800.00,  executedValue: 71040.00,   stockProductId: 27 },
+    { id: 7,  ataId: 1, name: 'Ovo de Galinha (caipira)',          unit: 'dz',   maxQtd: 90000,  unitPrice: 12.00, globalValue: 1080000.00, executedValue: 324000.00,  stockProductId: 13 },
+
+    // ── ATA-2026/002 · COOPRAN / COOPAERGS · Chamada Pública (Agricultura Familiar) ──
+    { id: 8,  ataId: 2, name: 'Tomate Salada',                     unit: 'kg',   maxQtd: 250000, unitPrice: 3.99,  globalValue: 997500.00,  executedValue: 349125.00,  stockProductId: 6 },
+    { id: 9,  ataId: 2, name: 'Cenoura',                           unit: 'kg',   maxQtd: 300000, unitPrice: 4.09,  globalValue: 1227000.00, executedValue: 429450.00,  stockProductId: 7 },
+    { id: 10, ataId: 2, name: 'Alface Crespa',                     unit: 'kg',   maxQtd: 120000, unitPrice: 5.50,  globalValue: 660000.00,  executedValue: 264000.00,  stockProductId: 5 },
+    { id: 11, ataId: 2, name: 'Beterraba',                         unit: 'kg',   maxQtd: 130000, unitPrice: 4.64,  globalValue: 603200.00,  executedValue: 180960.00,  stockProductId: 26 },
+    { id: 12, ataId: 2, name: 'Leite Integral Pasteurizado',       unit: 'L',    maxQtd: 380000, unitPrice: 3.41,  globalValue: 1295800.00, executedValue: 583110.00,  stockProductId: 8 },
+    { id: 13, ataId: 2, name: 'Maçã Gala',                         unit: 'kg',   maxQtd: 130000, unitPrice: 9.28,  globalValue: 1206400.00, executedValue: 301600.00,  stockProductId: 4 },
+    { id: 14, ataId: 2, name: 'Batata Inglesa',                    unit: 'kg',   maxQtd: 200000, unitPrice: 4.20,  globalValue: 840000.00,  executedValue: 252000.00,  stockProductId: 28 },
+
+    // ── ATA-2025/049 · COMERCIAL LOTUS LTDA · Pregão (fórmulas infantis) ──
+    { id: 15, ataId: 3, name: 'Fórmula infantil - Partida (Aptamil)',    unit: 'Lata', maxQtd: 220,   unitPrice: 38.00, globalValue: 8360.00,   executedValue: 3040.00, stockProductId: 21 },
+    { id: 16, ataId: 3, name: 'Fórmula infantil - Seguimento (Nestogeno)',unit: 'Lata', maxQtd: 138,   unitPrice: 34.50, globalValue: 4761.00,   executedValue: 0.00,    stockProductId: 22 },
+
+    // ── ATA-2026/018 · POLARIS · Pregão (carnes e pescado) ──
+    { id: 17, ataId: 4, name: 'Carne Bovina - Patinho em cubos (Talismã)', unit: 'kg', maxQtd: 117436, unitPrice: 34.90, globalValue: 4098516.40, executedValue: 1750000.00, stockProductId: 23 },
+    { id: 18, ataId: 4, name: 'Carne Bovina - Músculo Moído (Talismã)',    unit: 'kg', maxQtd: 180000, unitPrice: 29.90, globalValue: 5382000.00, executedValue: 2100000.00, stockProductId: 24 },
+    { id: 19, ataId: 4, name: 'Filé de Tilápia (Bello)',                   unit: 'kg', maxQtd: 38000,  unitPrice: 34.90, globalValue: 1326200.00, executedValue: 400000.00,  stockProductId: 25 },
+
+    // ── ATA-2026/031 · NUTRI ALIMENTOS · Pregão (secos e mercearia) ──
+    { id: 20, ataId: 5, name: 'Arroz Tipo 1 (longo fino)',         unit: 'kg',   maxQtd: 900000, unitPrice: 4.80,  globalValue: 4320000.00, executedValue: 1512000.00, stockProductId: 1 },
+    { id: 21, ataId: 5, name: 'Feijão Carioca Tipo 1',             unit: 'kg',   maxQtd: 380000, unitPrice: 9.39,  globalValue: 3568200.00, executedValue: 1070460.00, stockProductId: 2 },
+    { id: 22, ataId: 5, name: 'Óleo de Soja Refinado',             unit: 'L',    maxQtd: 75000,  unitPrice: 7.20,  globalValue: 540000.00,  executedValue: 162000.00,  stockProductId: 14 },
+    { id: 23, ataId: 5, name: 'Açúcar Cristal',                    unit: 'kg',   maxQtd: 150000, unitPrice: 3.90,  globalValue: 585000.00,  executedValue: 175500.00,  stockProductId: 15 },
+    { id: 24, ataId: 5, name: 'Macarrão Espaguete',                unit: 'kg',   maxQtd: 75000,  unitPrice: 6.50,  globalValue: 487500.00,  executedValue: 146250.00,  stockProductId: 16 },
+    { id: 25, ataId: 5, name: 'Farinha de Trigo Especial',         unit: 'kg',   maxQtd: 120000, unitPrice: 4.50,  globalValue: 540000.00,  executedValue: 162000.00,  stockProductId: 19 },
+
+    // ── ATA-2026/042 · AVINORTE · Pregão (aves e bovinos) ──
+    { id: 26, ataId: 6, name: 'Frango - Coxa e Sobrecoxa congelada', unit: 'kg', maxQtd: 360000, unitPrice: 6.85,  globalValue: 2466000.00, executedValue: 863100.00,  stockProductId: 9 },
+    { id: 27, ataId: 6, name: 'Carne Bovina - Acém em cubos',        unit: 'kg', maxQtd: 60000,  unitPrice: 28.50, globalValue: 1710000.00, executedValue: 513000.00,  stockProductId: 10 },
   ],
+  // Lotes com validade — alimentam o controle FEFO (primeiro a vencer, primeiro a sair).
+  // productId aponta para DATA.products. qtd deve fechar com o stock do produto.
   lots: [
-    { id: 1, productId: 23, number: 'L-PAT-001', entryDate: '2026-06-15', expirationDate: '2026-09-15', qtd: 1500 },
-    { id: 2, productId: 1, number: 'L-ARR-092', entryDate: '2026-05-10', expirationDate: '2026-12-15', qtd: 12500 }
+    { id: 1, productId: 23, number: 'L-PAT-2607', entryDate: '2026-07-17', expirationDate: '2026-10-17', qtd: 1165 },
+    { id: 2, productId: 1,  number: 'L-ARR-2607', entryDate: '2026-07-09', expirationDate: '2027-07-09', qtd: 7000 },
+    { id: 3, productId: 24, number: 'L-MUS-2607', entryDate: '2026-07-18', expirationDate: '2026-10-18', qtd: 1398 },
+    { id: 4, productId: 2,  number: 'L-FEI-2607', entryDate: '2026-07-11', expirationDate: '2027-04-11', qtd: 4380 },
+    { id: 5, productId: 9,  number: 'L-FRA-2607', entryDate: '2026-07-15', expirationDate: '2026-11-15', qtd: 1960 },
+    { id: 6, productId: 8,  number: 'L-LEI-2607', entryDate: '2026-07-20', expirationDate: '2026-08-04', qtd: 8400 },
+    { id: 7, productId: 3,  number: 'L-BAN-2607', entryDate: '2026-07-13', expirationDate: '2026-08-01', qtd: 1680 },
+    { id: 8, productId: 15, number: 'L-ACU-2606', entryDate: '2026-06-24', expirationDate: '2028-06-24', qtd: 2106 },
   ],
   separation_orders: [
     { id: 1, pedidoId: 301, school: 'EM Arlindo Lima', items: [{ productId: 1, requested: 120, lotSugg: 'L-ARR-092', scanned: 0 }], status: 'Pendente' }
   ],
+  // ============================================================
+  // EMPENHOS — nota de empenho (NE) do exercício 2026
+  // ------------------------------------------------------------
+  // Numeração no padrão SIAFI: <exercício>NE<sequencial>.
+  // São os empenhos do mês corrente (jul/2026). O executedValue de cada ata
+  // acima é o ACUMULADO do ano, não a soma só destes — por isso é maior.
+  // Quantidade de cada NE ≈ 1/12 da quantidade registrada na ata (draw mensal).
+  // items[].productId aponta para DATA.ataProducts (não para products).
+  // ============================================================
   empenhos: [
-    { id: 1, ataId: 4, numero: 'EMP-2026/045', date: '2026-06-15', totalValue: 120000, executedValue: 120000, status: 'Liquidado', items: [{ productId: 3, qtd: 5031, value: 120000, delivered: 5031 }] },
-    { id: 2, ataId: 4, numero: 'EMP-2026/102', date: '2026-06-20', totalValue: 50000, executedValue: 20000, status: 'Parcial', items: [{ productId: 5, qtd: 1432, value: 50000, delivered: 573 }] }
+    { id: 1,  ataId: 5, numero: '2026NE00477', date: '2026-07-02', totalValue: 360000.00, executedValue: 360000.00, status: 'Liquidado', items: [{ productId: 20, qtd: 75000, value: 360000.00, delivered: 75000 }] },
+    { id: 2,  ataId: 5, numero: '2026NE00478', date: '2026-07-02', totalValue: 297663.00, executedValue: 187800.00, status: 'Parcial',   items: [{ productId: 21, qtd: 31700, value: 297663.00, delivered: 20000 }] },
+    { id: 3,  ataId: 1, numero: '2026NE00489', date: '2026-07-06', totalValue: 141858.00, executedValue: 141858.00, status: 'Liquidado', items: [{ productId: 1,  qtd: 33300, value: 141858.00, delivered: 33300 }] },
+    { id: 4,  ataId: 6, numero: '2026NE00501', date: '2026-07-08', totalValue: 205500.00, executedValue: 123300.00, status: 'Parcial',   items: [{ productId: 26, qtd: 30000, value: 205500.00, delivered: 18000 }] },
+    { id: 5,  ataId: 4, numero: '2026NE00512', date: '2026-07-10', totalValue: 342020.00, executedValue: 342020.00, status: 'Liquidado', items: [{ productId: 17, qtd: 9800,  value: 342020.00, delivered: 9800 }] },
+    { id: 6,  ataId: 4, numero: '2026NE00513', date: '2026-07-10', totalValue: 448500.00, executedValue: 269100.00, status: 'Parcial',   items: [{ productId: 18, qtd: 15000, value: 448500.00, delivered: 9000 }] },
+    { id: 7,  ataId: 2, numero: '2026NE00524', date: '2026-07-14', totalValue: 108097.00, executedValue: 108097.00, status: 'Liquidado', items: [{ productId: 12, qtd: 31700, value: 108097.00, delivered: 31700 }] },
+    { id: 8,  ataId: 2, numero: '2026NE00525', date: '2026-07-16', totalValue: 82992.00,  executedValue: 0.00,      status: 'Pendente',  items: [{ productId: 8,  qtd: 20800, value: 82992.00,  delivered: 0 }] },
+    { id: 9,  ataId: 2, numero: '2026NE00526', date: '2026-07-16', totalValue: 102250.00, executedValue: 61350.00,  status: 'Parcial',   items: [{ productId: 9,  qtd: 25000, value: 102250.00, delivered: 15000 }] },
+    { id: 10, ataId: 1, numero: '2026NE00531', date: '2026-07-21', totalValue: 90000.00,  executedValue: 0.00,      status: 'Pendente',  items: [{ productId: 7,  qtd: 7500,  value: 90000.00,  delivered: 0 }] },
   ],
   nf_history: [
-    { id: 1, empenhoId: 1, date: '2026-06-18', numero: 'NF-1023', items: [{ productId: 3, qtd: 5031, value: 120000 }] },
-    { id: 2, empenhoId: 2, date: '2026-06-25', numero: 'NF-1089', items: [{ productId: 5, qtd: 573, value: 20000 }] }
+    { id: 1, empenhoId: 1, date: '2026-07-09', numero: 'NF-e 018452', items: [{ productId: 20, qtd: 75000, value: 360000.00 }] },
+    { id: 2, empenhoId: 2, date: '2026-07-11', numero: 'NF-e 018477', items: [{ productId: 21, qtd: 20000, value: 187800.00 }] },
+    { id: 3, empenhoId: 3, date: '2026-07-13', numero: 'NF-e 004120', items: [{ productId: 1,  qtd: 33300, value: 141858.00 }] },
+    { id: 4, empenhoId: 4, date: '2026-07-15', numero: 'NF-e 092330', items: [{ productId: 26, qtd: 18000, value: 123300.00 }] },
+    { id: 5, empenhoId: 5, date: '2026-07-17', numero: 'NF-e 055901', items: [{ productId: 17, qtd: 9800,  value: 342020.00 }] },
+    { id: 6, empenhoId: 6, date: '2026-07-18', numero: 'NF-e 055918', items: [{ productId: 18, qtd: 9000,  value: 269100.00 }] },
+    { id: 7, empenhoId: 7, date: '2026-07-20', numero: 'NF-e 007733', items: [{ productId: 12, qtd: 31700, value: 108097.00 }] },
+    { id: 8, empenhoId: 9, date: '2026-07-23', numero: 'NF-e 007801', items: [{ productId: 9,  qtd: 15000, value: 61350.00 }] },
   ],
   ata_pedidos: [
     { id: 1, empenhoId: 1, date: '2026-06-16', qtd: 5031, value: 120000 },
@@ -292,9 +387,9 @@ const PROFILES = {
     ]
   },
   nutricionista: {
-    name: 'Dra. Camila Andrade',
+    name: 'Dra. Lilian Droppa',
     role: 'Nutricionista SEMED',
-    initials: 'CA',
+    initials: 'LD',
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard Nutricional', badge: null },
       { id: 'fichas', icon: '📝', label: 'Fichas Técnicas', badge: null },
@@ -485,9 +580,9 @@ const SharedState = {
   _defaults() {
     return {
       menus: [
-        { id: 'menu-jun-reg',   nome: 'Cardápio Junho/2026 — Regular',  periodo: '01/06 a 30/06', escolas: 152, status: 'Publicado',    tipo: 'Regular',  autor: 'Dra. Camila Andrade', criadoEm: '2026-05-25' },
-        { id: 'menu-jun-int',   nome: 'Cardápio Junho/2026 — Integral', periodo: '01/06 a 30/06', escolas: 31,  status: 'Publicado',    tipo: 'Integral', autor: 'Dra. Camila Andrade', criadoEm: '2026-05-25' },
-        { id: 'menu-jul-reg',   nome: 'Cardápio Julho/2026 — Regular',  periodo: '01/07 a 31/07', escolas: 0,   status: 'Em Elaboração', tipo: 'Regular', autor: 'Dra. Camila Andrade', criadoEm: '2026-06-18' },
+        { id: 'menu-jun-reg',   nome: 'Cardápio Junho/2026 — Regular',  periodo: '01/06 a 30/06', escolas: 152, status: 'Publicado',    tipo: 'Regular',  autor: 'Dra. Lilian Droppa', criadoEm: '2026-05-25' },
+        { id: 'menu-jun-int',   nome: 'Cardápio Junho/2026 — Integral', periodo: '01/06 a 30/06', escolas: 31,  status: 'Publicado',    tipo: 'Integral', autor: 'Dra. Lilian Droppa', criadoEm: '2026-05-25' },
+        { id: 'menu-jul-reg',   nome: 'Cardápio Julho/2026 — Regular',  periodo: '01/07 a 31/07', escolas: 0,   status: 'Em Elaboração', tipo: 'Regular', autor: 'Dra. Lilian Droppa', criadoEm: '2026-06-18' },
       ],
       weeklyMenus: [],   // { id, semana, escola|'REDE', refeicoes:[{dia,tipo,item,kcal}], kcalMedia, publicadoEm, autor }
       fichas: [],        // fichas criadas em runtime (as demo ficam em _FICHAS_DEMO)
@@ -3193,7 +3288,7 @@ window.handleCreateFicha = (event) => {
     ingredientes,
     totais: window.fichaFormState.totais,
     dataCriacao: new Date().toISOString().split('T')[0],
-    nutricionista: 'Dra. Camila Andrade',
+    nutricionista: 'Dra. Lilian Droppa',
     ativo: true
   };
 
@@ -3364,7 +3459,7 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
     periodo: c.periodo,
     escolas: c.escolas === 'Todas' ? ((DATA.schools||[]).length || 183) : (parseInt(c.escolas) || 0),
     status: c.status,
-    autor: c.autor || 'Dra. Camila Andrade',
+    autor: c.autor || 'Dra. Lilian Droppa',
     criadoEm: c.criadoEm || '2026-06-25',
   }));
   const weekly = SharedState.getWeeklyMenus();
@@ -3623,8 +3718,25 @@ window.showMenuPlanner = (preselectRecipeId) => {
   const dStart = nextMonday.toISOString().split('T')[0];
   const dEnd = nextFriday.toISOString().split('T')[0];
 
+  const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo');
+  const restricoesSummaryHtml = activeRestricoes.length > 0 ? `
+    <div style="background: #fff7ed; border-left: 4px solid #f97316; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div style="font-weight:700; color:#c2410c; display:flex; align-items:center; gap:6px;">
+          <span>⚠️ Alerta de Restrições Alimentares Registradas na Rede (${activeRestricoes.length} ativas)</span>
+        </div>
+        <div style="font-size:0.83rem; color:#ea580c; margin-top:2px;">
+          ${Array.from(new Set(activeRestricoes.map(r => r.tipo))).map(t => `${t}: ${activeRestricoes.filter(r=>r.tipo===t).reduce((a,b)=>a+(b.quantidade||1),0)} aluno(s)`).join(' · ')}
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="border-color:#fdba74; color:#c2410c; background:#fff;" onclick="PAGE_RENDERERS.nutricionista_restricoes(document.getElementById('page-content'))">Ver Detalhes das Restrições →</button>
+    </div>
+  ` : '';
+
   container.innerHTML = `
     <div class="page-header"><div class="page-title">Planejador Semanal de Cardápio</div><div class="page-subtitle">Monte as refeições diárias e verifique o valor nutricional acumulado</div></div>
+    
+    ${restricoesSummaryHtml}
     
     <div class="card mb-24">
       <div class="card-header"><div class="card-title">Período e Escopo</div></div>
@@ -3703,7 +3815,6 @@ window.abrirModalGeradorIA = () => {
           <option value="fundamental_integral" selected>Ensino Fundamental (Integral 7h-9h)</option>
           <option value="fundamental_parcial">Ensino Fundamental (Parcial/Regular)</option>
           <option value="creche">Creche / Educação Infantil (0 a 3 anos)</option>
-          <option value="eja">EJA (Educação de Jovens e Adultos)</option>
         </select>
       </div>
 
@@ -3884,7 +3995,7 @@ window.saveWeeklyMenu = () => {
     escolasVinculadas,
     status: 'Publicado',
     tipo: 'Semanal',
-    autor: prof.name || 'Dra. Camila Andrade',
+    autor: prof.name || 'Dra. Lilian Droppa',
   });
   SharedState.addWeeklyMenu({
     nome: name,
@@ -3894,7 +4005,7 @@ window.saveWeeklyMenu = () => {
     escolasVinculadas,
     refeicoes,
     kcalMedia,
-    autor: prof.name || 'Dra. Camila Andrade',
+    autor: prof.name || 'Dra. Lilian Droppa',
   });
 
   // Mantém compatibilidade com localStorage legado
