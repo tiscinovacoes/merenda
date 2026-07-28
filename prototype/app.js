@@ -2927,11 +2927,11 @@ function _tipoBadgeClass(tipo) {
 function _renderFichaCard(f) {
   const isDemo = f.isDemo;
   const nIngr = (f.ingredientes || []).length;
-  const porcao = f.porcao || (f.ingredientes ? f.ingredientes.reduce((s, i) => s + (i.quantidade || 0), 0) + 'g' : '—');
+  const porcao = f.porcao || (f.ingredientes ? f.ingredientes.reduce((s, i) => s + (parseFloat(i.quantidade) || 0), 0) + 'g' : '—');
   const descricao = f.descricao || (f.ingredientes ? f.ingredientes.map(i => i.nome).filter(Boolean).join(', ') : '');
-  const onclick = isDemo ? `viewFichaDetails('${f.id}')` : `viewFichaDetails('${f.id}')`;
+  const onclick = `viewFichaDetails('${f.id}')`;
   return `
-    <div class="card ficha-card" data-name="${(f.nome || '').toLowerCase()}" style="cursor:pointer" onclick="${onclick}">
+    <div class="card ficha-card" data-name="${String(f.nome || '').toLowerCase()}" style="cursor:pointer" onclick="${onclick}">
       <div class="card-header">
         <div class="card-title">${f.nome}</div>
         <span class="status-badge ${_tipoBadgeClass(f.tipo)}">${f.tipo || '—'}</span>
@@ -2957,7 +2957,7 @@ function mergeFichas() {
   const all = [..._FICHAS_DEMO, ...legacy, ...shared];
   const seen = new Set();
   return all.filter(f => {
-    const k = (f.id || f.nome || '').toLowerCase();
+    const k = String(f.id || f.nome || '').toLowerCase();
     if (seen.has(k)) return false;
     seen.add(k);
     return true;
@@ -3008,9 +3008,9 @@ window.filterFichas = () => {
 window.viewFichaDetails = (recipeId) => {
   const container = document.getElementById('page-content');
 
-  // Fichas salvas pelo usuário — renderizar diretamente
-  const fichasSalvas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
-  const fichaSalva = fichasSalvas.find(f => String(f.id) === String(recipeId));
+  // Fichas salvas pelo usuário ou geradas por IA — buscar em mergeFichas()
+  const todas = mergeFichas();
+  const fichaSalva = todas.find(f => String(f.id) === String(recipeId) || String(f.nome).toLowerCase() === String(recipeId).toLowerCase());
   if (fichaSalva) {
     const ing = fichaSalva.ingredientes || [];
     const tot = fichaSalva.totais || {};
@@ -3790,33 +3790,42 @@ window.cancelCreateFicha = () => {
 window.handleCreateFicha = (event) => {
   event.preventDefault();
 
-  const nome = document.getElementById('ficha-name').value;
-  const tipo = document.getElementById('ficha-type').value;
-  const ingredientes = window.fichaFormState.ingredientes;
+  const nome = document.getElementById('ficha-name')?.value || window.fichaFormState.nome;
+  const tipo = document.getElementById('ficha-type')?.value || window.fichaFormState.tipo;
+  const modalidade = document.getElementById('ficha-modalidade')?.value || window.fichaFormState.modalidade || 'Escolar Urbana (Regular)';
+  const ingredientes = window.fichaFormState.ingredientes || [];
 
   if (!nome || ingredientes.length === 0) {
     alert('Preencha o nome e adicione ao menos um ingrediente!');
     return;
   }
 
-  // Criar objeto da receita
+  const porcaoTotal = ingredientes.reduce((s, i) => s + (parseFloat(i.quantidade) || 0), 0);
+  const descricaoIngredientes = ingredientes.map(i => i.nome).filter(Boolean).join(', ');
+
+  // Criar objeto da receita com ID em String para evitar crash de tipo
   const receita = {
-    id: Date.now(),
-    nome,
-    tipo,
-    ingredientes,
-    totais: window.fichaFormState.totais,
+    id: String(Date.now()),
+    nome: nome,
+    tipo: tipo,
+    modalidade: modalidade,
+    ingredientes: ingredientes,
+    totais: window.fichaFormState.totais || { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 },
+    descricao: descricaoIngredientes,
+    porcao: `${Math.round(porcaoTotal)}g`,
     dataCriacao: new Date().toISOString().split('T')[0],
-    nutricionista: 'Dra. Lilian Droppa',
+    nutricionista: 'Dra. Lilian Droppa (CRN 12345/MS)',
+    aprovado: true,
     ativo: true
   };
 
   // Salvar no localStorage (cache local imediato)
   let fichas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
+  fichas = fichas.filter(f => String(f.id) !== receita.id && (f.nome || '').toLowerCase() !== receita.nome.toLowerCase());
   fichas.push(receita);
   localStorage.setItem('fichas_tecnicas', JSON.stringify(fichas));
 
-  // Persiste no Supabase (best-effort — localStorage já garante a UI)
+  // Persiste no Supabase
   if (window.DB && typeof window.DB.saveFichaTecnica === 'function') {
     window.DB.saveFichaTecnica(receita).then(ok => {
       if (!ok) console.warn('[Fichas] Não foi possível persistir no Supabase — mantida apenas em localStorage');
@@ -3824,13 +3833,25 @@ window.handleCreateFicha = (event) => {
   }
 
   // Publica no SharedState para que Escola/Gestor também vejam
-  SharedState.addFicha(receita);
+  if (window.SharedState && typeof window.SharedState.addFicha === 'function') {
+    SharedState.addFicha(receita);
+  }
 
-  // Adicionar também ao DATA.produtos para aparecer nos cardápios
+  // Adicionar ao DATA.receitas para aparecer nos planejadores de cardápio
   if (!DATA.receitas) DATA.receitas = [];
+  DATA.receitas = DATA.receitas.filter(r => String(r.id) !== receita.id && (r.nome || '').toLowerCase() !== receita.nome.toLowerCase());
   DATA.receitas.push(receita);
 
-  alert(`Ficha técnica de "${nome}" criada e salva com sucesso! ✓nnEnergia: ${receita.totais.kcal.toFixed(0)} kcalnProteína: ${receita.totais.proteinas.toFixed(1)}gnCarboidratos: ${receita.totais.carbos.toFixed(1)}g`);
+  // Registrar também no motor da IA de Cardápios
+  if (window.AICardapioEngine && typeof window.AICardapioEngine.addReceita === 'function') {
+    window.AICardapioEngine.addReceita(receita);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(`✅ Ficha técnica de "${nome}" aprovada e salva com sucesso para o cardápio!`);
+  } else {
+    alert(`Ficha técnica de "${nome}" criada e salva com sucesso!\n\nEnergia: ${Math.round(receita.totais.kcal)} kcal\nProteína: ${receita.totais.proteinas.toFixed(1)}g\nCarboidratos: ${receita.totais.carbos.toFixed(1)}g`);
+  }
 
   const container = document.getElementById('page-content');
   PAGE_RENDERERS.nutricionista_fichas(container);

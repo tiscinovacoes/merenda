@@ -466,6 +466,38 @@
         frutaAcompanhamento: receita.frutaAcompanhamento || null,
         geradoPorIA: true
       };
+    },
+
+    /**
+     * Adiciona uma nova Ficha Técnica aprovada ao catálogo consultável da IA.
+     */
+    addReceita: function (novaReceita) {
+      if (!novaReceita || !novaReceita.nome) return;
+      const id = String(novaReceita.id || 'rec_' + Date.now());
+      const existe = CATALOGO_RECEITAS.some(r => String(r.id) === id || r.nome.toLowerCase() === novaReceita.nome.toLowerCase());
+      if (!existe) {
+        CATALOGO_RECEITAS.push({
+          id: id,
+          nome: novaReceita.nome,
+          categoria: novaReceita.tipo || 'Almoço/Jantar',
+          kcal: Math.round(novaReceita.totais?.kcal || 650),
+          proteinas: Math.round(novaReceita.totais?.proteinas || 25),
+          carboidratos: Math.round(novaReceita.totais?.carbos || 75),
+          lipideos: Math.round(novaReceita.totais?.lipidios || 15),
+          sodio: Math.round(novaReceita.totais?.sodio || 400),
+          sazonal: true,
+          agriculturaFamiliar: true,
+          ingredientes: (novaReceita.ingredientes || []).map(ing => ({
+            nome: ing.nome,
+            perCapita: parseFloat(ing.quantidade) || 100,
+            unidade: ing.unidade || 'g',
+            estoqueItem: ing.nome
+          })),
+          frutaAcompanhamento: 'Fruta da Estação AF 🌾',
+          restricoesEvitadas: [],
+          modalidades: ['fundamental_integral', 'fundamental_parcial', 'creche', 'eja']
+        });
+      }
     }
   };
 
