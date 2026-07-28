@@ -167,13 +167,42 @@
     }
   ];
 
-  // Insumos com Alerta FEFO Simulado para Combate ao Desperdício
+  // Insumos com Alerta FEFO Simulado para Combate ao Desperdício (fallback)
   const ESTOQUE_FEFO_EMERGENCIA = [
     { itemKey: 'frango', nome: 'Frango Congelado (Coxa/Sobre)', diasParaVencer: 14, risco: 'alto' },
     { itemKey: 'leite', nome: 'Leite Integral UHT', diasParaVencer: 18, risco: 'medio' },
     { itemKey: 'feijao', nome: 'Feijão Carioca 1kg', diasParaVencer: 25, risco: 'medio' },
     { itemKey: 'banana', nome: 'Verduras e Frutas AF', diasParaVencer: 5, risco: 'critico' }
   ];
+
+  // Leitura dinâmica do estoque consolidado real (DATA.products + DATA.lots) sem alterar dados
+  function getEstoqueFEFOAtivo() {
+    const fefoList = [];
+    if (typeof window.estoqueConsolidado === 'function') {
+      try {
+        const cons = window.estoqueConsolidado() || [];
+        cons.forEach(p => {
+          if (p.lotes && p.lotes.length > 0) {
+            const prox = p.lotes[0];
+            if (prox && prox.expirationDate) {
+              const dias = Math.ceil((new Date(prox.expirationDate) - new Date()) / 86400000);
+              if (dias <= 60) {
+                fefoList.push({
+                  itemKey: p.name.toLowerCase(),
+                  nome: p.name,
+                  diasParaVencer: Math.max(1, dias),
+                  risco: dias <= 15 ? 'critico' : (dias <= 30 ? 'alto' : 'medio')
+                });
+              }
+            }
+          }
+        });
+      } catch (e) {
+        console.warn('[AI Engine] Aviso na leitura de estoqueConsolidado:', e);
+      }
+    }
+    return fefoList.length > 0 ? fefoList : ESTOQUE_FEFO_EMERGENCIA;
+  }
 
   const AICardapioEngine = {
     getCatalogo: function () {
@@ -192,6 +221,7 @@
       const priorizarSazonal = params.priorizarSazonal !== false;
       const considerarRestricoes = params.considerarRestricoes !== false;
       const numAlunos = parseInt(params.numAlunos) || (modalidade === 'creche' ? 12000 : 32000);
+      const listaFEFO = getEstoqueFEFOAtivo();
 
       // 1. Filtrar receitas por modalidade
       let candidatas = CATALOGO_RECEITAS.filter(r => 
@@ -221,9 +251,9 @@
         let scoreBonus = 0;
         let fefoBadge = null;
 
-        // Bônus FEFO: se usa item perto de vencer
+        // Bônus FEFO: se usa item perto de vencer do estoque consolidado
         if (priorizarFEFO) {
-          const itemFefo = ESTOQUE_FEFO_EMERGENCIA.find(f => 
+          const itemFefo = listaFEFO.find(f => 
             r.ingredientes.some(ing => 
               ing.nome.toLowerCase().includes(f.itemKey) ||
               ing.estoqueItem.toLowerCase().includes(f.itemKey)
