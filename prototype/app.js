@@ -3638,7 +3638,10 @@ window.showMenuPlanner = (preselectRecipeId) => {
             <label>Data Final</label>
             <input type="date" id="planner-end-date" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${dEnd}">
           </div>
-          <button class="btn btn-primary" onclick="generatePlannerDays()">Gerar Dias</button>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="generatePlannerDays()">Gerar Dias</button>
+            <button class="btn btn-outline" style="background:var(--primary-light,#e0f2fe);color:var(--primary);border-color:var(--primary-light,#e0f2fe);font-weight:700" onclick="abrirModalGeradorIA()">🤖 Gerar com IA</button>
+          </div>
         </div>
         <div style="margin-top:14px">
           <label style="font-weight:600;font-size:0.9rem;display:block;margin-bottom:6px">Escolas Vinculadas</label>
@@ -3685,6 +3688,121 @@ window.showMenuPlanner = (preselectRecipeId) => {
     </div>
   `;
   setTimeout(() => window.generatePlannerDays(), 50);
+};
+
+window.abrirModalGeradorIA = () => {
+  const content = `
+    <div style="padding:10px 0">
+      <div style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px">
+        O algoritmo da Inteligência Artificial vai compor automaticamente as refeições da semana alinhadas às diretrizes nutricionais do PNAE e ao estoque da rede.
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:600;display:block;margin-bottom:6px">Modalidade Escolar Alvo</label>
+        <select id="ia-modalidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px">
+          <option value="fundamental_integral" selected>Ensino Fundamental (Integral 7h-9h)</option>
+          <option value="fundamental_parcial">Ensino Fundamental (Parcial/Regular)</option>
+          <option value="creche">Creche / Educação Infantil (0 a 3 anos)</option>
+          <option value="eja">EJA (Educação de Jovens e Adultos)</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:600;display:block;margin-bottom:6px">Meta Nutricional Média (Kcal/dia)</label>
+        <input type="number" id="ia-meta-kcal" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="700" min="400" max="1200">
+      </div>
+
+      <div style="background:var(--surface-2, #f8fafc);padding:12px;border-radius:8px;margin-bottom:18px">
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="ia-priorizar-estoque" checked>
+          <span><strong>Priorizar Ingredientes em Estoque Central</strong></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer">
+          <input type="checkbox" id="ia-considerar-restricoes" checked>
+          <span><strong>Respeitar Alertas de Restrições Alimentares</strong></span>
+        </label>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="executarGeracaoCardapioIA()">⚡ Gerar Cardápio Semanal (IA)</button>
+      </div>
+    </div>
+  `;
+  window.showModal('🤖 Gerador Automático de Cardápios com IA', content);
+};
+
+window.executarGeracaoCardapioIA = () => {
+  const modalidade = document.getElementById('ia-modalidade')?.value || 'fundamental_integral';
+  const metaKcal = parseInt(document.getElementById('ia-meta-kcal')?.value) || 700;
+  const priorizarEstoque = document.getElementById('ia-priorizar-estoque')?.checked !== false;
+  const considerarRestricoes = document.getElementById('ia-considerar-restricoes')?.checked !== false;
+
+  window.closeModal();
+
+  if (!window.AICardapioEngine) {
+    return alert('Motor de IA não carregado.');
+  }
+
+  window.generatePlannerDays();
+
+  const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
+    modalidade,
+    metaKcal,
+    priorizarEstoque,
+    considerarRestricoes
+  });
+
+  const container = document.getElementById('planner-days-container');
+  if (!container) return;
+
+  const dayBlocks = container.querySelectorAll('.planner-day-block');
+  dayBlocks.forEach((block, idx) => {
+    const refeicao = resultadoIA.refeicoes[idx % resultadoIA.refeicoes.length];
+    if (!refeicao) return;
+
+    const selectAlmoco = block.querySelector('select[id^="planner-lun-"]');
+    if (selectAlmoco) {
+      let found = false;
+      for (let opt of selectAlmoco.options) {
+        if (opt.text.toLowerCase().includes(refeicao.nomePrato.slice(0, 15).toLowerCase())) {
+          selectAlmoco.value = opt.value;
+          found = true;
+          break;
+        }
+      }
+      if (!found && selectAlmoco.options.length > 1) {
+        selectAlmoco.selectedIndex = (idx % (selectAlmoco.options.length - 1)) + 1;
+      }
+    }
+  });
+
+  const metricas = resultadoIA.metricasSemanais;
+  const aiSummaryCard = document.createElement('div');
+  aiSummaryCard.className = 'card mb-16 ai-summary-card';
+  aiSummaryCard.style.cssText = 'border-left: 4px solid #10b981; background: #f0fdf4; padding: 16px; margin-bottom: 16px;';
+  aiSummaryCard.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-weight:700;color:#065f46;display:flex;align-items:center;gap:6px;font-size:1.05rem">
+          <span>🤖 Cardápio Gerado com Sucesso via Inteligência Artificial PNAE</span>
+          <span class="status-badge status-ok" style="background:#d1fae5;color:#065f46;font-weight:700">✓ ${metricas.percentualAderenciaPNAE}% Aderência PNAE</span>
+        </div>
+        <div style="font-size:0.85rem;color:#047857;margin-top:4px">
+          Média calculada: <strong>${metricas.mediaKcal} kcal/dia</strong> · Proteínas: ${metricas.mediaProteinas}g · Carboidratos: ${metricas.mediaCarboidratos}g · Sódio: ${metricas.mediaSodio}mg
+        </div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" style="background:#fff;color:#047857;border-color:#a7f3d0" onclick="executarGeracaoCardapioIA()">🔄 Regenerar com IA</button>
+      </div>
+    </div>
+  `;
+
+  const oldSummary = container.querySelector('.ai-summary-card');
+  if (oldSummary) oldSummary.remove();
+  container.insertBefore(aiSummaryCard, container.firstChild);
+
+  window.calculatePlannerKcal();
 };
 
 window.togglePlannerEscolas = () => {
