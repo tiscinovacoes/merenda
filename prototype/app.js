@@ -5,6 +5,29 @@
    ============================================ */
 
 // ============================
+// VERSÃO
+// ----------------------------
+// Fonte única da verdade. Ao commitar, os três devem subir juntos:
+//   1. APP_VERSION aqui
+//   2. "version" no package.json da raiz
+//   3. tag do git (git tag -a v<versao>)
+// Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
+// ============================
+const APP_VERSION = '1.1.0';
+const APP_BUILD_DATE = '2026-07-28';
+window.APP_VERSION = APP_VERSION;
+window.APP_BUILD_DATE = APP_BUILD_DATE;
+
+function renderVersionTags() {
+  const txt = 'v' + APP_VERSION;
+  document.querySelectorAll('[data-app-version]').forEach(el => {
+    el.textContent = el.dataset.appVersion === 'full'
+      ? `${txt} · ${APP_BUILD_DATE}`
+      : txt;
+  });
+}
+
+// ============================
 // MODAL SYSTEM
 // ============================
 window.showModal = (title, content) => {
@@ -845,6 +868,7 @@ window._PILOT_SCHOOLS = DATA.schools.filter(sc => sc.diretor).slice();
 // senão o usuário escolhe uma escola e entra em outra.
 document.addEventListener('DOMContentLoaded', () => {
   if (window.DB && typeof window.DB.initLoginDropdown === 'function') window.DB.initLoginDropdown();
+  renderVersionTags();
 });
 
 // Helper de UI: mostra um toast rápido de sucesso/erro
