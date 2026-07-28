@@ -277,7 +277,6 @@ const PROFILES = {
     initials: 'MS',
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard', badge: null },
-      { id: 'escolas', icon: '🏫', label: 'Escolas da Rede', badge: null },
       { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
       { id: 'cardapios', icon: '🍽️', label: 'Cardápios', badge: null },
       { id: 'estoque', icon: '📦', label: 'Estoque', badge: '2' },
@@ -754,11 +753,18 @@ const SharedState = {
     const item = this._data.schoolStocks[c.escola][c.produto];
     if (item) {
       item.qtd = Math.max(0, (item.qtd || 0) - (c.qtd || 0));
-      (this._data.stockAdjust = this._data.stockAdjust || []).unshift({
+      const adj = {
         id: 'adj-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
         escola: c.escola, produto: c.produto, delta: -(c.qtd || 0), unidade: c.unidade,
         motivo: 'Consumo — ' + (c.refeicao || 'refeição'), criadoEm: new Date().toISOString(),
-      });
+      };
+      (this._data.stockAdjust = this._data.stockAdjust || []).unshift(adj);
+      if (window.DB && typeof window.DB.saveStockAdjust === 'function') {
+        window.DB.saveStockAdjust(adj).catch(console.error);
+      }
+      if (window.DB && typeof window.DB.consumeSchoolStock === 'function') {
+        window.DB.consumeSchoolStock(c.escola, c.produto, c.qtd).catch(console.error);
+      }
     }
     this._persist(); this._emit('consumo:add');
     return c;
@@ -1317,7 +1323,7 @@ PAGE_RENDERERS.gestor_escolas = (el) => {
                   <td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct > 60 ? 'green' : s.stockPct > 30 ? 'orange' : 'red'}" style="width:${s.stockPct}%"></div></div><span style="font-family:var(--font-mono);font-size:0.78rem">${s.stockPct}%</span></div></td>
                   <td><span class="status-badge ${statusClass(s.stockStatus)}">${statusLabel(s.stockStatus)}</span></td>
                   <td>
-                    <button class="table-action" onclick="window._STATE=window._STATE||{};window._STATE.schoolName='${s.name}';navigateTo('escola','dashboard')">Ver Perfil →</button>
+                    ${state.currentProfile === 'nutricionista' ? '' : `<button class="table-action" onclick="window._STATE=window._STATE||{};window._STATE.schoolName='${s.name}';navigateTo('escola','dashboard')">Acessar como →</button>`}
                   </td>
                 </tr>`;
               }).join('')}
@@ -3808,7 +3814,7 @@ PAGE_RENDERERS.motorista_escolas = (el) => {
   const schools = DATA.schools || [];
   const hoje = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
   // Filtra escolas apenas dos pedidos em transporte
-  const inTransit = SharedState.getOrders().filter(o => o.status === 'Em transporte');
+  const inTransit = SharedState.getOrders().filter(o => o.status === 'Em transporte' && (!prof || o.driver === prof.name));
   const rotaNomes = new Set(inTransit.map(o => o.school));
   const escolasRota = schools.filter(s => rotaNomes.has(s.name));
   const escolasParaMostrar = escolasRota.length > 0 ? escolasRota : schools.slice(0, 3); // fallback: 3 primeiras
@@ -4003,11 +4009,14 @@ PAGE_RENDERERS.nutricionista_desperdicios = (el) => {
           <form id="form-log-waste" onsubmit="handleLogWaste(event)">
             <div class="form-group">
               <label>Selecione a Escola</label>
-              <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="waste-school" required>
-                <option value="EM Hércules M.">EM Hércules Maymone</option>
-                <option value="EM Franklin R.">EM Franklin Roosevelt</option>
-                <option value="EM Arlindo L.">EM Arlindo Lima</option>
-              </select>
+              ${state.currentProfile === 'escola' ? 
+                `<input class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:not-allowed" id="waste-school" value="${window.PROFILES[state.currentProfile].role}" readonly>` :
+                `<select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="waste-school" required>
+                  <option value="EM Hércules M.">EM Hércules Maymone</option>
+                  <option value="EM Franklin R.">EM Franklin Roosevelt</option>
+                  <option value="EM Arlindo L.">EM Arlindo Lima</option>
+                </select>`
+              }
             </div>
             <div class="form-group">
               <label>Refeição Relacionada</label>
@@ -6401,8 +6410,8 @@ PAGE_RENDERERS.motorista_dashboard = (el) => {
 };
 
 PAGE_RENDERERS.motorista_entregas = (el) => {
-  // Todos os pedidos "Em transporte" da fila do motorista
-  const emTransporteList = SharedState.getOrders().filter(o => o.status === 'Em transporte');
+  const prof = window.PROFILES[state.currentProfile];
+  const emTransporteList = SharedState.getOrders().filter(o => o.status === 'Em transporte' && (!prof || o.driver === prof.name));
   const alvo = window._selectedDeliveryOrderId
     ? emTransporteList.find(o => o.id === window._selectedDeliveryOrderId)
     : emTransporteList[0];

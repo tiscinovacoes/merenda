@@ -1,5 +1,5 @@
 // =============================================
-// SAGED — Testes do Motorista de Entrega
+// SUALE — Testes do Motorista de Entrega
 // =============================================
 const { test, expect } = require('@playwright/test');
 const { login, navigateTo, getPageContent } = require('./helpers');

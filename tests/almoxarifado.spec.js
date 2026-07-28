@@ -1,5 +1,5 @@
 // =============================================
-// SAGED — Testes do Almoxarifado Central
+// SUALE — Testes do Almoxarifado Central
 // =============================================
 const { test, expect } = require('@playwright/test');
 const { login, navigateTo, getPageContent } = require('./helpers');

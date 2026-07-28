@@ -1,4 +1,4 @@
-# 🎨 Guia: Importar SAGED para o Figma
+# 🎨 Guia: Importar SUALE para o Figma
 
 ## Método 1: Plugin html.to.design (RECOMENDADO) ⭐
 

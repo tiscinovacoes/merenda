@@ -1,5 +1,5 @@
 // =============================================
-// SAGED — Teste: Perfil Cooperativa (11 telas)
+// SUALE — Teste: Perfil Cooperativa (11 telas)
 // =============================================
 const { test, expect } = require('@playwright/test');
 const { login, navigateTo } = require('./helpers');

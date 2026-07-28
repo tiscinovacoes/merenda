@@ -1,5 +1,5 @@
 /* ============================================
-   SAGED — Supabase Data Layer (db.js)
+   SUALE — Supabase Data Layer (db.js)
    Carrega dados reais do Supabase e hidrata DATA.*
    Fallback automático para mock se offline/erro
    ============================================ */
@@ -10,10 +10,10 @@ const SUPABASE_KEY = 'sb_publishable_qwKVO7DURZT5jY0FlJs03Q_EYNKoH4L';
 // Projeto principal (alimentos PNAE)
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// Projeto SAGED (escolas, fichas, pedidos)
-const SAGED_URL = 'https://oxanubfolkoulklrhrpr.supabase.co';
-const SAGED_KEY = 'sb_publishable_sJaB4lV-Rc-g7gaK_7279Q_G8od5Erh';
-const _sb2 = supabase.createClient(SAGED_URL, SAGED_KEY);
+// Projeto SUALE (escolas, fichas, pedidos)
+const SUALE_URL = 'https://oxanubfolkoulklrhrpr.supabase.co';
+const SUALE_KEY = 'sb_publishable_sJaB4lV-Rc-g7gaK_7279Q_G8od5Erh';
+const _sb2 = supabase.createClient(SUALE_URL, SUALE_KEY);
 
 // ============================
 // STATUS DA CONEXÃO
@@ -170,6 +170,76 @@ window.DB = {
     }
   },
 
+  async fetchEscolaUsuarios() {
+    try {
+      const { data, error } = await _sb2
+        .from('escola_usuarios')
+        .select('school_id,perfil,nome,matricula,cpf,email,telefone,initials')
+        .eq('ativo', true);
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] escola_usuarios:', err.message);
+      return [];
+    }
+  },
+
+  // Popula o dropdown de escolas no login com dados reais do DB
+  async initLoginDropdown() {
+    try {
+      const { data, error } = await _sb2.from('schools').select('id,name,region,students').order('name');
+      if (error || !data || data.length === 0) return;
+      const sel = document.getElementById('school-picker-select');
+      if (!sel) return;
+      sel.innerHTML = '<option value="">— Selecione a unidade escolar —</option>' +
+        data.map(s => `<option value="${s.id}">${s.name} (${s.region} · ${s.students || 0} alunos)</option>`).join('');
+      console.log(`[DB] Dropdown de login: ${data.length} escolas`);
+    } catch { /* mantém opções hardcoded do HTML */ }
+  },
+
+  async fetchRestricoes(schoolId) {
+    try {
+      let q = _sb2.from('restricoes_alimentares').select('*').order('criado_em', { ascending: false });
+      if (schoolId) q = q.eq('school_id', schoolId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] restricoes_alimentares:', err.message);
+      return [];
+    }
+  },
+
+  async saveRestricao(payload) {
+    try {
+      const { data, error } = await _sb2.from('restricoes_alimentares').insert([payload]).select().single();
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.warn('[DB] saveRestricao:', err.message);
+      return null;
+    }
+  },
+
+  async resolverRestricao(id) {
+    try {
+      const { error } = await _sb2.from('restricoes_alimentares')
+        .update({ status: 'resolvido', atualizado_em: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('[DB] resolverRestricao:', err.message);
+      return false;
+    }
+  },
+
+  async marcarNotificado(id) {
+    try {
+      await _sb2.from('restricoes_alimentares').update({ notificado: true }).eq('id', id);
+    } catch {}
+  },
+
   async fetchProducts() {
     const rows = await _fetch('products', { order: 'name' });
     return rows ? rows.map(mapProduct) : null;
@@ -229,6 +299,197 @@ window.DB = {
     }
   },
 
+  // -------------------------
+  // MÓDULOS DE COMPRAS & ESTOQUE (SUALE)
+  // -------------------------
+  
+  async fetchAtas() {
+    return await _fetch('atas', { order: 'numero' });
+  },
+  
+  async fetchAtaProducts(ataId) {
+    try {
+      const { data, error } = await _sb.from('ata_products').select('*').eq('ata_id', ataId);
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn(`[DB] Erro ao buscar produtos da ata ${ataId}:`, err.message);
+      return [];
+    }
+  },
+
+  async fetchEmpenhos() {
+    return await _fetch('empenhos', { order: 'criado_em', asc: false });
+  },
+
+  async saveEmpenho(empenho) {
+    try {
+      const { data, error } = await _sb.from('empenhos').insert([empenho]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar empenho:', err.message);
+      return null;
+    }
+  },
+
+  async updateEmpenho(empenhoId, updatePayload) {
+    try {
+      const { error } = await _sb.from('empenhos').update(updatePayload).eq('id', empenhoId);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('[DB] Erro ao atualizar empenho:', err.message);
+      return false;
+    }
+  },
+
+  async fetchNFsRecebidas() {
+    return await _fetch('nfs_recebidas', { order: 'data_recebimento', asc: false });
+  },
+
+  async saveNFRecebida(nf) {
+    try {
+      const { data, error } = await _sb.from('nfs_recebidas').insert([nf]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar NF:', err.message);
+      return null;
+    }
+  },
+
+  async fetchEstoqueCentral() {
+    return await _fetch('estoque_central', { order: 'produto' });
+  },
+
+  async updateEstoqueCentral(produtoId, updatePayload) {
+    try {
+      const { error } = await _sb.from('estoque_central')
+        .update(updatePayload)
+        .eq('id', produtoId);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('[DB] Erro ao atualizar estoque central:', err.message);
+      return false;
+    }
+  },
+
+  async saveDelivery(delivery) {
+    try {
+      const { data, error } = await _sb.from('deliveries').insert([delivery]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar delivery:', err.message);
+      return null;
+    }
+  },
+
+  async saveIncident(incident) {
+    try {
+      const { data, error } = await _sb.from('incidents').insert([incident]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar incident:', err.message);
+      return null;
+    }
+  },
+
+  async saveProduction(production) {
+    try {
+      const { data, error } = await _sb.from('productions').insert([production]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar production:', err.message);
+      return null;
+    }
+  },
+
+  async saveStockAdjust(adjust) {
+    try {
+      const { data, error } = await _sb.from('stock_adjusts').insert([adjust]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar stock adjust:', err.message);
+      return null;
+    }
+  },
+
+  async saveMenu(menu) {
+    try {
+      const { data, error } = await _sb.from('menus').insert([menu]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar menu:', err.message);
+      return null;
+    }
+  },
+
+  async saveWeeklyMenu(weeklyMenu) {
+    try {
+      const { data, error } = await _sb.from('weekly_menus').insert([weeklyMenu]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar weekly menu:', err.message);
+      return null;
+    }
+  },
+
+  async transferStockToSchool(schoolName, productName, qty, unit) {
+    try {
+      const { data, error } = await _sb.rpc('transfer_stock_to_school', {
+        p_school_name: schoolName,
+        p_product_name: productName,
+        p_qty: qty,
+        p_unit: unit
+      });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.warn('[DB] Erro no RPC transfer_stock_to_school:', err.message);
+      return false;
+    }
+  },
+
+  async uploadComprovante(file) {
+    try {
+      const fileName = `comprovante-${Date.now()}-${file.name}`;
+      const { data, error } = await _sb.storage.from('comprovantes').upload(fileName, file);
+      if (error) throw error;
+      const { data: pubData } = _sb.storage.from('comprovantes').getPublicUrl(fileName);
+      return pubData ? pubData.publicUrl : null;
+    } catch (err) {
+      console.warn('[DB] Erro no upload Supabase Storage:', err.message);
+      return null;
+    }
+  },
+
+  async consumeSchoolStock(schoolName, productName, qty) {
+    try {
+      const { data, error } = await _sb.rpc('consume_school_stock', {
+        p_school_name: schoolName,
+        p_product_name: productName,
+        p_qty: qty
+      });
+      if (error) throw error;
+      return data;
+    } catch (err) {
+      console.warn('[DB] Erro no RPC consume_school_stock:', err.message);
+      return false;
+    }
+  },
+
+
+
+
+
   // Busca alimentos por termo (local ou Supabase)
   async searchAlimentos(term) {
     const all = typeof ALIMENTOS_PNAE !== 'undefined' ? ALIMENTOS_PNAE : [];
@@ -241,20 +502,96 @@ window.DB = {
   // HIDRATAÇÃO PRINCIPAL
   // Busca todos os dados e sobrescreve DATA.*
   // ============================
+  
+  async fetchProductions() {
+    try {
+      const { data, error } = await supabase.from('productions').select('*');
+      if (error) throw error;
+      return data || [];
+    } catch(e) {
+      console.error('Erro fetchProductions:', e);
+      return [];
+    }
+  },
+  async fetchStockAdjusts() {
+    try {
+      const { data, error } = await supabase.from('stock_adjusts').select('*');
+      if (error) throw error;
+      return data || [];
+    } catch(e) {
+      console.error('Erro fetchStockAdjusts:', e);
+      return [];
+    }
+  },
+
   async hydrateData() {
     console.log('[DB] Conectando ao Supabase...');
 
-    const [schools, products, cooperatives, farmers, contracts, orders, alimentos] = await Promise.all([
+    const [schools, escolaUsuarios, products, cooperatives, farmers, contracts, orders, alimentos, restricoes, atas, empenhos, nfs, estoque_central, productions, stockAdjusts] = await Promise.all([
       this.fetchSchools(),
+      this.fetchEscolaUsuarios(),
       this.fetchProducts(),
       this.fetchCooperatives(),
       this.fetchFarmers(),
       this.fetchContracts(),
       this.fetchOrders(),
       this.fetchAlimentosPnae(),
+      this.fetchRestricoes(),
+      this.fetchAtas(),
+      this.fetchEmpenhos(),
+      this.fetchNFsRecebidas(),
+      this.fetchEstoqueCentral(),
+      this.fetchProductions(),
+      this.fetchStockAdjusts()
     ]);
 
+    // Enriquece escolas com usuários por função
+    if (schools && schools.length > 0 && escolaUsuarios.length > 0) {
+      const userMap = {};
+      for (const u of escolaUsuarios) {
+        if (!userMap[u.school_id]) userMap[u.school_id] = {};
+        userMap[u.school_id][u.perfil] = {
+          name: u.nome, matricula: u.matricula, cpf: u.cpf,
+          email: u.email, telefone: u.telefone, initials: u.initials,
+        };
+      }
+      for (const sc of schools) {
+        const u = userMap[sc.id] || {};
+        sc.diretor     = u.diretor      || null;
+        sc.respEstoque = u.resp_estoque || null;
+        sc.merendeira  = u.merendeira   || null;
+      }
+      // Atualiza _PILOT_SCHOOLS com escolas reais que tenham diretor cadastrado
+      window._PILOT_SCHOOLS = schools.filter(sc => sc.diretor);
+      console.log(`[DB] ${escolaUsuarios.length} usuários de escola carregados`);
+    }
+
     let anyLoaded = false;
+
+    // Sincroniza restrições do DB para o SharedState (sem duplicar)
+    if (restricoes && restricoes.length > 0 && window.SharedState) {
+      const existingIds = new Set((window.SharedState.getRestricoes() || []).map(r => 'db-' + r.id));
+      restricoes.forEach(r => {
+        const localId = 'db-' + r.id;
+        if (!existingIds.has(localId)) {
+          const escola = schools ? schools.find(s => s.id === r.school_id) : null;
+          window.SharedState._data.restricoes = window.SharedState._data.restricoes || [];
+          window.SharedState._data.restricoes.push({
+            id: localId,
+            schoolId: r.school_id,
+            schoolName: escola ? escola.name : 'Escola #' + r.school_id,
+            tipo: r.tipo,
+            quantidade: r.quantidade,
+            observacao: r.observacao || '',
+            status: r.status,
+            registradoPor: r.registrado_por || '',
+            notificado: r.notificado,
+            criadoEm: r.criado_em,
+            resolvidoEm: r.status === 'resolvido' ? r.atualizado_em : null,
+          });
+        }
+      });
+    }
 
     if (schools && schools.length > 0) { DATA.schools = schools; anyLoaded = true; }
     if (products && products.length > 0) { DATA.products = products; anyLoaded = true; }
@@ -262,6 +599,24 @@ window.DB = {
     if (farmers && farmers.length > 0) { DATA.farmers = farmers; anyLoaded = true; }
     if (contracts && contracts.length > 0) { DATA.contracts = contracts; anyLoaded = true; }
     if (orders && orders.length > 0) { DATA.orders = orders; anyLoaded = true; }
+
+    // Injeta dados das novas tabelas no SharedState
+    if (window.SharedState) {
+      if (atas && atas.length > 0) { DATA.atas = atas; anyLoaded = true; }
+      if (empenhos && empenhos.length > 0) { window.SharedState._data.empenhos = empenhos; anyLoaded = true; }
+      if (nfs && nfs.length > 0) { window.SharedState._data.nfsRecebidas = nfs; anyLoaded = true; }
+      if (estoque_central && estoque_central.length > 0) {
+        // O estoque_central vem como array de linhas: { produto, qtd, unidade, lotes: [...] }
+        // O SharedState armazena como dicionário
+        const scMap = {};
+        estoque_central.forEach(item => {
+          scMap[item.produto] = { qtd: item.qtd, unidade: item.unidade, lotes: item.lotes || [] };
+        });
+        window.SharedState._data.centralStock = scMap;
+        anyLoaded = true;
+      }
+      window.SharedState._persist();
+    }
 
     // Alimentos PNAE sempre disponíveis (Supabase ou local)
     if (alimentos && alimentos.length > 0) {

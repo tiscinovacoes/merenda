@@ -1,4 +1,4 @@
-# Padrão de Ficha Técnica, Cardápio e Guia de Compra — Módulo Nutrição (SAGED)
+# Padrão de Ficha Técnica, Cardápio e Guia de Compra — Módulo Nutrição (SUALE)
 
 > Especificação derivada do estudo de 4 planilhas reais:
 > - `Planilha_PlanPNAE_versao_4atualizada221121 (1).xlsx` — **modelo oficial do FNDE para o PNAE**

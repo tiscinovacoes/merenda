@@ -1,5 +1,5 @@
 // =============================================
-// SAGED — Teste: Perfil Agricultor Familiar (8 telas)
+// SUALE — Teste: Perfil Agricultor Familiar (8 telas)
 // =============================================
 const { test, expect } = require('@playwright/test');
 const { login, navigateTo } = require('./helpers');

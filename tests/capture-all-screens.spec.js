@@ -1,5 +1,5 @@
 // =============================================
-// SAGED — Captura automática de todas as telas
+// SUALE — Captura automática de todas as telas
 // Gera screenshots para Figma em ./screenshots/
 // Execute: npm run test:screenshots
 // =============================================

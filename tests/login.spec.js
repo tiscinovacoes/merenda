@@ -1,5 +1,5 @@
 // =============================================
-// SAGED — Teste: Login & Navegação Geral
+// SUALE — Teste: Login & Navegação Geral
 // =============================================
 const { test, expect } = require('@playwright/test');
 const { login, logout } = require('./helpers');
@@ -8,7 +8,7 @@ test.describe('Login e Autenticação', () => {
 
   test('Tela de login carrega corretamente', async ({ page }) => {
     await page.goto('/index.html');
-    await expect(page.locator('.login-system-name')).toHaveText('SAGED');
+    await expect(page.locator('.login-system-name')).toHaveText('SUALE');
     await expect(page.locator('.login-system-subtitle')).toContainText('Alimentação Escolar');
     const profileBtns = page.locator('.profile-btn');
     await expect(profileBtns).toHaveCount(7);

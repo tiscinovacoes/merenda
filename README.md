@@ -1,4 +1,4 @@
-# 🍽️ SAGED — Sistema de Gestão da Alimentação Escolar
+# 🍽️ SUALE — Sistema de Gestão da Alimentação Escolar
 
 **SEMED · Campo Grande · MS**
 

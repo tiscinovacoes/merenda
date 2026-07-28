@@ -1,5 +1,5 @@
 // =============================================
-// SAGED — Teste: Perfil Escola (9 telas)
+// SUALE — Teste: Perfil Escola (9 telas)
 // =============================================
 const { test, expect } = require('@playwright/test');
 const { login, navigateTo } = require('./helpers');

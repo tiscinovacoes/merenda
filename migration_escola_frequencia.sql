@@ -1,4 +1,4 @@
--- SAGED — Migration: Escola com frequência
+-- SUALE — Migration: Escola com frequência
 -- Execute no SQL Editor do Supabase
 
 ALTER TABLE public.schools

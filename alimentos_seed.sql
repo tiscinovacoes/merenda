@@ -1,4 +1,4 @@
--- SAGED: Tabela alimentos_pnae (584 alimentos PNAE/FNDE)
+-- SUALE: Tabela alimentos_pnae (584 alimentos PNAE/FNDE)
 -- Execute no Supabase SQL Editor
 
 CREATE TABLE IF NOT EXISTS public.alimentos_pnae (

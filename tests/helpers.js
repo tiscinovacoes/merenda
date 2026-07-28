@@ -1,5 +1,5 @@
 // =============================================
-// SAGED Test Helpers
+// SUALE Test Helpers
 // Funções reutilizáveis para todos os testes
 // =============================================
 

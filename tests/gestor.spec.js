@@ -1,5 +1,5 @@
 // =============================================
-// SAGED — Teste: Perfil Gestor SEMED (10 telas)
+// SUALE — Teste: Perfil Gestor SEMED (10 telas)
 // =============================================
 const { test, expect } = require('@playwright/test');
 const { login, navigateTo } = require('./helpers');

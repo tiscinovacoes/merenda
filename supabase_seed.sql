@@ -1,5 +1,5 @@
 -- ============================================================
--- SAGED — Schema + Seed (tabelas principais)
+-- SUALE — Schema + Seed (tabelas principais)
 -- Cole este arquivo no SQL Editor do Supabase e clique Run
 -- https://supabase.com/dashboard/project/xszqqqyvdzoyxokkuqix/sql/new
 -- ============================================================
