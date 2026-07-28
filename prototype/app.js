@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.2.2';
+const APP_VERSION = '1.3.0';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -2977,10 +2977,11 @@ PAGE_RENDERERS.nutricionista_fichas = (el) => {
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           <input type="search" id="search-fichas" placeholder="Buscar receita..." oninput="filterFichas()" style="width:100%">
         </div>
-        <div style="display:flex;align-items:center;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
           <span style="font-size:0.8rem;color:var(--text-secondary)">${salvas} salva${salvas !== 1 ? 's' : ''} + ${_FICHAS_DEMO.length} demo</span>
           <button class="btn btn-outline" onclick="PAGE_RENDERERS.nutricionista_simulacoes(document.getElementById('page-content'))">🔬 Simular Enquadramento PNAE</button>
-          <button class="btn btn-primary" onclick="showCreateFichaForm()">+ Nova Ficha Técnica</button>
+          <button class="btn btn-primary" onclick="showCreateFichaForm(true)" style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%);border:none;box-shadow:0 2px 8px rgba(2,132,199,0.25)">🤖 Gerar Ficha Técnica com IA (Estoque)</button>
+          <button class="btn btn-outline" onclick="showCreateFichaForm()">+ Nova Ficha Manual</button>
         </div>
       </div>
     </div>
@@ -3342,7 +3343,7 @@ window.fichaFormState = {
   totais: { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 }
 };
 
-window.showCreateFichaForm = () => {
+window.showCreateFichaForm = (autoGerarIA = false) => {
   window.fichaFormState = {
     nome: '',
     tipo: 'Almoço',
@@ -3352,12 +3353,19 @@ window.showCreateFichaForm = () => {
 
   const container = document.getElementById('page-content');
   container.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Nova Ficha Técnica</div>
-      <div class="page-subtitle">Cadastre receita com múltiplos ingredientes seguindo o padrão PNAE/FNDE</div>
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">Nova Ficha Técnica</div>
+        <div class="page-subtitle">Cadastre receita com múltiplos ingredientes seguindo o padrão PNAE/FNDE</div>
+      </div>
+      <div>
+        <button type="button" class="btn btn-primary" onclick="window.gerarFichaTecnicaIA()" style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%);border:none;box-shadow:0 2px 8px rgba(2,132,199,0.25)">
+          ⚡ Gerar Ficha Técnica Automática com IA (Baseada no Estoque)
+        </button>
+      </div>
     </div>
     <div class="card" style="max-width:900px;margin:0 auto">
-      <div class="card-header">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
         <div class="card-title" style="display:flex;align-items:center;gap:8px">
           Ficha Técnica de Preparo
           <span class="info-icon" data-tooltip="Documento que descreve a preparação de uma refeição, seus ingredientes, quantidade, modo de preparo e valor nutricional">ℹ️</span>
@@ -3439,6 +3447,83 @@ window.showCreateFichaForm = () => {
 
   // Renderizar primeiro ingrediente vazio
   window.addIngrediente();
+
+  // Se autoGerarIA for verdadeiro, dispara a geração automática por IA
+  if (autoGerarIA) {
+    setTimeout(() => {
+      window.gerarFichaTecnicaIA();
+    }, 50);
+  }
+};
+
+window.gerarFichaTecnicaIA = () => {
+  if (!window.AICardapioEngine || typeof window.AICardapioEngine.generateFichaTecnicaFromStock !== 'function') {
+    return alert('Motor de IA de Fichas Técnicas não carregado.');
+  }
+
+  const modalidade = document.getElementById('ficha-modalidade')?.value || 'Escolar Urbana (Regular)';
+  const tipoRefeicao = document.getElementById('ficha-type')?.value || 'Almoço';
+
+  const fichaIA = window.AICardapioEngine.generateFichaTecnicaFromStock({ modalidade, tipoRefeicao });
+  if (!fichaIA) return;
+
+  window.fichaFormState = {
+    nome: fichaIA.nome,
+    tipo: fichaIA.tipo,
+    modalidade: fichaIA.modalidade,
+    ingredientes: fichaIA.ingredientes,
+    totais: fichaIA.totais,
+    geradoPorIA: true
+  };
+
+  const nameInput = document.getElementById('ficha-name');
+  if (nameInput) nameInput.value = fichaIA.nome;
+
+  const typeSelect = document.getElementById('ficha-type');
+  if (typeSelect) typeSelect.value = fichaIA.tipo;
+
+  const modalSelect = document.getElementById('ficha-modalidade');
+  if (modalSelect) modalSelect.value = fichaIA.modalidade;
+
+  window.renderIngredientes();
+  window.recalculaTotais();
+
+  // Exibir Banner da IA
+  let banner = document.getElementById('ia-ficha-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'ia-ficha-banner';
+    banner.style.cssText = 'border-left: 5px solid #0284c7; background: #f0f9ff; padding: 14px 18px; margin-bottom: 18px; border-radius: 8px; border: 1px solid #bae6fd;';
+    const form = document.getElementById('form-create-ficha');
+    if (form) form.insertBefore(banner, form.firstChild);
+  }
+
+  const fefoTexto = fichaIA.fefoItems && fichaIA.fefoItems.length > 0 
+    ? ` Insumos em estoque aproveitados: <strong>${fichaIA.fefoItems.join(', ')}</strong>.` 
+    : '';
+
+  banner.innerHTML = `
+    <div style="font-weight: 700; color: #0369a1; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span>🤖 FICHA TÉCNICA SUGERIDA POR IA COM BASE NO ESTOQUE ATUAL</span>
+      </div>
+      <span class="status-badge status-ok" style="font-size:0.75rem">⚡ Aproveitamento FEFO + AF</span>
+    </div>
+    <div style="font-size: 0.85rem; color: #0c4a6e; margin-top: 6px;">
+      Esta preparação foi montada automaticamente pela IA utilizando insumos disponíveis no Estoque Central e safras locais.${fefoTexto} A Nutricionista <strong>Dra. Lilian Droppa</strong> pode adaptar livremente ou aprovar e salvar para o cardápio.
+    </div>
+  `;
+
+  // Atualiza o botão de submissão
+  const btnSubmit = document.querySelector('#form-create-ficha button[type="submit"]');
+  if (btnSubmit) {
+    btnSubmit.innerHTML = '✅ Aprovar & Salvar Ficha Técnica para o Cardápio (Dra. Lilian Droppa)';
+    btnSubmit.className = 'btn btn-success';
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('🤖 Ficha Técnica gerada com sucesso pela IA com base nos produtos em estoque!');
+  }
 };
 
 window.updateModalidade = (modalidade) => {

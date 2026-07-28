@@ -399,6 +399,73 @@
       const opcoes = CATALOGO_RECEITAS.filter(r => r.id !== receitaIdAtual);
       const indice = Math.floor(Math.random() * opcoes.length);
       return opcoes[indice] || CATALOGO_RECEITAS[0];
+    },
+
+    /**
+     * Gera uma Ficha Técnica de Preparação automática baseada no Estoque (FEFO + Agricultura Familiar).
+     */
+    generateFichaTecnicaFromStock: function (params) {
+      params = params || {};
+      const modalidade = params.modalidade || 'Escolar Urbana (Regular)';
+      const tipoRefeicao = params.tipoRefeicao || 'Almoço';
+      const listaFEFO = getEstoqueFEFOAtivo();
+
+      // Selecionar receitas candidatas pontuando o uso de itens no estoque
+      const candidatas = CATALOGO_RECEITAS.map(r => {
+        let score = 80;
+        let fefoItems = [];
+        if (listaFEFO && listaFEFO.length > 0) {
+          listaFEFO.forEach(f => {
+            if (r.ingredientes.some(ing => ing.nome.toLowerCase().includes(f.itemKey) || ing.estoqueItem.toLowerCase().includes(f.itemKey))) {
+              score += 15;
+              fefoItems.push(f.nome);
+            }
+          });
+        }
+        if (r.sazonal || r.agriculturaFamiliar) score += 10;
+        return { ...r, score, fefoItems };
+      }).sort((a, b) => b.score - a.score);
+
+      const receita = candidatas[Math.floor(Math.random() * Math.min(3, candidatas.length))] || CATALOGO_RECEITAS[0];
+
+      const ingredientesFicha = receita.ingredientes.map(ing => {
+        const perCapita = ing.perCapita || 100;
+        let nut = { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 };
+        if (typeof window.getNutrientesDoAlimento === 'function') {
+          nut = window.getNutrientesDoAlimento(ing.nome, perCapita);
+        }
+
+        return {
+          id: Date.now() + Math.floor(Math.random() * 10000),
+          nome: ing.nome,
+          quantidade: perCapita,
+          unidade: ing.unidade || 'g',
+          kcal: parseFloat(nut.kcal) || Math.round(receita.kcal / receita.ingredientes.length),
+          carbos: parseFloat(nut.carbos) || Math.round(receita.carboidratos / receita.ingredientes.length),
+          proteinas: parseFloat(nut.proteinas) || Math.round(receita.proteinas / receita.ingredientes.length),
+          lipidios: parseFloat(nut.lipidios) || Math.round(receita.lipideos / receita.ingredientes.length),
+          sodio: parseFloat(nut.sodio) || Math.round(receita.sodio / receita.ingredientes.length)
+        };
+      });
+
+      const totais = {
+        kcal: ingredientesFicha.reduce((a, b) => a + (b.kcal || 0), 0),
+        carbos: ingredientesFicha.reduce((a, b) => a + (b.carbos || 0), 0),
+        proteinas: ingredientesFicha.reduce((a, b) => a + (b.proteinas || 0), 0),
+        lipidios: ingredientesFicha.reduce((a, b) => a + (b.lipidios || 0), 0),
+        sodio: ingredientesFicha.reduce((a, b) => a + (b.sodio || 0), 0)
+      };
+
+      return {
+        nome: receita.nome,
+        tipo: tipoRefeicao,
+        modalidade: modalidade,
+        ingredientes: ingredientesFicha,
+        totais: totais,
+        fefoItems: receita.fefoItems || [],
+        frutaAcompanhamento: receita.frutaAcompanhamento || null,
+        geradoPorIA: true
+      };
     }
   };
 
