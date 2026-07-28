@@ -616,11 +616,20 @@ window.DB = {
       });
     }
 
+    // O catálogo curado (products + contracts) é mantido local enquanto a flag
+    // USAR_CATALOGO_LOCAL estiver ligada em app.js. Sobrescrever só metade do
+    // grafo (products/contracts vêm do banco, ataProducts/empenhos não existem
+    // lá) quebra as referências por id e esvazia o modal de empenho.
+    const _catalogoLocal = window.USAR_CATALOGO_LOCAL === true;
+    if (_catalogoLocal) {
+      console.log('[DB] Catálogo local curado ativo — products/contracts não serão sobrescritos.');
+    }
+
     if (schools && schools.length > 0) { DATA.schools = schools; anyLoaded = true; }
-    if (products && products.length > 0) { DATA.products = products; anyLoaded = true; }
+    if (!_catalogoLocal && products && products.length > 0) { DATA.products = products; anyLoaded = true; }
     if (cooperatives && cooperatives.length > 0) { DATA.cooperatives = cooperatives; anyLoaded = true; }
     if (farmers && farmers.length > 0) { DATA.farmers = farmers; anyLoaded = true; }
-    if (contracts && contracts.length > 0) { DATA.contracts = contracts; anyLoaded = true; }
+    if (!_catalogoLocal && contracts && contracts.length > 0) { DATA.contracts = contracts; anyLoaded = true; }
     if (orders && orders.length > 0) { DATA.orders = orders; anyLoaded = true; }
 
     // Injeta dados das novas tabelas no SharedState

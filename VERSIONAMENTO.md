@@ -5,7 +5,7 @@ qualquer pessoa (ou agente) saiba exatamente qual build está rodando.
 
 ## Versão atual
 
-**1.1.0** — 2026-07-28
+**1.2.0** — 2026-07-28
 
 ## Onde a versão vive
 
@@ -62,8 +62,16 @@ git describe --tags
 
 | Versão | Data | Commit | O que entrou |
 |--------|------|--------|--------------|
-| 1.1.0 | 2026-07-28 | `84d2fde`, `d73e84c` | RBAC do login consertado (perfis Diretor/Merendeira/Resp. Estoque eram inalcançáveis), restrições alimentares, sidebar em grupos colapsáveis, Sprint ABC completa no menu, remoção do campo morto de Gemini API Key |
+| **1.2.0** | 2026-07-28 | `1b32845`, `546b658` + este | Base de dados real (28 produtos com preço e fonte, 6 atas, 27 itens de ata, 10 empenhos SIAFI), KPIs derivados da movimentação, empenho multi-item, estoque consolidado Central+Escolas, filtros funcionais, collapse de lotes/validade, flag `USAR_CATALOGO_LOCAL` |
+| 1.1.3 | 2026-07-28 | `546b658` | Priorização sazonal, FEFO e tabela per capita no gerador de cardápios (Antigravity) |
+| 1.1.2 | 2026-07-28 | `1b32845` | Gerador de cardápios: 3 modalidades, Dra. Lilian Droppa, alertas de restrições (Antigravity) |
+| 1.1.1 | 2026-07-28 | `d2c8c2f`, `5b8aee7` | Módulo de geração automática de cardápios PNAE (Antigravity) |
+| 1.1.0 | 2026-07-28 | `84d2fde`, `d73e84c`, `9f5363f` | RBAC do login consertado (perfis Diretor/Merendeira/Resp. Estoque eram inalcançáveis), restrições alimentares, sidebar em grupos colapsáveis, Sprint ABC completa no menu, remoção do campo morto de Gemini API Key, versionamento visível |
 | 1.0.0 | — | `4bd44cd` | Protótipo inicial |
+
+> [!WARNING] Commits cruzados entre agentes
+> As mudanças de dados e telas da 1.2.0 foram escritas por mim (Claude) mas acabaram **dentro dos commits `1b32845` e `546b658` do Antigravity** — ele commitou com o working tree contendo meu trabalho em andamento, então as mensagens desses commits falam só do gerador de cardápios e não mencionam nada disso.
+> Se for procurar quando o empenho multi-item ou o estoque consolidado entrou, é nesses dois commits, não numa mensagem que os descreva.
 
 > **Nota para o Antigravity:** esta convenção passou a valer em 2026-07-28. Commits
 > anteriores não têm tag. Ao commitar, suba os três lugares — se só um subir, a tela
