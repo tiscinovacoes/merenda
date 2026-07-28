@@ -184,17 +184,40 @@ window.DB = {
     }
   },
 
-  // Popula o dropdown de escolas no login com dados reais do DB
+  // Popula o dropdown de escolas no login e alinha _PILOT_SCHOOLS à mesma fonte.
+  // Os dois PRECISAM sair da mesma consulta: se o dropdown listar escolas do Supabase
+  // enquanto _PILOT_SCHOOLS ainda tem as mock locais, o usuário escolhe uma e entra em outra.
   async initLoginDropdown() {
     try {
-      const { data, error } = await _sb2.from('schools').select('id,name,region,students').order('name');
-      if (error || !data || data.length === 0) return;
+      const [schools, usuarios] = await Promise.all([this.fetchSchools(), this.fetchEscolaUsuarios()]);
+      if (!schools || schools.length === 0) return;
+
+      const userMap = {};
+      for (const u of usuarios) {
+        if (!userMap[u.school_id]) userMap[u.school_id] = {};
+        userMap[u.school_id][u.perfil] = {
+          name: u.nome, matricula: u.matricula, cpf: u.cpf,
+          email: u.email, telefone: u.telefone, initials: u.initials,
+        };
+      }
+      for (const sc of schools) {
+        const u = userMap[sc.id] || {};
+        sc.diretor     = u.diretor      || null;
+        sc.respEstoque = u.resp_estoque || null;
+        sc.merendeira  = u.merendeira   || null;
+      }
+
+      const comDiretor = schools.filter(sc => sc.diretor);
+      if (comDiretor.length === 0) return;
+      window._PILOT_SCHOOLS = comDiretor;
+
       const sel = document.getElementById('school-picker-select');
-      if (!sel) return;
-      sel.innerHTML = '<option value="">— Selecione a unidade escolar —</option>' +
-        data.map(s => `<option value="${s.id}">${s.name} (${s.region} · ${s.students || 0} alunos)</option>`).join('');
-      console.log(`[DB] Dropdown de login: ${data.length} escolas`);
-    } catch { /* mantém opções hardcoded do HTML */ }
+      if (sel) {
+        sel.innerHTML = '<option value="">— Selecione a unidade escolar —</option>' +
+          comDiretor.map(s => `<option value="${s.id}">${s.name} (${s.region} · ${s.students || 0} alunos)</option>`).join('');
+      }
+      console.log(`[DB] Dropdown de login: ${comDiretor.length} escolas (alinhado com _PILOT_SCHOOLS)`);
+    } catch { /* mantém opções hardcoded do HTML e _PILOT_SCHOOLS local */ }
   },
 
   async fetchRestricoes(schoolId) {
@@ -505,21 +528,21 @@ window.DB = {
   
   async fetchProductions() {
     try {
-      const { data, error } = await supabase.from('productions').select('*');
+      const { data, error } = await _sb.from('productions').select('*');
       if (error) throw error;
       return data || [];
     } catch(e) {
-      console.error('Erro fetchProductions:', e);
+      console.warn('[DB] productions:', e.message || e);
       return [];
     }
   },
   async fetchStockAdjusts() {
     try {
-      const { data, error } = await supabase.from('stock_adjusts').select('*');
+      const { data, error } = await _sb.from('stock_adjusts').select('*');
       if (error) throw error;
       return data || [];
     } catch(e) {
-      console.error('Erro fetchStockAdjusts:', e);
+      console.warn('[DB] stock_adjusts:', e.message || e);
       return [];
     }
   },

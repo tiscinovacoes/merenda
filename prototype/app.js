@@ -1,5 +1,5 @@
 /* ============================================
-   SAGED — Application Engine
+   SUALE — Application Engine
    Sistema de Gestão da Alimentação Escolar
    SEMED · Campo Grande · MS
    ============================================ */
@@ -77,6 +77,7 @@ const DATA = {
       attendance_pct: 91, attendance_avg: 413, monthly_budget: 12500,
       diretor: { name: 'Profa. Maria Amélia Santos', matricula: 'SEMED-11001', cpf: '111.222.333-01', telefone: '(67) 98111-0001', email: 'direcao.demosthenes@semed.ms.gov.br', initials: 'MS' },
       respEstoque: { name: 'Carlos Eduardo Lima', matricula: 'SEMED-11002', cpf: '111.222.333-02', telefone: '(67) 98111-0002', email: 'estoque.demosthenes@semed.ms.gov.br', initials: 'CL' },
+      merendeira: { name: 'Josefina Ribeiro Alves', matricula: 'SEMED-11003', cpf: '111.222.333-03', telefone: '(67) 98111-0003', email: 'cozinha.demosthenes@semed.ms.gov.br', initials: 'JA' },
     },
     {
       id: 2, name: 'EM PROF. ANTÔNIO LOPES LINS', sigla: 'EM', tipo: 'Escola Municipal',
@@ -85,6 +86,7 @@ const DATA = {
       attendance_pct: 88, attendance_avg: 1494, monthly_budget: 45000,
       diretor: { name: 'Prof. João Carlos Oliveira', matricula: 'SEMED-12001', cpf: '222.333.444-01', telefone: '(67) 98222-0001', email: 'direcao.antoniolins@semed.ms.gov.br', initials: 'JO' },
       respEstoque: { name: 'Fernanda Aparecida Costa', matricula: 'SEMED-12002', cpf: '222.333.444-02', telefone: '(67) 98222-0002', email: 'estoque.antoniolins@semed.ms.gov.br', initials: 'FC' },
+      merendeira: { name: 'Aparecida Souza Lima', matricula: 'SEMED-12003', cpf: '222.333.444-03', telefone: '(67) 98222-0003', email: 'cozinha.antoniolins@semed.ms.gov.br', initials: 'AL' },
     },
     {
       id: 3, name: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', sigla: 'EMRTI', tipo: 'Escola Rural Integral',
@@ -93,6 +95,7 @@ const DATA = {
       attendance_pct: 94, attendance_avg: 410, monthly_budget: 22000,
       diretor: { name: 'Profa. Ana Cristina Pereira', matricula: 'SEMED-13001', cpf: '333.444.555-01', telefone: '(67) 98333-0001', email: 'direcao.arnaldo@semed.ms.gov.br', initials: 'AP' },
       respEstoque: { name: 'Sebastião Gonçalves Neto', matricula: 'SEMED-13002', cpf: '333.444.555-02', telefone: '(67) 98333-0002', email: 'estoque.arnaldo@semed.ms.gov.br', initials: 'SN' },
+      merendeira: { name: 'Ivone Martins da Rosa', matricula: 'SEMED-13003', cpf: '333.444.555-03', telefone: '(67) 98333-0003', email: 'cozinha.arnaldo@semed.ms.gov.br', initials: 'IR' },
     },
     {
       id: 4, name: 'EMTI PROFª IRACEMA MARIA VICENTE', sigla: 'EMTI', tipo: 'Escola de Tempo Integral',
@@ -101,6 +104,7 @@ const DATA = {
       attendance_pct: 86, attendance_avg: 463, monthly_budget: 28000,
       diretor: { name: 'Prof. Antônio Carlos Mendes', matricula: 'SEMED-14001', cpf: '444.555.666-01', telefone: '(67) 98444-0001', email: 'direcao.iracema@semed.ms.gov.br', initials: 'AM' },
       respEstoque: { name: 'Rosa Maria Alves Barbosa', matricula: 'SEMED-14002', cpf: '444.555.666-02', telefone: '(67) 98444-0002', email: 'estoque.iracema@semed.ms.gov.br', initials: 'RB' },
+      merendeira: { name: 'Neuza Aparecida Ferreira', matricula: 'SEMED-14003', cpf: '444.555.666-03', telefone: '(67) 98444-0003', email: 'cozinha.iracema@semed.ms.gov.br', initials: 'NF' },
     },
     {
       id: 5, name: 'EMEI CLEOMAR BAPTISTA DOS SANTOS', sigla: 'EMEI', tipo: 'Educação Infantil',
@@ -109,6 +113,7 @@ const DATA = {
       attendance_pct: 90, attendance_avg: 115, monthly_budget: 8500,
       diretor: { name: 'Profa. Fernanda Lima Souza', matricula: 'SEMED-15001', cpf: '555.666.777-01', telefone: '(67) 98555-0001', email: 'direcao.cleomar@semed.ms.gov.br', initials: 'FS' },
       respEstoque: { name: 'Paulo Roberto Santos', matricula: 'SEMED-15002', cpf: '555.666.777-02', telefone: '(67) 98555-0002', email: 'estoque.cleomar@semed.ms.gov.br', initials: 'PS' },
+      merendeira: { name: 'Marlene Duarte Silva', matricula: 'SEMED-15003', cpf: '555.666.777-03', telefone: '(67) 98555-0003', email: 'cozinha.cleomar@semed.ms.gov.br', initials: 'MD' },
     },
     {
       id: 6, name: 'EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA', sigla: 'EMEI', tipo: 'Educação Infantil',
@@ -117,6 +122,7 @@ const DATA = {
       attendance_pct: 92, attendance_avg: 176, monthly_budget: 11000,
       diretor: { name: 'Profa. Sandra Ishida Martins', matricula: 'SEMED-16001', cpf: '666.777.888-01', telefone: '(67) 98666-0001', email: 'direcao.emy@semed.ms.gov.br', initials: 'SM' },
       respEstoque: { name: 'Marcos Vinícius Rodrigues', matricula: 'SEMED-16002', cpf: '666.777.888-02', telefone: '(67) 98666-0002', email: 'estoque.emy@semed.ms.gov.br', initials: 'MR' },
+      merendeira: { name: 'Cecília Nogueira Prado', matricula: 'SEMED-16003', cpf: '666.777.888-03', telefone: '(67) 98666-0003', email: 'cozinha.emy@semed.ms.gov.br', initials: 'CP' },
     },
     {
       id: 7, name: 'EMEI CLOTILDE CHAIA', sigla: 'EMEI', tipo: 'Educação Infantil',
@@ -125,6 +131,7 @@ const DATA = {
       attendance_pct: 89, attendance_avg: 171, monthly_budget: 11200,
       diretor: { name: 'Profa. Patrícia da Silva Chaia', matricula: 'SEMED-17001', cpf: '777.888.999-01', telefone: '(67) 98777-0001', email: 'direcao.clotilde@semed.ms.gov.br', initials: 'PC' },
       respEstoque: { name: 'Gilberto Nascimento Costa', matricula: 'SEMED-17002', cpf: '777.888.999-02', telefone: '(67) 98777-0002', email: 'estoque.clotilde@semed.ms.gov.br', initials: 'GC' },
+      merendeira: { name: 'Terezinha Gomes Chaia', matricula: 'SEMED-17003', cpf: '777.888.999-03', telefone: '(67) 98777-0003', email: 'cozinha.clotilde@semed.ms.gov.br', initials: 'TC' },
     },
     {
       id: 8, name: 'EMEI ELEODES ESTEVAN', sigla: 'EMEI', tipo: 'Educação Infantil',
@@ -133,6 +140,7 @@ const DATA = {
       attendance_pct: 93, attendance_avg: 329, monthly_budget: 19500,
       diretor: { name: 'Prof. Roberto Estevan Filho', matricula: 'SEMED-18001', cpf: '888.999.000-01', telefone: '(67) 98888-0001', email: 'direcao.eleodes@semed.ms.gov.br', initials: 'RE' },
       respEstoque: { name: 'Cleusa Maria Santos', matricula: 'SEMED-18002', cpf: '888.999.000-02', telefone: '(67) 98888-0002', email: 'estoque.eleodes@semed.ms.gov.br', initials: 'CS' },
+      merendeira: { name: 'Vera Lúcia Estevan', matricula: 'SEMED-18003', cpf: '888.999.000-03', telefone: '(67) 98888-0003', email: 'cozinha.eleodes@semed.ms.gov.br', initials: 'VE' },
     },
   ],
   products: [
@@ -244,12 +252,18 @@ const PROFILES = {
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard Executivo', badge: null },
       { id: 'escolas', icon: '🏫', label: 'Escolas', badge: null },
-      { id: 'atas', icon: '📋', label: 'Atas e Contratos', badge: null },
-      { id: 'pedidos', icon: '📦', label: 'Pedidos', badge: '3' },
-      { id: 'cooperativas', icon: '🤝', label: 'Cooperativas', badge: null },
-      { id: 'agricultura', icon: '🌾', label: 'Agricultura Familiar', badge: null },
-      { id: 'estoque', icon: '📊', label: 'Estoque Consolidado', badge: null },
-      { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
+      { type: 'group', label: 'Operacional', children: [
+        { id: 'pedidos', icon: '📦', label: 'Pedidos', badge: '3' },
+        { id: 'estoque', icon: '📊', label: 'Estoque Consolidado', badge: null },
+        { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
+      ]},
+      { type: 'group', label: 'Colaboradores', children: [
+        { id: 'cooperativas', icon: '🤝', label: 'Cooperativas', badge: null },
+        { id: 'agricultura', icon: '🌾', label: 'Agricultura Familiar', badge: null },
+      ]},
+      { type: 'group', label: 'Prestação de Contas', children: [
+        { id: 'atas', icon: '📋', label: 'Atas e Contratos', badge: null },
+      ]},
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
       { id: 'ia', icon: '🤖', label: 'IA de Previsão', badge: null },
     ]
@@ -267,6 +281,7 @@ const PROFILES = {
       { id: 'escolas', icon: '🏫', label: 'Escolas', badge: null },
       { id: 'consumo', icon: '📈', label: 'Consumo', badge: null },
       { id: 'desperdicios', icon: '🗑️', label: 'Desperdícios', badge: null },
+      { id: 'restricoes', icon: '⚠️', label: 'Restrições Alimentares', badge: null },
       { id: 'relatorios', icon: '📊', label: 'Relatórios', badge: null },
       { id: 'ia', icon: '🤖', label: 'IA Nutricional', badge: null },
     ]
@@ -333,6 +348,7 @@ const PROFILES = {
       { id: 'separacao', icon: '📦', label: 'Ordens de Separação', badge: '3' },
       { id: 'carregamento', icon: '🚚', label: 'Carregamento (Bipagem)', badge: null },
       { id: 'lotes', icon: '📋', label: 'Controle de Lotes', badge: null },
+      { id: 'escolas', icon: '🏫', label: 'Escolas Atendidas', badge: null },
     ]
   },
   diretor: {
@@ -347,6 +363,7 @@ const PROFILES = {
       { id: 'entregas', icon: '🚚', label: 'Acompanhar Entregas', badge: null },
       { id: 'consumo', icon: '📝', label: 'Consumo Registrado', badge: null },
       { id: 'cardapios', icon: '🍽️', label: 'Cardápio Vigente', badge: null },
+      { id: 'restricoes', icon: '⚠️', label: 'Restrições Alimentares', badge: null },
       { id: 'historico', icon: '📜', label: 'Histórico', badge: null },
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
     ]
@@ -362,8 +379,21 @@ const PROFILES = {
       { id: 'entradas', icon: '📥', label: 'Confirmar Entregas', badge: null },
       { id: 'consumo', icon: '📝', label: 'Lançar Consumo', badge: null },
       { id: 'pedidos', icon: '🛒', label: 'Pedidos em Aberto', badge: null },
-      { id: 'validades', icon: '📅', label: 'Controle de Validades', badge: null },
+      { id: 'validades', icon: '⏳', label: 'Controle de Validade (FEFO)', badge: null },
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+    ]
+  },
+  merendeira: {
+    get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
+    get name() { const sc = this._sc; return sc && sc.merendeira ? sc.merendeira.name : 'Merendeira Escolar'; },
+    get role() { const sc = this._sc; return sc ? 'Cozinha · ' + (sc.sigla||'') + ' ' + sc.name.split(' ').slice(-2).join(' ') : 'Cozinha'; },
+    get initials() { const sc = this._sc; return sc && sc.merendeira ? sc.merendeira.initials : 'ME'; },
+    menu: [
+      { id: 'dashboard', icon: '👩‍🍳', label: 'Painel da Merendeira', badge: null },
+      { id: 'consumo', icon: '📝', label: 'Lançamento Ágil de Consumo', badge: null },
+      { id: 'cardapios', icon: '🍽️', label: 'Cardápio do Dia', badge: null },
+      { id: 'estoque', icon: '📦', label: 'Estoque (Leitura)', badge: null },
+      { id: 'entregas', icon: '🚚', label: 'Conferir Entregas', badge: null },
     ]
   },
   motorista: {
@@ -454,6 +484,7 @@ const SharedState = {
       schoolStocks: {}, // { [escolaName]: { [produto]: { qtd, unidade, ultimaEntrada } } }
       centralStock: {}, // Estoque do Estoque Central (por produto)
       consumo: [],      // { id, escola, produto, qtd, unidade, refeicao, data, responsavel }
+      restricoes: [],   // { id, schoolId, schoolName, tipo, quantidade, observacao, status, registradoPor, criadoEm }
       lastEventAt: null,
     };
   },
@@ -535,6 +566,34 @@ const SharedState = {
   getConsumo(escola) {
     const all = this._data.consumo || [];
     return escola ? all.filter(c => c.escola === escola) : [...all];
+  },
+  getRestricoes(schoolId) {
+    const all = this._data.restricoes || [];
+    return schoolId ? all.filter(r => r.schoolId === schoolId) : [...all];
+  },
+
+  addRestricao(restricao) {
+    const r = { id: 'restr-' + Date.now(), criadoEm: new Date().toISOString(), status: 'ativo', notificado: false, ...restricao };
+    (this._data.restricoes = this._data.restricoes || []).unshift(r);
+    this._persist(); this._emit('restricao:add');
+    if (window.DB && typeof window.DB.saveRestricao === 'function') {
+      window.DB.saveRestricao({
+        school_id: r.schoolId, tipo: r.tipo, quantidade: r.quantidade,
+        observacao: r.observacao, status: r.status, registrado_por: r.registradoPor,
+      });
+    }
+    return r;
+  },
+
+  resolverRestricao(id) {
+    const r = (this._data.restricoes || []).find(x => x.id === id);
+    if (r) { r.status = 'resolvido'; r.resolvidoEm = new Date().toISOString(); }
+    this._persist(); this._emit('restricao:resolve');
+    const dbId = id.startsWith('db-') ? parseInt(id.replace('db-',''),10) : null;
+    if (dbId && window.DB && typeof window.DB.resolverRestricao === 'function') {
+      window.DB.resolverRestricao(dbId);
+    }
+    return r;
   },
 
   // Contadores para badges do menu lateral
@@ -776,10 +835,17 @@ const SharedState = {
 
 SharedState.init();
 window.SharedState = SharedState;
+window.PROFILES = PROFILES;
 
 // Escolas piloto — capturadas UMA VEZ antes de qualquer hydrateData do Supabase.
-// Este array nunca é sobrescrito pelo DB e é a fonte canônica para login de diretor/resp_estoque.
+// Serve de fallback quando o Supabase não responde; o db.js substitui por escolas reais quando conecta.
 window._PILOT_SCHOOLS = DATA.schools.filter(sc => sc.diretor).slice();
+
+// O dropdown do login precisa listar as MESMAS escolas (e IDs) que acabam em _PILOT_SCHOOLS,
+// senão o usuário escolhe uma escola e entra em outra.
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.DB && typeof window.DB.initLoginDropdown === 'function') window.DB.initLoginDropdown();
+});
 
 // Helper de UI: mostra um toast rápido de sucesso/erro
 function showToast(msg, kind) {
@@ -917,24 +983,53 @@ function computeDynamicBadge(profile, pageId) {
   return null;
 }
 
+function _renderMenuItem(item, profile) {
+  const dyn = computeDynamicBadge(profile, item.id);
+  const badge = dyn != null ? dyn : item.badge;
+  return `
+    <button class="sidebar-nav-item ${item.id === state.currentPage ? 'active' : ''}" data-page="${item.id}" type="button">
+      <span class="nav-icon">${item.icon}</span>
+      <span>${item.label}</span>
+      ${badge ? `<span class="nav-badge">${badge}</span>` : ''}
+    </button>`;
+}
+
 function renderSidebar() {
   const prof = PROFILES[state.currentProfile];
   $('#sidebar-avatar').textContent = prof.initials;
   $('#sidebar-user-name').textContent = prof.name;
   $('#sidebar-user-role').textContent = prof.role;
   const nav = $('#sidebar-nav');
+  if (!state._groupState) state._groupState = {};
   nav.innerHTML = prof.menu.map(item => {
-    const dyn = computeDynamicBadge(state.currentProfile, item.id);
-    const badge = dyn != null ? dyn : item.badge;
-    return `
-    <button class="sidebar-nav-item ${item.id === state.currentPage ? 'active' : ''}" data-page="${item.id}" type="button">
-      <span class="nav-icon">${item.icon}</span>
-      <span>${item.label}</span>
-      ${badge ? `<span class="nav-badge">${badge}</span>` : ''}
-    </button>
-  `;}).join('');
+    if (item.type === 'group') {
+      const open = state._groupState[item.label] !== false;
+      return `
+        <div class="sidebar-group">
+          <button class="sidebar-group-toggle" data-group="${item.label}" type="button" style="display:flex;align-items:center;width:100%;padding:8px 16px;border:none;background:none;cursor:pointer;color:var(--text-secondary);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;gap:6px">
+            <span style="transition:transform .2s;transform:rotate(${open?'90':'0'}deg);font-size:0.7rem">▶</span>
+            <span>${item.label}</span>
+          </button>
+          <div class="sidebar-group-children" style="${open ? '' : 'display:none'}">
+            ${(item.children||[]).map(child => _renderMenuItem(child, state.currentProfile)).join('')}
+          </div>
+        </div>`;
+    }
+    return _renderMenuItem(item, state.currentProfile);
+  }).join('');
   nav.querySelectorAll('.sidebar-nav-item').forEach(btn => {
     btn.addEventListener('click', () => navigateTo(null, btn.dataset.page));
+  });
+  nav.querySelectorAll('.sidebar-group-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.dataset.group;
+      const children = btn.nextElementSibling;
+      const arrow = btn.querySelector('span');
+      const isOpen = children.style.display !== 'none';
+      children.style.display = isOpen ? 'none' : '';
+      if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+      state._groupState[group] = !isOpen;
+    });
   });
 }
 
@@ -946,7 +1041,8 @@ function renderHeader() {
   $('#header-avatar').textContent = prof.initials;
   $('#header-user-name').textContent = prof.name;
   $('#header-user-role').textContent = prof.role;
-  const menuItem = prof.menu.find(m => m.id === state.currentPage);
+  const flat = prof.menu.flatMap(m => m.type === 'group' ? (m.children || []) : [m]);
+  const menuItem = flat.find(m => m.id === state.currentPage);
   const label = menuItem ? menuItem.label : 'Dashboard';
   $('#breadcrumb').innerHTML = `
     <span class="breadcrumb-item" onclick="navigateTo(null,'dashboard')">Início</span>
@@ -2317,6 +2413,7 @@ function mergeFichas() {
 
 PAGE_RENDERERS.nutricionista_fichas = (el) => {
   const todas = mergeFichas();
+  const salvas = todas.length - _FICHAS_DEMO.length;
 
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Fichas Técnicas de Preparação</div><div class="page-subtitle">Gestão de receitas, ingredientes e cálculo nutricional (Padrão FNDE/PNAE)</div></div>
@@ -2328,7 +2425,7 @@ PAGE_RENDERERS.nutricionista_fichas = (el) => {
           <input type="search" id="search-fichas" placeholder="Buscar receita..." oninput="filterFichas()" style="width:100%">
         </div>
         <div style="display:flex;align-items:center;gap:10px">
-          <span style="font-size:0.8rem;color:var(--text-secondary)">${fichasSalvas.length} salva${fichasSalvas.length !== 1 ? 's' : ''} + ${_FICHAS_DEMO.length} demo</span>
+          <span style="font-size:0.8rem;color:var(--text-secondary)">${salvas} salva${salvas !== 1 ? 's' : ''} + ${_FICHAS_DEMO.length} demo</span>
           <button class="btn btn-outline" onclick="PAGE_RENDERERS.nutricionista_simulacoes(document.getElementById('page-content'))">🔬 Simular Enquadramento PNAE</button>
           <button class="btn btn-primary" onclick="showCreateFichaForm()">+ Nova Ficha Técnica</button>
         </div>
@@ -3076,10 +3173,17 @@ window.handleCreateFicha = (event) => {
     ativo: true
   };
 
-  // Salvar no localStorage (simulando Supabase)
+  // Salvar no localStorage (cache local imediato)
   let fichas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
   fichas.push(receita);
   localStorage.setItem('fichas_tecnicas', JSON.stringify(fichas));
+
+  // Persiste no Supabase (best-effort — localStorage já garante a UI)
+  if (window.DB && typeof window.DB.saveFichaTecnica === 'function') {
+    window.DB.saveFichaTecnica(receita).then(ok => {
+      if (!ok) console.warn('[Fichas] Não foi possível persistir no Supabase — mantida apenas em localStorage');
+    });
+  }
 
   // Publica no SharedState para que Escola/Gestor também vejam
   SharedState.addFicha(receita);
@@ -3808,7 +3912,40 @@ PAGE_RENDERERS.cooperativa_escolas = (el) => {
 
 PAGE_RENDERERS.agricultor_escolas = (el) => { PAGE_RENDERERS.cooperativa_escolas(el); };
 
-// Renderer órfão do antigo perfil "almoxarifado" removido — perfil hoje é "estoque"
+PAGE_RENDERERS.estoque_escolas = (el) => {
+  const schools = DATA.schools || [];
+  const regioes = {};
+  schools.forEach(s => { (regioes[s.region] = regioes[s.region] || []).push(s); });
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Escolas Atendidas</div>
+      <div class="page-subtitle">Unidades escolares agrupadas por região de distribuição</div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${schools.length}</div><div class="kpi-label">Escolas</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">🗺️</div><div class="kpi-value">${Object.keys(regioes).length}</div><div class="kpi-label">Regiões</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${schools.filter(s=>s.stockStatus==='warning').length}</div><div class="kpi-label">Em Atenção</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${schools.filter(s=>s.stockStatus==='danger').length}</div><div class="kpi-label">Em Risco</div></div>
+    </div>
+    ${Object.entries(regioes).map(([regiao, list]) => `
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><div class="card-title">${regiao} <span class="tag tag-blue" style="font-size:0.7rem">${list.length} escola(s)</span></div></div>
+        <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+          ${list.map(s => `
+            <div style="border:1px solid var(--border);border-radius:8px;padding:12px">
+              <div style="font-weight:600;margin-bottom:4px">${s.name}</div>
+              <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:8px">${s.sigla || ''} · ${s.students} alunos · ${s.director || (s.diretor ? s.diretor.name : '')}</div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
+                <span class="status-badge ${statusClass(s.stockStatus)}" style="font-size:0.7rem">${statusLabel(s.stockStatus)}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `).join('')}
+  `;
+};
 
 PAGE_RENDERERS.motorista_escolas = (el) => {
   const schools = DATA.schools || [];
@@ -6896,7 +7033,7 @@ PAGE_RENDERERS.diretor_pedidos = (el) => {
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Solicitação de Reposição — ${sc.name}</div>
-      <div class="page-subtitle">Pedidos de abastecimento enviados à Cooperativa via SAGED</div>
+      <div class="page-subtitle">Pedidos de abastecimento enviados à Cooperativa via SUALE</div>
     </div>
 
     ${criticalProducts.length > 0 ? `
@@ -7001,6 +7138,203 @@ PAGE_RENDERERS.diretor_consumo  = PAGE_RENDERERS.escola_consumo;
 PAGE_RENDERERS.diretor_cardapios = PAGE_RENDERERS.escola_cardapios;
 PAGE_RENDERERS.diretor_historico = PAGE_RENDERERS.escola_historico;
 PAGE_RENDERERS.diretor_relatorios = PAGE_RENDERERS.escola_relatorios;
+
+// RESTRIÇÕES ALIMENTARES — Nutricionista (view global) e Diretor (view da escola)
+PAGE_RENDERERS.nutricionista_restricoes = (el) => {
+  const restricoes = SharedState.getRestricoes();
+  const schools = DATA.schools || [];
+  const ativos = restricoes.filter(r => r.status === 'ativo');
+  const resolvidos = restricoes.filter(r => r.status === 'resolvido');
+  const tipos = {};
+  ativos.forEach(r => { tipos[r.tipo] = (tipos[r.tipo]||0) + 1; });
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Restrições Alimentares</div>
+      <div class="page-subtitle">Visão consolidada da rede — ${restricoes.length} registros</div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+      <div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value">${ativos.length}</div><div class="kpi-label">Ativas</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${resolvidos.length}</div><div class="kpi-label">Resolvidas</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${new Set(ativos.map(r => r.schoolId)).size}</div><div class="kpi-label">Escolas Afetadas</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🔍</div><div class="kpi-value">${Object.keys(tipos).length}</div><div class="kpi-label">Tipos Distintos</div></div>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">Registrar Nova Restrição</div>
+      </div>
+      <div class="card-body">
+        <form id="form-nova-restricao" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end">
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Escola</label>
+            <select id="restr-school" class="form-control" required>
+              <option value="">Selecione</option>
+              ${schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Tipo</label>
+            <select id="restr-tipo" class="form-control" required>
+              <option value="Alergia alimentar">Alergia alimentar</option>
+              <option value="Intolerância à lactose">Intolerância à lactose</option>
+              <option value="Doença celíaca">Doença celíaca</option>
+              <option value="Diabetes">Diabetes</option>
+              <option value="Restrição religiosa">Restrição religiosa</option>
+              <option value="Vegetariano/Vegano">Vegetariano/Vegano</option>
+              <option value="Outra">Outra</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Qtd. alunos</label>
+            <input type="number" id="restr-qtd" class="form-control" min="1" value="1" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="height:38px">Registrar</button>
+        </form>
+        <div style="margin-top:8px">
+          <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Observação</label>
+          <input type="text" id="restr-obs" class="form-control" placeholder="Ex: laudo médico apresentado em 10/07">
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Registros Ativos (${ativos.length})</div></div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Escola</th><th>Tipo</th><th>Qtd</th><th>Observação</th><th>Registrado por</th><th>Data</th><th>Ação</th></tr></thead>
+            <tbody>
+              ${ativos.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary)">Nenhuma restrição ativa</td></tr>' :
+                ativos.map(r => `
+                  <tr>
+                    <td><strong>${r.schoolName || 'Escola #' + r.schoolId}</strong></td>
+                    <td><span class="tag tag-orange">${r.tipo}</span></td>
+                    <td style="font-family:var(--font-mono)">${r.quantidade || 1}</td>
+                    <td style="font-size:0.82rem">${r.observacao || '—'}</td>
+                    <td style="font-size:0.82rem">${r.registradoPor || '—'}</td>
+                    <td style="font-size:0.82rem">${r.criadoEm ? new Date(r.criadoEm).toLocaleDateString('pt-BR') : '—'}</td>
+                    <td><button class="table-action" onclick="window._resolverRestricao('${r.id}')">Resolver</button></td>
+                  </tr>
+                `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    ${resolvidos.length > 0 ? `
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><div class="card-title">Resolvidas (${resolvidos.length})</div></div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Escola</th><th>Tipo</th><th>Qtd</th><th>Resolvido em</th></tr></thead>
+            <tbody>
+              ${resolvidos.map(r => `
+                <tr style="opacity:0.6">
+                  <td>${r.schoolName || 'Escola #' + r.schoolId}</td>
+                  <td>${r.tipo}</td>
+                  <td>${r.quantidade || 1}</td>
+                  <td>${r.resolvidoEm ? new Date(r.resolvidoEm).toLocaleDateString('pt-BR') : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>` : ''}
+  `;
+  document.getElementById('form-nova-restricao')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const schoolId = parseInt(document.getElementById('restr-school').value, 10);
+    const school = schools.find(s => s.id === schoolId);
+    SharedState.addRestricao({
+      schoolId, schoolName: school ? school.name : 'Escola #' + schoolId,
+      tipo: document.getElementById('restr-tipo').value,
+      quantidade: parseInt(document.getElementById('restr-qtd').value, 10) || 1,
+      observacao: document.getElementById('restr-obs').value,
+      registradoPor: PROFILES.nutricionista.name,
+    });
+    PAGE_RENDERERS.nutricionista_restricoes(el);
+  });
+};
+
+window._resolverRestricao = (id) => {
+  if (confirm('Marcar esta restrição como resolvida?')) {
+    SharedState.resolverRestricao(id);
+    renderPage();
+  }
+};
+
+PAGE_RENDERERS.diretor_restricoes = (el) => {
+  const sc = getCurrentSchool();
+  const restricoes = SharedState.getRestricoes(sc.id);
+  const ativos = restricoes.filter(r => r.status === 'ativo');
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Restrições Alimentares — ${sc.name}</div>
+      <div class="page-subtitle">${ativos.length} restrição(ões) ativa(s)</div>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><div class="card-title">Registrar Restrição</div></div>
+      <div class="card-body">
+        <form id="form-dir-restricao" style="display:grid;grid-template-columns:1fr 100px 1fr auto;gap:12px;align-items:end">
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Tipo</label>
+            <select id="dir-restr-tipo" class="form-control" required>
+              <option value="Alergia alimentar">Alergia alimentar</option>
+              <option value="Intolerância à lactose">Intolerância à lactose</option>
+              <option value="Doença celíaca">Doença celíaca</option>
+              <option value="Diabetes">Diabetes</option>
+              <option value="Outra">Outra</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Qtd</label>
+            <input type="number" id="dir-restr-qtd" class="form-control" min="1" value="1" required>
+          </div>
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Observação</label>
+            <input type="text" id="dir-restr-obs" class="form-control" placeholder="Opcional">
+          </div>
+          <button type="submit" class="btn btn-primary" style="height:38px">Registrar</button>
+        </form>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Restrições Registradas (${restricoes.length})</div></div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Tipo</th><th>Qtd</th><th>Obs.</th><th>Status</th><th>Data</th><th>Ação</th></tr></thead>
+            <tbody>
+              ${restricoes.length === 0 ? '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary)">Nenhuma restrição registrada</td></tr>' :
+                restricoes.map(r => `
+                  <tr${r.status==='resolvido'?' style="opacity:0.6"':''}>
+                    <td><span class="tag tag-orange">${r.tipo}</span></td>
+                    <td style="font-family:var(--font-mono)">${r.quantidade || 1}</td>
+                    <td style="font-size:0.82rem">${r.observacao || '—'}</td>
+                    <td><span class="status-badge ${r.status==='ativo'?'warning':'success'}">${r.status==='ativo'?'Ativo':'Resolvido'}</span></td>
+                    <td style="font-size:0.82rem">${r.criadoEm ? new Date(r.criadoEm).toLocaleDateString('pt-BR') : '—'}</td>
+                    <td>${r.status==='ativo' ? `<button class="table-action" onclick="window._resolverRestricao('${r.id}')">Resolver</button>` : '—'}</td>
+                  </tr>
+                `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('form-dir-restricao')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const prof = PROFILES[state.currentProfile];
+    SharedState.addRestricao({
+      schoolId: sc.id, schoolName: sc.name,
+      tipo: document.getElementById('dir-restr-tipo').value,
+      quantidade: parseInt(document.getElementById('dir-restr-qtd').value, 10) || 1,
+      observacao: document.getElementById('dir-restr-obs').value,
+      registradoPor: prof.name,
+    });
+    PAGE_RENDERERS.diretor_restricoes(el);
+  });
+};
 
 // ============================================================
 // ─── RESP_ESTOQUE: RENDERERS ─────────────────────────────────
@@ -7405,24 +7739,58 @@ function renderGenericPage(el) {
 // EVENT LISTENERS
 // ============================
 document.addEventListener('DOMContentLoaded', () => {
-  const SCHOOL_PROFILES = ['escola', 'diretor', 'resp_estoque'];
+  const SCHOOL_SUBROLES = ['diretor', 'resp_estoque', 'merendeira'];
+  const COLAB_SUBROLES = ['cooperativa', 'agricultor'];
 
-  // Profile selector
+  // Profile selector (top-level: gestor, nutricionista, escola, colaboradores, estoque, motorista)
   $$('.profile-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       $$('.profile-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const profile = btn.dataset.profile;
-      const picker = $('#school-picker-row');
-      if (picker) {
-        picker.style.display = SCHOOL_PROFILES.includes(profile) ? 'block' : 'none';
-        const lbl = $('#school-picker-label');
-        if (lbl) {
-          if (profile === 'diretor') lbl.textContent = 'Escola (Diretor)';
-          else if (profile === 'resp_estoque') lbl.textContent = 'Escola (Resp. Estoque)';
-          else lbl.textContent = 'Selecionar Escola';
-        }
+
+      const schoolPicker = $('#school-picker-row');
+      const subrolePicker = $('#subrole-picker-row');
+      const colabPicker = $('#colab-subrole-picker-row');
+
+      const isEscola = profile === 'escola';
+      const isColab = profile === 'colaboradores';
+
+      if (schoolPicker) schoolPicker.style.display = isEscola ? 'block' : 'none';
+      if (subrolePicker) subrolePicker.style.display = isEscola ? 'block' : 'none';
+      if (colabPicker) colabPicker.style.display = isColab ? 'block' : 'none';
+
+      const lbl = $('#school-picker-label');
+      if (lbl && isEscola) {
+        const activeSub = $('.subrole-btn.active');
+        const sub = activeSub ? activeSub.dataset.subrole : 'diretor';
+        if (sub === 'diretor') lbl.textContent = 'Escola (Diretor)';
+        else if (sub === 'resp_estoque') lbl.textContent = 'Escola (Resp. Estoque)';
+        else if (sub === 'merendeira') lbl.textContent = 'Escola (Merendeira)';
       }
+    });
+  });
+
+  // Sub-perfil da Escola (Diretor / Merendeira / Resp. Estoque)
+  $$('.subrole-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.subrole-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const lbl = $('#school-picker-label');
+      const sub = btn.dataset.subrole;
+      if (lbl) {
+        if (sub === 'diretor') lbl.textContent = 'Escola (Diretor)';
+        else if (sub === 'resp_estoque') lbl.textContent = 'Escola (Resp. Estoque)';
+        else if (sub === 'merendeira') lbl.textContent = 'Escola (Merendeira)';
+      }
+    });
+  });
+
+  // Sub-perfil de Colaboradores (Cooperativa / Agricultor)
+  $$('.colab-subrole-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.colab-subrole-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
     });
   });
 
@@ -7430,12 +7798,21 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const activeProfile = $('.profile-btn.active');
-    const profile = activeProfile ? activeProfile.dataset.profile : 'gestor';
+    const topProfile = activeProfile ? activeProfile.dataset.profile : 'gestor';
+
+    let profile = topProfile;
     let schoolId = null;
-    if (SCHOOL_PROFILES.includes(profile)) {
+
+    if (topProfile === 'escola') {
+      const activeSub = $('.subrole-btn.active');
+      profile = activeSub ? activeSub.dataset.subrole : 'diretor';
       const sel = $('#school-picker-select');
       if (sel && sel.value) schoolId = parseInt(sel.value, 10);
+    } else if (topProfile === 'colaboradores') {
+      const activeColab = $('.colab-subrole-btn.active');
+      profile = activeColab ? activeColab.dataset.subrole : 'cooperativa';
     }
+
     await login(profile, schoolId);
   });
 
@@ -7480,3 +7857,11 @@ document.addEventListener('DOMContentLoaded', () => {
   $('#close-notif-drawer')?.addEventListener('click', closeNotifs);
   $('#notif-overlay')?.addEventListener('click', closeNotifs);
 });
+
+
+// MERENDEIRA ALIASES
+PAGE_RENDERERS.merendeira_dashboard = PAGE_RENDERERS.escola_dashboard;
+PAGE_RENDERERS.merendeira_consumo = PAGE_RENDERERS.escola_consumo;
+PAGE_RENDERERS.merendeira_cardapios = PAGE_RENDERERS.escola_cardapios;
+PAGE_RENDERERS.merendeira_estoque = PAGE_RENDERERS.escola_estoque;
+PAGE_RENDERERS.merendeira_entregas = PAGE_RENDERERS.escola_entregas;
