@@ -1,32 +1,40 @@
 /**
  * AI Cardápio Engine — Vigia Educa (SUALE)
  * Módulo de Inteligência Artificial para geração automática e otimização de cardápios escolares (PNAE).
+ * 
+ * Atualizações:
+ * - Priorização de itens sazonais da Agricultura Familiar.
+ * - Priorização de insumos próximos ao vencimento (FEFO / Combate ao Desperdício).
+ * - Cálculo detalhado de Per Capita (g/aluno) e Consumo Total Semanal da Rede.
+ * - Trava de Relatório PNAE: liberação exclusiva após aprovação da Dra. Lilian Droppa.
  */
 
 (function (window) {
   'use strict';
 
-  // Catálogo PNAE de Receitas Balanceadas
+  // Catálogo PNAE de Receitas Balanceadas com Indicadores Sazonais e AF
   const CATALOGO_RECEITAS = [
     {
       id: 'rec_01',
       nome: 'Arroz com Feijão, Coxa de Frango Assada e Salada Colorida',
       categoria: 'Almoço/Jantar',
       kcal: 720,
-      proteinas: 34, // g
-      carboidratos: 85, // g
-      lipideos: 18, // g
-      sodio: 480, // mg
+      proteinas: 34,
+      carboidratos: 85,
+      lipideos: 18,
+      sodio: 480,
+      sazonal: true,
+      agriculturaFamiliar: true,
       ingredientes: [
         { nome: 'Arroz branco', perCapita: 60, unidade: 'g', estoqueItem: 'Arroz Branco 5kg' },
         { nome: 'Feijão carioca', perCapita: 40, unidade: 'g', estoqueItem: 'Feijão Carioca 1kg' },
         { nome: 'Coxa de frango', perCapita: 110, unidade: 'g', estoqueItem: 'Frango Congelado (Coxa/Sobre)' },
-        { nome: 'Alface crespa', perCapita: 30, unidade: 'g', estoqueItem: 'Verduras da Agricultura Familiar' },
-        { nome: 'Tomate fresco', perCapita: 35, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar' },
+        { nome: 'Alface crespa', perCapita: 30, unidade: 'g', estoqueItem: 'Verduras da Agricultura Familiar', sazonal: true, af: true },
+        { nome: 'Tomate fresco', perCapita: 35, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar', sazonal: true, af: true },
         { nome: 'Óleo vegetal', perCapita: 8, unidade: 'ml', estoqueItem: 'Óleo de Soja 900ml' }
       ],
-      frutaAcompanhamento: 'Laranja fatiada (100g)',
-      restricoesEvitadas: [], // Sem restrições comuns
+      frutaAcompanhamento: 'Laranja fatiada (100g) — Safra Local AF 🌾',
+      restricoesEvitadas: [],
       modalidades: ['fundamental_integral', 'fundamental_parcial', 'eja']
     },
     {
@@ -38,14 +46,16 @@
       carboidratos: 80,
       lipideos: 16,
       sodio: 450,
+      sazonal: true,
+      agriculturaFamiliar: true,
       ingredientes: [
         { nome: 'Arroz integral', perCapita: 55, unidade: 'g', estoqueItem: 'Arroz Branco 5kg' },
         { nome: 'Feijão preto', perCapita: 40, unidade: 'g', estoqueItem: 'Feijão Carioca 1kg' },
         { nome: 'Carne moída bovina', perCapita: 90, unidade: 'g', estoqueItem: 'Carne Bovina Moída' },
-        { nome: 'Cenoura ralada', perCapita: 40, unidade: 'g', estoqueItem: 'Cenoura Fresca' },
+        { nome: 'Cenoura ralada', perCapita: 40, unidade: 'g', estoqueItem: 'Cenoura Fresca', sazonal: true, af: true },
         { nome: 'Azeite/Óleo', perCapita: 6, unidade: 'ml', estoqueItem: 'Óleo de Soja 900ml' }
       ],
-      frutaAcompanhamento: 'Melancia em cubos (120g)',
+      frutaAcompanhamento: 'Melancia em cubos (120g) — Safra Local AF 🌾',
       restricoesEvitadas: ['lactose'],
       modalidades: ['fundamental_integral', 'fundamental_parcial', 'eja']
     },
@@ -58,14 +68,16 @@
       carboidratos: 88,
       lipideos: 17,
       sodio: 460,
+      sazonal: true,
+      agriculturaFamiliar: true,
       ingredientes: [
         { nome: 'Arroz branco', perCapita: 65, unidade: 'g', estoqueItem: 'Arroz Branco 5kg' },
         { nome: 'Frango em cubos', perCapita: 95, unidade: 'g', estoqueItem: 'Frango Congelado (Coxa/Sobre)' },
         { nome: 'Feijão carioca', perCapita: 35, unidade: 'g', estoqueItem: 'Feijão Carioca 1kg' },
-        { nome: 'Milho verde e ervilha', perCapita: 25, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar' },
-        { nome: 'Pepino fatiado', perCapita: 35, unidade: 'g', estoqueItem: 'Verduras da Agricultura Familiar' }
+        { nome: 'Milho verde e ervilha', perCapita: 25, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar', sazonal: true, af: true },
+        { nome: 'Pepino fatiado', perCapita: 35, unidade: 'g', estoqueItem: 'Verduras da Agricultura Familiar', sazonal: true, af: true }
       ],
-      frutaAcompanhamento: 'Banana prata (1 un)',
+      frutaAcompanhamento: 'Banana prata (1 un) — Orgânico AF 🌾',
       restricoesEvitadas: ['lactose', 'gluten'],
       modalidades: ['fundamental_integral', 'fundamental_parcial', 'eja', 'creche']
     },
@@ -78,12 +90,14 @@
       carboidratos: 78,
       lipideos: 18,
       sodio: 410,
+      sazonal: true,
+      agriculturaFamiliar: true,
       ingredientes: [
         { nome: 'Arroz branco', perCapita: 60, unidade: 'g', estoqueItem: 'Arroz Branco 5kg' },
         { nome: 'Feijão carioca', perCapita: 40, unidade: 'g', estoqueItem: 'Feijão Carioca 1kg' },
-        { nome: 'Ovo caipira fresco', perCapita: 2, unidade: 'un', estoqueItem: 'Ovos caipiras' },
-        { nome: 'Cheiro verde e tomate', perCapita: 20, unidade: 'g', estoqueItem: 'Verduras da Agricultura Familiar' },
-        { nome: 'Repolho roxo com maçã', perCapita: 40, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar' }
+        { nome: 'Ovo caipira fresco', perCapita: 2, unidade: 'un', estoqueItem: 'Ovos caipiras', af: true },
+        { nome: 'Cheiro verde e tomate', perCapita: 20, unidade: 'g', estoqueItem: 'Verduras da Agricultura Familiar', sazonal: true, af: true },
+        { nome: 'Repolho roxo com maçã', perCapita: 40, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar', sazonal: true, af: true }
       ],
       frutaAcompanhamento: 'Maçã nacional (1 un)',
       restricoesEvitadas: ['lactose', 'gluten'],
@@ -98,13 +112,15 @@
       carboidratos: 92,
       lipideos: 19,
       sodio: 490,
+      sazonal: true,
+      agriculturaFamiliar: true,
       ingredientes: [
         { nome: 'Macarrão parafuso/espaguete', perCapita: 80, unidade: 'g', estoqueItem: 'Macarrão Parafuso 500g' },
         { nome: 'Carne moída bovina', perCapita: 90, unidade: 'g', estoqueItem: 'Carne Bovina Moída' },
         { nome: 'Extrato de tomate caseiro', perCapita: 30, unidade: 'g', estoqueItem: 'Extrato de Tomate' },
-        { nome: 'Beterraba cozida', perCapita: 40, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar' }
+        { nome: 'Beterraba cozida', perCapita: 40, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar', sazonal: true, af: true }
       ],
-      frutaAcompanhamento: 'Mamão formosa fatiado (100g)',
+      frutaAcompanhamento: 'Mamão formosa fatiado (100g) — Safra Local AF 🌾',
       restricoesEvitadas: ['lactose'],
       modalidades: ['fundamental_integral', 'fundamental_parcial', 'eja']
     },
@@ -117,10 +133,12 @@
       carboidratos: 72,
       lipideos: 15,
       sodio: 390,
+      sazonal: true,
+      agriculturaFamiliar: true,
       ingredientes: [
-        { nome: 'Macaxeira/Mandioca', perCapita: 120, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar' },
+        { nome: 'Macaxeira/Mandioca', perCapita: 120, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar', sazonal: true, af: true },
         { nome: 'Carne bovina em cubos', perCapita: 85, unidade: 'g', estoqueItem: 'Carne Bovina Moída' },
-        { nome: 'Couve manteiga picada', perCapita: 30, unidade: 'g', estoqueItem: 'Verduras da Agricultura Familiar' }
+        { nome: 'Couve manteiga picada', perCapita: 30, unidade: 'g', estoqueItem: 'Verduras da Agricultura Familiar', sazonal: true, af: true }
       ],
       frutaAcompanhamento: 'Abacaxi em rodelas (100g)',
       restricoesEvitadas: ['lactose', 'gluten'],
@@ -135,45 +153,54 @@
       carboidratos: 82,
       lipideos: 16,
       sodio: 430,
+      sazonal: true,
+      agriculturaFamiliar: true,
       ingredientes: [
         { nome: 'Arroz branco', perCapita: 60, unidade: 'g', estoqueItem: 'Arroz Branco 5kg' },
         { nome: 'Frango desfiado', perCapita: 90, unidade: 'g', estoqueItem: 'Frango Congelado (Coxa/Sobre)' },
-        { nome: 'Abóbora cabotiá', perCapita: 45, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar' },
-        { nome: 'Vagem picada', perCapita: 25, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar' }
+        { nome: 'Abóbora cabotiá', perCapita: 45, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar', sazonal: true, af: true },
+        { nome: 'Vagem picada', perCapita: 25, unidade: 'g', estoqueItem: 'Legumes da Agricultura Familiar', sazonal: true, af: true }
       ],
-      frutaAcompanhamento: 'Tangerina/Mexerica (1 un)',
+      frutaAcompanhamento: 'Tangerina/Mexerica (1 un) — Safra Atual AF 🌾',
       restricoesEvitadas: ['lactose', 'gluten'],
       modalidades: ['fundamental_integral', 'fundamental_parcial', 'creche', 'eja']
     }
   ];
 
+  // Insumos com Alerta FEFO Simulado para Combate ao Desperdício
+  const ESTOQUE_FEFO_EMERGENCIA = [
+    { itemKey: 'frango', nome: 'Frango Congelado (Coxa/Sobre)', diasParaVencer: 14, risco: 'alto' },
+    { itemKey: 'leite', nome: 'Leite Integral UHT', diasParaVencer: 18, risco: 'medio' },
+    { itemKey: 'feijao', nome: 'Feijão Carioca 1kg', diasParaVencer: 25, risco: 'medio' },
+    { itemKey: 'banana', nome: 'Verduras e Frutas AF', diasParaVencer: 5, risco: 'critico' }
+  ];
+
   const AICardapioEngine = {
-    /**
-     * Retorna a lista de receitas disponíveis no catálogo PNAE.
-     */
     getCatalogo: function () {
       return CATALOGO_RECEITAS;
     },
 
     /**
-     * Gera um cardápio semanal (5 dias de Segunda a Sexta) baseado em parâmetros configurados.
-     * @param {Object} params - { modalidade, metaKcal, priorizarEstoque, considerarRestricoes }
+     * Gera um cardápio semanal PNAE com priorização de Sazonalidade, FEFO e Per Capita.
      */
     generateWeeklyMenu: function (params) {
       params = params || {};
       const modalidade = params.modalidade || 'fundamental_integral';
       const metaKcal = parseInt(params.metaKcal) || 700;
       const priorizarEstoque = params.priorizarEstoque !== false;
+      const priorizarFEFO = params.priorizarFEFO !== false;
+      const priorizarSazonal = params.priorizarSazonal !== false;
       const considerarRestricoes = params.considerarRestricoes !== false;
+      const numAlunos = parseInt(params.numAlunos) || (modalidade === 'creche' ? 12000 : 32000);
 
-      // Filtrar receitas adequadas à modalidade
+      // 1. Filtrar receitas por modalidade
       let candidatas = CATALOGO_RECEITAS.filter(r => 
         !r.modalidades || r.modalidades.includes(modalidade)
       );
 
       if (candidatas.length === 0) candidatas = CATALOGO_RECEITAS;
 
-      // Se considerar restrições alimentares ativas
+      // 2. Filtrar restrições alimentares (Glúten / Lactose)
       if (considerarRestricoes && window.SharedState && typeof window.SharedState.getRestricoes === 'function') {
         const restricoesAtivas = window.SharedState.getRestricoes() || [];
         const temLactose = restricoesAtivas.some(r => (r.tipo || '').toLowerCase().includes('lactose'));
@@ -185,21 +212,53 @@
             if (temGluten && !r.restricoesEvitadas.includes('gluten')) return false;
             return true;
           });
-          if (candidatas.length < 5) candidatas = CATALOGO_RECEITAS; // fallback de segurança
+          if (candidatas.length < 5) candidatas = CATALOGO_RECEITAS;
         }
       }
 
-      // Embaralhar para garantir variedade
-      const shuffled = [...candidatas].sort(() => 0.5 - Math.random());
-      
+      // 3. Pontuação inteligente de receitas (FEFO + Sazonalidade)
+      const candidatasPontuadas = candidatas.map(r => {
+        let scoreBonus = 0;
+        let fefoBadge = null;
+
+        // Bônus FEFO: se usa item perto de vencer
+        if (priorizarFEFO) {
+          const itemFefo = ESTOQUE_FEFO_EMERGENCIA.find(f => 
+            r.ingredientes.some(ing => 
+              ing.nome.toLowerCase().includes(f.itemKey) ||
+              ing.estoqueItem.toLowerCase().includes(f.itemKey)
+            )
+          );
+          if (itemFefo) {
+            scoreBonus += 15;
+            fefoBadge = `⚡ Aproveitamento Prioritário: ${itemFefo.nome} (Vence em ${itemFefo.diasParaVencer} dias)`;
+          }
+        }
+
+        // Bônus Sazonalidade / Agricultura Familiar
+        if (priorizarSazonal && r.sazonal) {
+          scoreBonus += 10;
+        }
+
+        return {
+          ...r,
+          scoreFinal: 80 + scoreBonus,
+          fefoBadge: fefoBadge
+        };
+      });
+
+      // Ordenar por maior pontuação estratégica
+      const ordenadas = [...candidatasPontuadas].sort((a, b) => b.scoreFinal - a.scoreFinal);
+
       const diasSemana = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
       const refeicoesGeradas = [];
+      const acumuladorInsumos = {};
 
       for (let i = 0; i < 5; i++) {
-        const receita = shuffled[i % shuffled.length];
+        const receita = ordenadas[i % ordenadas.length];
 
-        // Verificar disponibilidade no estoque central
-        const ingredientesComEstoque = receita.ingredientes.map(ing => {
+        // Processar ingredientes, per capita e necessidade da rede em kg/litros
+        const ingredientesProcessados = receita.ingredientes.map(ing => {
           let disponivel = true;
           let qtdEstoque = 'Disponível';
 
@@ -215,14 +274,30 @@
             }
           }
 
+          // Cálculo Per Capita Total da Rede (kg)
+          const necessidadeKgDia = Math.round(((ing.perCapita * numAlunos) / 1000) * 10) / 10;
+
+          // Acumular demanda da semana
+          if (!acumuladorInsumos[ing.nome]) {
+            acumuladorInsumos[ing.nome] = {
+              nome: ing.nome,
+              unidade: ing.unidade,
+              perCapitaGramos: ing.perCapita,
+              totalSemanalKg: 0,
+              af: ing.af || false
+            };
+          }
+          acumuladorInsumos[ing.nome].totalSemanalKg += necessidadeKgDia;
+
           return {
             ...ing,
-            disponivel: disponivel,
-            qtdEstoque: qtdEstoque
+            disponivel,
+            qtdEstoque,
+            necessidadeKgDia
           };
         });
 
-        const todosDisponiveis = ingredientesComEstoque.every(ing => ing.disponivel);
+        const todosDisponiveis = ingredientesProcessados.every(ing => ing.disponivel);
 
         refeicoesGeradas.push({
           dia: diasSemana[i],
@@ -235,45 +310,68 @@
           lipideos: receita.lipideos,
           sodio: receita.sodio,
           fruta: receita.frutaAcompanhamento,
-          ingredientes: ingredientesComEstoque,
+          sazonal: receita.sazonal || false,
+          agriculturaFamiliar: receita.agriculturaFamiliar || false,
+          fefoBadge: receita.fefoBadge,
+          ingredientes: ingredientesProcessados,
           estoqueOk: todosDisponiveis,
-          scoreIA: Math.floor(88 + Math.random() * 11) // Score de aderência PNAE (88-98%)
+          scoreIA: Math.min(99, Math.floor(receita.scoreFinal + (Math.random() * 5)))
         });
       }
 
-      // Calcular médias nutricionais da semana
+      // Média semanal
       const totalKcal = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.kcal, 0) / 5);
       const totalProt = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.proteinas, 0) / 5);
       const totalCarb = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.carboidratos, 0) / 5);
       const totalLip = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.lipideos, 0) / 5);
       const totalSodio = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.sodio, 0) / 5);
 
+      const insumosResumoSemanal = Object.values(acumuladorInsumos);
+      const afCount = insumosResumoSemanal.filter(i => i.af).length;
+      const percentualAF = Math.round((afCount / Math.max(1, insumosResumoSemanal.length)) * 100);
+
       return {
+        id: 'cardapio_ia_' + Date.now(),
         timestamp: new Date().toISOString(),
-        params: { modalidade, metaKcal, priorizarEstoque, considerarRestricoes },
+        nutricionista: 'Dra. Lilian Droppa',
+        crn: '12345/MS',
+        statusAprovacao: 'rascunho_ia', // rascunho_ia | aprovado_nutri
+        relatorioPNAEDisponivel: false,  // TRAVA DE SEGURANÇA
+        params: { modalidade, metaKcal, numAlunos, priorizarFEFO, priorizarSazonal, considerarRestricoes },
         metricasSemanais: {
+          numAlunos,
           mediaKcal: totalKcal,
           mediaProteinas: totalProt,
           mediaCarboidratos: totalCarb,
           mediaLipideos: totalLip,
           mediaSodio: totalSodio,
-          percentualAderenciaPNAE: totalKcal >= (metaKcal - 50) && totalKcal <= (metaKcal + 100) ? 98 : 91
+          percentualAF,
+          percentualAderenciaPNAE: totalKcal >= (metaKcal - 50) && totalKcal <= (metaKcal + 100) ? 98 : 92
         },
-        refeicoes: refeicoesGeradas
+        refeicoes: refeicoesGeradas,
+        insumosResumoSemanal
       };
     },
 
     /**
-     * Sugere um prato substituto para um dia específico caso a nutricionista deseje alterar.
+     * Aprova o cardápio (ação exclusiva da Dra. Lilian Droppa) e libera a geração do Relatório PNAE.
      */
-    suggestAlternativeDish: function (receitaIdAtual, modalidade) {
+    approveMenu: function (menuData) {
+      if (!menuData) return null;
+      menuData.statusAprovacao = 'aprovado_nutri';
+      menuData.relatorioPNAEDisponivel = true;
+      menuData.aprovadoEm = new Date().toISOString();
+      menuData.aprovadoPor = 'Dra. Lilian Droppa (CRN 12345/MS)';
+      return menuData;
+    },
+
+    suggestAlternativeDish: function (receitaIdAtual) {
       const opcoes = CATALOGO_RECEITAS.filter(r => r.id !== receitaIdAtual);
       const indice = Math.floor(Math.random() * opcoes.length);
       return opcoes[indice] || CATALOGO_RECEITAS[0];
     }
   };
 
-  // Expor no objeto global window
   window.AICardapioEngine = AICardapioEngine;
 
 })(window);

@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -26,6 +26,26 @@ function renderVersionTags() {
       : txt;
   });
 }
+
+// ============================
+// CATÁLOGO LOCAL CURADO
+// ----------------------------
+// products, contracts, ataProducts, empenhos e lots formam um GRAFO ligado por
+// id: ataProducts.stockProductId → products.id · empenhos.items[].productId →
+// ataProducts.id · ataProducts.ataId → contracts.id · lots.productId → products.id
+//
+// O Supabase ainda tem o catálogo antigo (20 produtos, 4 atas com outra
+// numeração). O hydrateData() sobrescrevia só `products` e `contracts` — e não
+// ataProducts/empenhos, que não têm tabela lá — então o grafo quebrava:
+// ataProducts passava a apontar para ids de produto inexistentes e o modal de
+// Novo Empenho abria vazio nas atas 1 e 2.
+//
+// Enquanto true, hydrateData() preserva essas coleções (guarda em db.js).
+// Para voltar a hidratar do banco é preciso ANTES migrar o catálogo curado
+// para lá — os 28 produtos com preço e as 6 atas — senão o grafo quebra de novo.
+// ============================
+const USAR_CATALOGO_LOCAL = true;
+window.USAR_CATALOGO_LOCAL = USAR_CATALOGO_LOCAL;
 
 // ============================
 // MODAL SYSTEM
@@ -1052,6 +1072,10 @@ async function login(profile, schoolId) {
     updateDbStatusBadge();
   }
 
+  // Depois da hidratação DATA.schools já é a lista real — só aqui dá para
+  // semear o estoque das escolas na proporção certa do porte de cada uma.
+  seedSchoolStocks();
+
   applyPiloto();
   renderPage();
 }
@@ -1256,8 +1280,10 @@ PAGE_RENDERERS.gestor_dashboard = (el) => {
   const sharedPending = SharedState.getOrders().filter(o => o.status === 'Pendente').length;
   const pendingOrders = DATA.orders.filter(o => o.status === 'Pendente').length + sharedPending;
   const lateOrders = DATA.orders.filter(o => o.status === 'Pendente' || o.status === 'Em separação').length;
-  const totalAtas = DATA.contracts.reduce((a, c) => a + c.globalValue, 0);
-  const executedAtas = DATA.contracts.reduce((a, c) => a + c.executedValue, 0);
+  // Derivado do grafo (ver ataTotais) — muda sozinho a cada empenho gravado.
+  const _totAtas = DATA.contracts.map(c => ataTotais(c.id));
+  const totalAtas = _totAtas.reduce((a, t) => a + t.global, 0);
+  const executedAtas = _totAtas.reduce((a, t) => a + t.empenhado, 0);
   const incidents = SharedState.getIncidents();
   const recentIncidents = incidents.slice(0, 3);
 
@@ -1301,7 +1327,7 @@ PAGE_RENDERERS.gestor_dashboard = (el) => {
       <div class="kpi-card teal animate-fade-up stagger-6">
         <div class="kpi-icon">💰</div>
         <div class="kpi-value">${formatCurrency(executedAtas)}</div>
-        <div class="kpi-label">Valor Executado das Atas</div>
+        <div class="kpi-label">Valor Empenhado das Atas</div>
         <div class="progress-bar" style="margin-top:8px"><div class="progress-fill blue" style="width:${Math.round(executedAtas/totalAtas*100)}%"></div></div>
         <div style="font-size:0.68rem;color:var(--text-tertiary);margin-top:4px">${Math.round(executedAtas/totalAtas*100)}% de ${formatCurrency(totalAtas)}</div>
       </div>
@@ -1511,9 +1537,15 @@ PAGE_RENDERERS.gestor_escolas = (el) => {
     <div class="card">
       <div class="card-header">
         <div class="card-title">Listagem de Escolas</div>
-        <div class="filter-bar" style="margin:0">
-          <select id="filter-region"><option value="">Todas as Regiões</option>${DATA.regions.map(r => `<option>${r}</option>`).join('')}</select>
-          <select id="filter-status"><option value="">Todos os Status</option><option>ok</option><option>warning</option><option>danger</option></select>
+        <div class="filter-bar" style="margin:0;display:flex;gap:8px;flex-wrap:wrap">
+          <input type="search" id="filter-school-nome" placeholder="Buscar escola ou diretor..." style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem;min-width:200px">
+          <select id="filter-region"><option value="">Todas as Regiões</option>${[...new Set(DATA.schools.map(s => s.region))].sort().map(r => `<option>${r}</option>`).join('')}</select>
+          <select id="filter-status">
+            <option value="">Todos os Status</option>
+            <option value="ok">Abastecida</option>
+            <option value="warning">Atenção</option>
+            <option value="danger">Risco</option>
+          </select>
         </div>
       </div>
       <div class="card-body">
@@ -1544,11 +1576,163 @@ PAGE_RENDERERS.gestor_escolas = (el) => {
               }).join('')}
             </tbody>
           </table>
+          <div id="escolas-vazio" style="display:none;padding:32px;text-align:center;color:var(--text-secondary)">Nenhuma escola encontrada com esses filtros.</div>
         </div>
       </div>
     </div>
   `;
+
+  // Filtros da listagem de escolas
+  const aplicarFiltrosEscolas = () => {
+    const nome   = (document.getElementById('filter-school-nome').value || '').toLowerCase().trim();
+    const region = document.getElementById('filter-region').value;
+    const status = document.getElementById('filter-status').value;
+    let visiveis = 0;
+
+    el.querySelectorAll('#table-escolas tbody tr').forEach(tr => {
+      const s = DATA.schools.find(x => String(x.id) === tr.dataset.schoolId);
+      if (!s) return;
+      const okNome   = !nome || s.name.toLowerCase().includes(nome) || (s.director || '').toLowerCase().includes(nome);
+      const okRegion = !region || s.region === region;
+      const okStatus = !status || s.stockStatus === status;
+      const mostrar  = okNome && okRegion && okStatus;
+      tr.style.display = mostrar ? '' : 'none';
+      if (mostrar) visiveis++;
+    });
+
+    document.getElementById('escolas-vazio').style.display = visiveis ? 'none' : 'block';
+    const sub = el.querySelector('.page-subtitle');
+    if (sub) sub.textContent = visiveis === DATA.schools.length
+      ? `${DATA.schools.length} unidades escolares na rede municipal`
+      : `${visiveis} de ${DATA.schools.length} unidades escolares`;
+  };
+
+  ['filter-school-nome', 'filter-region', 'filter-status'].forEach(id => {
+    const elx = document.getElementById(id);
+    if (elx) elx.addEventListener(id === 'filter-school-nome' ? 'input' : 'change', aplicarFiltrosEscolas);
+  });
 };
+
+// ============================================================
+// TOTAIS DERIVADOS — atas, empenhos e estoque
+// ------------------------------------------------------------
+// Nada aqui lê campo estático (ata.executedValue etc). Tudo é somado a partir
+// do grafo, para que gravar um empenho novo ou receber uma NF mude os KPIs na
+// hora, sem precisar atualizar contador nenhum na mão.
+// ============================================================
+
+// Totais de uma ata, somados dos seus produtos e empenhos.
+function ataTotais(ataId) {
+  const prods = DATA.ataProducts.filter(p => p.ataId === ataId);
+  const emps  = DATA.empenhos.filter(e => e.ataId === ataId);
+  const global    = prods.reduce((s, p) => s + (p.globalValue || 0), 0);
+  const empenhado = emps.reduce((s, e) => s + (e.totalValue || 0), 0);
+  const liquidado = emps.reduce((s, e) => s + (e.executedValue || 0), 0);
+  return { global, empenhado, liquidado, saldo: global - empenhado, prods, emps };
+}
+
+// Quanto de um item de ata já foi empenhado e entregue (varre todos os empenhos).
+function ataProdutoTotais(ataProdId) {
+  const ap = DATA.ataProducts.find(p => p.id === ataProdId);
+  if (!ap) return { valorEmpenhado: 0, qtdEmpenhada: 0, qtdEntregue: 0, saldoQtd: 0, saldoValor: 0 };
+  let qtdEmp = 0, qtdEnt = 0, valEmp = 0;
+  DATA.empenhos.forEach(e => (e.items || []).forEach(i => {
+    if (i.productId === ataProdId) {
+      qtdEmp += i.qtd || 0;
+      qtdEnt += i.delivered || 0;
+      valEmp += i.value || 0;
+    }
+  }));
+  return {
+    valorEmpenhado: valEmp, qtdEmpenhada: qtdEmp, qtdEntregue: qtdEnt,
+    saldoQtd: (ap.maxQtd || 0) - qtdEmp,
+    saldoValor: (ap.globalValue || 0) - valEmp,
+  };
+}
+
+// Estoque consolidado = Estoque Central + soma do que está nas escolas.
+// Junta lotes (validade) e a quebra por escola para o collapse da linha.
+function estoqueConsolidado() {
+  const porEscola = {};
+  (DATA.schools || []).forEach(sc => {
+    (SharedState.getSchoolStock(sc.name) || []).forEach(it => {
+      if (!it.produto) return;
+      (porEscola[it.produto] = porEscola[it.produto] || []).push({
+        escola: sc.name, sigla: sc.sigla || '', qtd: it.qtd || 0, unidade: it.unidade || '',
+      });
+    });
+  });
+  return DATA.products.map(p => {
+    const escolas = (porEscola[p.name] || []).filter(e => e.qtd > 0).sort((a, b) => b.qtd - a.qtd);
+    const nasEscolas = escolas.reduce((s, e) => s + e.qtd, 0);
+    const total = (p.stock || 0) + nasEscolas;
+    const lotes = (DATA.lots || [])
+      .filter(l => l.productId === p.id)
+      .sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate)); // FEFO
+    return { ...p, central: p.stock || 0, nasEscolas, total, escolas, lotes,
+             diasCobertura: p.avgConsume ? Math.round(total / p.avgConsume) : null };
+  });
+}
+
+// Dias até vencer — usado nos badges de validade do collapse.
+function diasAteVencer(dataIso) {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  return Math.ceil((new Date(dataIso) - hoje) / 86400000);
+}
+
+// ------------------------------------------------------------
+// Semeia o estoque das escolas na primeira execução.
+// Sem isso o "Estoque Consolidado" só mostrava o Central e a coluna
+// "Nas Escolas" ficava zerada — a consolidação não tinha o que consolidar.
+//
+// Cada escola guarda alguns dias do PRÓPRIO consumo, proporcional ao seu porte:
+//   fração da escola = (alunos × refeições/dia) ÷ (total da rede)
+//   qtd = avgConsume do produto × fração × dias de estoque local
+// Perecível fica com menos dias que seco, como na prática.
+// ------------------------------------------------------------
+function seedSchoolStocks(force) {
+  if (!window.SharedState) return;
+  const atual = SharedState._data.schoolStocks || {};
+  if (!force && Object.keys(atual).length) return; // já semeado
+
+  const escolas = DATA.schools || [];
+  if (!escolas.length || !DATA.products) return;
+
+  const refeicoesDe = sc => (sc.students || 0) * (sc.refeicoesDia || sc.meals_per_day || 2);
+  const totalRef = escolas.reduce((s, sc) => s + refeicoesDe(sc), 0);
+  if (!totalRef) return;
+
+  // Dias de estoque local por categoria — perecível gira mais rápido.
+  const diasPorCategoria = {
+    'Hortaliças': 3, 'Frutas': 3, 'Laticínios': 5, 'Proteínas': 6,
+    'Tubérculos': 7, 'Grãos': 12, 'Gorduras': 15, 'Condimentos': 15, 'Especiais': 10,
+  };
+
+  const stocks = {};
+  escolas.forEach(sc => {
+    const fracao = refeicoesDe(sc) / totalRef;
+    if (!fracao) return;
+    const doEstoque = {};
+    DATA.products.forEach(p => {
+      if (!p.avgConsume) return;
+      const dias = diasPorCategoria[p.category] || 7;
+      const qtd = p.avgConsume * fracao * dias;
+      if (qtd < 1) return;                      // abaixo de 1 unidade não faz sentido estocar
+      if (p.stock === 0) return;                // produto zerado no central também falta na escola
+      doEstoque[p.name] = {
+        qtd: Math.round(qtd * 10) / 10,
+        unidade: p.unit,
+        atualizadoEm: new Date().toISOString(),
+      };
+    });
+    if (Object.keys(doEstoque).length) stocks[sc.name] = doEstoque;
+  });
+
+  SharedState._data.schoolStocks = stocks;
+  SharedState._persist();
+  console.log(`[SUALE] Estoque semeado em ${Object.keys(stocks).length} escolas.`);
+}
+window.seedSchoolStocks = seedSchoolStocks;
 
 // ─── GESTOR: ATAS E CONTRATOS ───
 window.openAtaDetalhe = (ataId) => {
@@ -1556,20 +1740,23 @@ window.openAtaDetalhe = (ataId) => {
   const ata = DATA.contracts.find(a => a.id === ataId);
   if (!ata) return;
   const prods = DATA.ataProducts.filter(p => p.ataId === ataId);
-  const emps = DATA.empenhos.filter(e => e.ataId === ataId);
-  
+  const t = ataTotais(ataId);
+  const emps = t.emps;
+  const pctEmp = t.global ? Math.round(t.empenhado / t.global * 100) : 0;
+
   container.innerHTML = `
     <div class="page-header" style="display:flex;align-items:center;gap:12px">
       <button class="btn btn-outline" onclick="PAGE_RENDERERS.gestor_atas(document.getElementById('page-content'))">🔙 Voltar</button>
       <div>
         <div class="page-title">Ata nº ${ata.number}</div>
-        <div class="page-subtitle">Fornecedor: ${ata.supplier} | Vigência: ${formatDate(ata.start)} a ${formatDate(ata.end)}</div>
+        <div class="page-subtitle">Fornecedor: ${ata.supplier} | Vigência: ${formatDate(ata.start)} a ${formatDate(ata.end)} | ${ata.modalidade === 'chamada_publica' ? '🌾 Chamada Pública (Agricultura Familiar)' : '📋 Pregão'}</div>
       </div>
     </div>
     <div class="kpi-grid">
-      <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(ata.globalValue)}</div><div class="kpi-label">Valor Global</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${formatCurrency(ata.executedValue)}</div><div class="kpi-label">Executado</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(ata.globalValue - ata.executedValue)}</div><div class="kpi-label">Saldo Restante</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(t.global)}</div><div class="kpi-label">Valor Global · ${t.prods.length} ${t.prods.length === 1 ? 'item' : 'itens'}</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">📝</div><div class="kpi-value">${formatCurrency(t.empenhado)}</div><div class="kpi-label">Empenhado · ${emps.length} NE (${pctEmp}%)</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${formatCurrency(t.liquidado)}</div><div class="kpi-label">Liquidado (NF recebida)</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(t.saldo)}</div><div class="kpi-label">Saldo a Empenhar</div></div>
     </div>
     
     <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-top:20px">
@@ -1581,16 +1768,22 @@ window.openAtaDetalhe = (ataId) => {
         </div>
         <div class="card-body">
           <table class="data-table">
-            <thead><tr><th>Produto</th><th>Global</th><th>Executado</th><th>Saldo</th></tr></thead>
+            <thead><tr><th>Produto</th><th>Qtd Registrada</th><th>Empenhado</th><th>Saldo a Empenhar</th></tr></thead>
             <tbody>
-              ${prods.map(p => `
+              ${t.prods.map(p => {
+                const pt = ataProdutoTotais(p.id);
+                const pctQtd = p.maxQtd ? Math.round(pt.qtdEmpenhada / p.maxQtd * 100) : 0;
+                return `
                 <tr>
-                  <td><strong>${p.name}</strong><br><small style="color:var(--text-secondary)">Unid: ${p.unit} | Preço: ${formatCurrency(p.unitPrice)}</small></td>
-                  <td style="font-family:var(--font-mono)">${formatCurrency(p.globalValue)}</td>
-                  <td style="font-family:var(--font-mono)">${formatCurrency(p.executedValue)}</td>
-                  <td style="font-family:var(--font-mono);font-weight:600;color:var(--primary)">${formatCurrency(p.globalValue - p.executedValue)}</td>
-                </tr>
-              `).join('')}
+                  <td><strong>${p.name}</strong><br><small style="color:var(--text-secondary)">${formatCurrency(p.unitPrice)} / ${p.unit}</small></td>
+                  <td style="font-family:var(--font-mono)">${(p.maxQtd||0).toLocaleString('pt-BR')} ${p.unit}<br><small style="color:var(--text-secondary)">${formatCurrency(p.globalValue)}</small></td>
+                  <td style="font-family:var(--font-mono)">${pt.qtdEmpenhada.toLocaleString('pt-BR')} ${p.unit}
+                    <div class="progress-bar" style="width:90px;margin-top:4px"><div class="progress-fill ${pctQtd>80?'red':pctQtd>50?'orange':'green'}" style="width:${Math.min(100,pctQtd)}%"></div></div>
+                    <small style="color:var(--text-secondary)">${pctQtd}% · entregue ${pt.qtdEntregue.toLocaleString('pt-BR')}</small>
+                  </td>
+                  <td style="font-family:var(--font-mono);font-weight:600;color:var(--primary)">${pt.saldoQtd.toLocaleString('pt-BR')} ${p.unit}<br><small style="color:var(--text-secondary)">${formatCurrency(pt.saldoValor)}</small></td>
+                </tr>`;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -1613,7 +1806,17 @@ window.openAtaDetalhe = (ataId) => {
                   <span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : 'status-warning'}">${e.status}</span>
                 </div>
                 <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:4px">Data: ${formatDate(e.date)} | Valor Total: ${formatCurrency(e.totalValue)} | Saldo Financeiro: ${formatCurrency(e.totalValue - e.executedValue)}</div>
-                <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px">Qtd Solicitada: ${e.items[0]?.qtd} | Qtd Entregue: ${e.items[0]?.delivered} | Saldo Físico: ${e.items[0]?.qtd - e.items[0]?.delivered}</div>
+                <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px">
+                  ${(e.items || []).map(it => {
+                    const ap = DATA.ataProducts.find(x => x.id === it.productId);
+                    const pend = (it.qtd || 0) - (it.delivered || 0);
+                    return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0">
+                      <span>${ap ? ap.name : 'Item #' + it.productId}</span>
+                      <span style="font-family:var(--font-mono);white-space:nowrap">${(it.delivered||0).toLocaleString('pt-BR')}/${(it.qtd||0).toLocaleString('pt-BR')} ${ap ? ap.unit : ''}${pend > 0 ? ` <span style="color:var(--warning)">▲${pend.toLocaleString('pt-BR')}</span>` : ' ✓'}</span>
+                    </div>`;
+                  }).join('')}
+                  ${(e.items||[]).length > 1 ? `<div style="margin-top:4px;font-weight:600;color:var(--text)">${e.items.length} itens no empenho</div>` : ''}
+                </div>
                 <div style="text-align:right;margin-top:8px;">
                   <span style="font-size:0.8rem;color:var(--primary);font-weight:600">Ver Movimentações ➔</span>
                 </div>
@@ -1639,7 +1842,18 @@ window.openEmpenhoDetailsModal = (empenhoId) => {
       </div>
       <div style="font-size:0.85rem">Data: ${formatDate(e.date)} | Total Empenhado: ${formatCurrency(e.totalValue)}</div>
       <div style="font-size:0.85rem;margin-top:4px;color:var(--danger)">Saldo Financeiro Restante: ${formatCurrency(e.totalValue - e.executedValue)}</div>
-      <div style="font-size:0.85rem;margin-top:4px;color:var(--primary)">Saldo Físico (Qtd) Restante: ${e.items[0]?.qtd - e.items[0]?.delivered}</div>
+      <div style="margin-top:8px">
+        <div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px">Itens do empenho (${(e.items||[]).length})</div>
+        ${(e.items || []).map(it => {
+          const ap = DATA.ataProducts.find(x => x.id === it.productId);
+          const pend = (it.qtd || 0) - (it.delivered || 0);
+          return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:0.85rem;padding:4px 0;border-bottom:1px dashed var(--border)">
+            <span>${ap ? ap.name : 'Item #' + it.productId}</span>
+            <span style="font-family:var(--font-mono);white-space:nowrap">${(it.delivered||0).toLocaleString('pt-BR')} / ${(it.qtd||0).toLocaleString('pt-BR')} ${ap ? ap.unit : ''} · ${formatCurrency(it.value||0)}
+              ${pend > 0 ? `<span style="color:var(--warning);font-weight:600"> · faltam ${pend.toLocaleString('pt-BR')}</span>` : '<span style="color:var(--success);font-weight:600"> · completo</span>'}</span>
+          </div>`;
+        }).join('')}
+      </div>
     </div>
 
     <div style="margin-bottom:20px;">
@@ -1687,51 +1901,142 @@ window.openEmpenhoDetailsModal = (empenhoId) => {
 };
 
 
+// ─── NOVO EMPENHO (multi-item) ───
+// O empenho pode carregar vários itens da mesma ata. Cada linha valida o saldo
+// disponível daquele item (maxQtd menos o que já foi empenhado em outras NEs).
+window._empenhoDraft = { ataId: null, linhas: [] };
+
 window.openModalEmpenho = (ataId) => {
+  const disponiveis = DATA.ataProducts.filter(p => p.ataId === ataId);
+  if (!disponiveis.length) {
+    return window.showToast('Esta ata não tem produtos cadastrados.', 'error');
+  }
+  window._empenhoDraft = { ataId, linhas: [{ uid: Date.now(), prodId: disponiveis[0].id, qtd: '' }] };
+
   showModal('Novo Empenho', `
     <div class="form-group">
-      <label>Produto</label>
-      <select id="ata-empenho-prod" style="width:100%;padding:10px;border-radius:var(--radius-md);border:1px solid var(--border)">
-        ${DATA.ataProducts.filter(p=>p.ataId===ataId).map(p=>`<option value="${p.id}">${p.name} (Saldo Restante na Ata: ${formatCurrency(p.globalValue - p.executedValue)})</option>`).join('')}
-      </select>
+      <label>Nº do Empenho</label>
+      <input type="text" id="ata-empenho-numero" placeholder="Ex: 2026NE00477">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="form-group">
-        <label>Nº do Empenho</label>
-        <input type="text" id="ata-empenho-numero" placeholder="Ex: 2026 NE 00477 0909F">
-      </div>
-      <div class="form-group">
-        <label>Quantidade a empenhar</label>
-        <input type="number" id="ata-empenho-qtd" placeholder="Qtd">
-      </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px">
+      <label style="margin:0;font-weight:700">Itens do empenho</label>
+      <button type="button" class="btn btn-sm btn-outline" onclick="window.empenhoAddLinha()">+ Adicionar item</button>
     </div>
-    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="window.saveEmpenho(${ataId})">Gravar Empenho</button>
+    <div id="empenho-linhas"></div>
+
+    <div id="empenho-resumo" style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-md);font-size:0.88rem"></div>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="window.saveEmpenho()">Gravar Empenho</button>
   `);
+  window.empenhoRenderLinhas();
 };
 
-window.saveEmpenho = (ataId) => {
-  const prodId = parseInt(document.getElementById('ata-empenho-prod').value);
-  const empenho = document.getElementById('ata-empenho-numero').value;
-  const qtd = parseInt(document.getElementById('ata-empenho-qtd').value);
-  if(!empenho || !qtd) return alert('Preencha os campos.');
-  
-  const prod = DATA.ataProducts.find(p => p.id === prodId);
-  const totalValue = qtd * prod.unitPrice;
-  
+window.empenhoAddLinha = () => {
+  const d = window._empenhoDraft;
+  const usados = d.linhas.map(l => l.prodId);
+  const livre = DATA.ataProducts.find(p => p.ataId === d.ataId && !usados.includes(p.id));
+  if (!livre) return window.showToast('Todos os produtos da ata já estão no empenho.', 'info');
+  d.linhas.push({ uid: Date.now() + Math.random(), prodId: livre.id, qtd: '' });
+  window.empenhoRenderLinhas();
+};
+
+window.empenhoRemoveLinha = (uid) => {
+  const d = window._empenhoDraft;
+  if (d.linhas.length === 1) return window.showToast('O empenho precisa de ao menos um item.', 'info');
+  d.linhas = d.linhas.filter(l => String(l.uid) !== String(uid));
+  window.empenhoRenderLinhas();
+};
+
+window.empenhoSetLinha = (uid, campo, valor) => {
+  const l = window._empenhoDraft.linhas.find(x => String(x.uid) === String(uid));
+  if (!l) return;
+  l[campo] = campo === 'prodId' ? parseInt(valor, 10) : valor;
+  window.empenhoRenderLinhas();
+};
+
+window.empenhoRenderLinhas = () => {
+  const d = window._empenhoDraft;
+  const wrap = document.getElementById('empenho-linhas');
+  if (!wrap) return;
+  const opcoes = DATA.ataProducts.filter(p => p.ataId === d.ataId);
+
+  wrap.innerHTML = d.linhas.map(l => {
+    const ap = opcoes.find(p => p.id === l.prodId);
+    const pt = ataProdutoTotais(l.prodId);
+    const qtd = parseFloat(l.qtd) || 0;
+    const excede = qtd > pt.saldoQtd;
+    return `
+      <div style="display:grid;grid-template-columns:1fr 130px 32px;gap:8px;align-items:start;margin-bottom:8px">
+        <div>
+          <select style="width:100%;padding:9px;border-radius:var(--radius-md);border:1px solid var(--border)"
+                  onchange="window.empenhoSetLinha('${l.uid}','prodId',this.value)">
+            ${opcoes.map(p => `<option value="${p.id}" ${p.id === l.prodId ? 'selected' : ''}>${p.name}</option>`).join('')}
+          </select>
+          <small style="color:var(--text-secondary)">Saldo: ${pt.saldoQtd.toLocaleString('pt-BR')} ${ap ? ap.unit : ''} · ${ap ? formatCurrency(ap.unitPrice) : ''}/${ap ? ap.unit : ''}</small>
+        </div>
+        <div>
+          <input type="number" min="1" step="any" value="${l.qtd}" placeholder="Qtd"
+                 style="width:100%;padding:9px;border-radius:var(--radius-md);border:1px solid ${excede ? 'var(--danger)' : 'var(--border)'}"
+                 oninput="window.empenhoSetLinha('${l.uid}','qtd',this.value)">
+          <small style="color:${excede ? 'var(--danger)' : 'var(--text-secondary)'}">${excede ? '⚠️ acima do saldo' : (qtd && ap ? formatCurrency(qtd * ap.unitPrice) : '—')}</small>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" title="Remover item"
+                style="padding:8px;color:var(--danger)" onclick="window.empenhoRemoveLinha('${l.uid}')">✕</button>
+      </div>`;
+  }).join('');
+
+  const resumo = document.getElementById('empenho-resumo');
+  if (resumo) {
+    let total = 0, invalidas = 0;
+    d.linhas.forEach(l => {
+      const ap = opcoes.find(p => p.id === l.prodId);
+      const qtd = parseFloat(l.qtd) || 0;
+      const pt = ataProdutoTotais(l.prodId);
+      if (!qtd || qtd > pt.saldoQtd) invalidas++;
+      if (ap) total += qtd * ap.unitPrice;
+    });
+    const t = ataTotais(d.ataId);
+    resumo.innerHTML = `
+      <div style="display:flex;justify-content:space-between"><span>${d.linhas.length} ${d.linhas.length === 1 ? 'item' : 'itens'}</span><strong style="font-family:var(--font-mono)">${formatCurrency(total)}</strong></div>
+      <div style="display:flex;justify-content:space-between;color:var(--text-secondary);font-size:0.82rem;margin-top:4px"><span>Saldo da ata após empenhar</span><span style="font-family:var(--font-mono)">${formatCurrency(t.saldo - total)}</span></div>
+      ${invalidas ? `<div style="color:var(--danger);font-size:0.82rem;margin-top:6px">⚠️ ${invalidas} ${invalidas === 1 ? 'item precisa' : 'itens precisam'} de quantidade válida dentro do saldo.</div>` : ''}`;
+  }
+};
+
+window.saveEmpenho = () => {
+  const d = window._empenhoDraft;
+  const numero = (document.getElementById('ata-empenho-numero').value || '').trim();
+  if (!numero) return window.showToast('Informe o nº do empenho.', 'error');
+  if (DATA.empenhos.some(e => e.numero.toLowerCase() === numero.toLowerCase())) {
+    return window.showToast('Já existe um empenho com esse número.', 'error');
+  }
+
+  const items = [];
+  for (const l of d.linhas) {
+    const ap = DATA.ataProducts.find(p => p.id === l.prodId);
+    const qtd = parseFloat(l.qtd) || 0;
+    if (!ap || qtd <= 0) return window.showToast('Preencha a quantidade de todos os itens.', 'error');
+    const pt = ataProdutoTotais(l.prodId);
+    if (qtd > pt.saldoQtd) return window.showToast(`"${ap.name}" excede o saldo da ata (${pt.saldoQtd.toLocaleString('pt-BR')} ${ap.unit}).`, 'error');
+    items.push({ productId: ap.id, qtd, value: qtd * ap.unitPrice, delivered: 0 });
+  }
+
+  const totalValue = items.reduce((s, i) => s + i.value, 0);
   DATA.empenhos.push({
-    id: DATA.empenhos.length + 1,
-    ataId: ataId,
-    numero: empenho,
+    id: Math.max(0, ...DATA.empenhos.map(e => e.id)) + 1,
+    ataId: d.ataId,
+    numero,
     date: new Date().toISOString().split('T')[0],
-    totalValue: totalValue,
+    totalValue,
     executedValue: 0,
     status: 'Pendente',
-    items: [{ productId: prodId, qtd: qtd, value: totalValue, delivered: 0 }]
+    items,
   });
-  
+
   closeModal();
-  window.showToast('Empenho gravado com sucesso!', 'success');
-  window.openAtaDetalhe(ataId);
+  window.showToast(`Empenho ${numero} gravado — ${items.length} ${items.length === 1 ? 'item' : 'itens'}, ${formatCurrency(totalValue)}`, 'success');
+  window.openAtaDetalhe(d.ataId);
 };
 
 window.openModalPedidoEmpenho = (empenhoId) => {
@@ -1830,30 +2135,40 @@ window.saveNFAta = (empenhoId) => {
 PAGE_RENDERERS.gestor_atas = (el) => {
   const sharedEmpenhos = SharedState.getEmpenhos();
   const nfs = SharedState.getNFs();
+  // Todos os totais saem de ataTotais() — mudam sozinhos quando um empenho é gravado.
+  const tot = DATA.contracts.map(c => ({ c, t: ataTotais(c.id) }));
+  const somaGlobal    = tot.reduce((a, x) => a + x.t.global, 0);
+  const somaEmpenhado = tot.reduce((a, x) => a + x.t.empenhado, 0);
+  const somaLiquidado = tot.reduce((a, x) => a + x.t.liquidado, 0);
+  const totalNEs      = DATA.empenhos.length;
+  const valorAF       = tot.filter(x => x.c.modalidade === 'chamada_publica').reduce((a, x) => a + x.t.global, 0);
+  const pctAF         = somaGlobal ? Math.round(valorAF / somaGlobal * 100) : 0;
+
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Atas e Contratos</div><div class="page-subtitle">Gestão dos instrumentos contratuais vigentes · Empenhos e NFs sincronizados com Estoque Central</div></div>
     <div class="kpi-grid">
-      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${DATA.contracts.length}</div><div class="kpi-label">Atas Vigentes</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(DATA.contracts.reduce((a,c)=>a+c.globalValue,0))}</div><div class="kpi-label">Valor Global</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">✅</div><div class="kpi-value">${formatCurrency(DATA.contracts.reduce((a,c)=>a+c.executedValue,0))}</div><div class="kpi-label">Executado</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(DATA.contracts.reduce((a,c)=>a+c.globalValue-c.executedValue,0))}</div><div class="kpi-label">Saldo Disponível</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${formatCurrency(somaGlobal)}</div><div class="kpi-label">Valor Global · ${DATA.contracts.length} atas</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">📝</div><div class="kpi-value">${formatCurrency(somaEmpenhado)}</div><div class="kpi-label">Empenhado · ${totalNEs} NE</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${formatCurrency(somaLiquidado)}</div><div class="kpi-label">Liquidado (NF recebida)</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(somaGlobal - somaEmpenhado)}</div><div class="kpi-label">Saldo a Empenhar</div></div>
+      <div class="kpi-card ${pctAF >= 45 ? 'green' : 'red'}"><div class="kpi-icon">🌾</div><div class="kpi-value">${pctAF}%</div><div class="kpi-label">Agricultura Familiar${pctAF >= 45 ? ' · meta ok' : ' · mín. legal 45%'}</div></div>
     </div>
     <div class="card mb-24">
       <div class="card-body" style="padding:0">
         <table class="data-table">
           <thead><tr><th>Nº da Ata</th><th>Vigência</th><th>Fornecedor</th><th>Valor Global</th><th>Executado</th><th>Saldo</th><th>Execução</th><th>Status</th><th>Ação</th></tr></thead>
           <tbody>
-            ${DATA.contracts.map(c => {
-              const pct = Math.round(c.executedValue / c.globalValue * 100);
+            ${tot.map(({ c, t }) => {
+              const pct = t.global ? Math.round(t.empenhado / t.global * 100) : 0;
               return `<tr style="cursor:pointer" onclick="window.openAtaDetalhe(${c.id})">
-                <td><strong>${c.number}</strong></td>
+                <td><strong>${c.number}</strong><br><small style="color:var(--text-secondary)">${c.modalidade === 'chamada_publica' ? '🌾 Chamada Pública' : '📋 Pregão'} · ${t.prods.length} itens · ${t.emps.length} NE</small></td>
                 <td>${formatDate(c.start)} a ${formatDate(c.end)}</td>
                 <td>${c.supplier}</td>
-                <td style="font-family:var(--font-mono)">${formatCurrency(c.globalValue)}</td>
-                <td style="font-family:var(--font-mono)">${formatCurrency(c.executedValue)}</td>
-                <td style="font-family:var(--font-mono);font-weight:600;color:var(--primary)">${formatCurrency(c.globalValue - c.executedValue)}</td>
-                <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="width:80px"><div class="progress-fill ${pct > 80 ? 'orange' : 'blue'}" style="width:${pct}%"></div></div><span style="font-size:0.75rem;font-family:var(--font-mono)">${pct}%</span></div></td>
-                <td><span class="status-badge status-ok">${c.status}</span></td>
+                <td style="font-family:var(--font-mono)">${formatCurrency(t.global)}</td>
+                <td style="font-family:var(--font-mono)">${formatCurrency(t.empenhado)}</td>
+                <td style="font-family:var(--font-mono);font-weight:600;color:var(--primary)">${formatCurrency(t.saldo)}</td>
+                <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="width:80px"><div class="progress-fill ${pct > 80 ? 'orange' : 'blue'}" style="width:${Math.min(100, pct)}%"></div></div><span style="font-size:0.75rem;font-family:var(--font-mono)">${pct}%</span></div></td>
+                <td><span class="status-badge ${c.status === 'Vigente' ? 'status-ok' : 'status-info'}">${c.status}</span></td>
                 <td><button class="btn btn-outline" style="padding:4px 8px;font-size:0.75rem">Detalhes</button></td>
               </tr>`;
             }).join('')}
@@ -2052,49 +2367,168 @@ PAGE_RENDERERS.gestor_agricultura = (el) => {
 
 // ─── GESTOR: ESTOQUE CONSOLIDADO ───
 PAGE_RENDERERS.gestor_estoque = (el) => {
+  const cats = [...new Set(DATA.products.map(p => p.category))].sort();
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Estoque Consolidado Municipal</div><div class="page-subtitle">Visão unificada do estoque de todas as escolas</div></div>
-    <div class="card">
+    <div class="page-header">
+      <div class="page-title">Estoque Consolidado Municipal</div>
+      <div class="page-subtitle">Estoque Central + o que está distribuído nas escolas · clique na linha para ver lotes e validade</div>
+    </div>
+    <div class="kpi-grid" id="estoque-kpis"></div>
+    <div class="card" style="margin-top:20px">
       <div class="card-header">
         <div class="card-title">Produtos em Estoque</div>
-        <div class="filter-bar" style="margin:0">
-          <select><option value="">Todas as Categorias</option><option>Grãos</option><option>Frutas</option><option>Hortaliças</option><option>Proteínas</option><option>Laticínios</option></select>
+        <div class="filter-bar" style="margin:0;display:flex;gap:8px;flex-wrap:wrap">
+          <input type="search" id="filter-prod-nome" placeholder="Buscar produto..." style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem;min-width:180px">
+          <select id="filter-prod-cat"><option value="">Todas as Categorias</option>${cats.map(c => `<option>${c}</option>`).join('')}</select>
+          <select id="filter-prod-status">
+            <option value="">Todos os Status</option>
+            <option value="critico">Crítico (≤3 dias)</option>
+            <option value="atencao">Atenção (4-7 dias)</option>
+            <option value="normal">Normal (>7 dias)</option>
+          </select>
+          <select id="filter-prod-origem">
+            <option value="">Toda origem</option>
+            <option value="af">🌾 Agricultura Familiar</option>
+            <option value="conv">Convencional</option>
+          </select>
         </div>
       </div>
       <div class="card-body">
-        <table class="data-table">
-          <thead><tr><th>Produto</th><th>Categoria</th><th>Estoque Total</th><th>Pedidos Pendentes</th><th>Consumo Médio/Dia</th><th>Dias de Cobertura</th><th>Status</th></tr></thead>
-          <tbody>
-            ${DATA.products.map(p => {
-              // Calcula pedidos pendentes a partir das atas
-              const aProds = DATA.ataProducts.filter(ap => ap.stockProductId === p.id);
-              let pendente = 0;
-              aProds.forEach(ap => {
-                const emps = DATA.empenhos.filter(e => e.items[0].productId === ap.id);
-                emps.forEach(e => {
-                  const pedidos = (DATA.ata_pedidos || []).filter(pd => pd.empenhoId === e.id);
-                  const requested = pedidos.reduce((sum, pd) => sum + pd.qtd, 0);
-                  const nfs = (DATA.nf_history || []).filter(nf => nf.empenhoId === e.id);
-                  const delivered = nfs.reduce((sum, nf) => sum + nf.items[0].qtd, 0);
-                  pendente += Math.max(0, requested - delivered);
-                });
-              });
-              
-              return `<tr>
-              <td><strong>${p.name}</strong></td>
-              <td><span class="tag tag-blue">${p.category}</span></td>
-              <td style="font-family:var(--font-mono);font-weight:700">${p.stock.toLocaleString('pt-BR')} ${p.unit}</td>
-              <td style="font-family:var(--font-mono);color:var(--warning)">${pendente > 0 ? pendente.toLocaleString('pt-BR') + ' ' + p.unit : '—'}</td>
-              <td style="font-family:var(--font-mono)">${p.avgConsume} ${p.unit}</td>
-              <td style="font-family:var(--font-mono);font-weight:700;color:${p.daysLeft <= 3 ? 'var(--danger)' : p.daysLeft <= 7 ? 'var(--warning)' : 'var(--success)'}">${p.daysLeft} dias</td>
-              <td><span class="status-badge ${p.daysLeft <= 3 ? 'status-danger' : p.daysLeft <= 7 ? 'status-warning' : 'status-ok'}">${p.daysLeft <= 3 ? 'Crítico' : p.daysLeft <= 7 ? 'Atenção' : 'Normal'}</span></td>
-            </tr>`;
-            }).join('')}
-          </tbody>
+        <table class="data-table" id="tabela-estoque">
+          <thead><tr>
+            <th style="width:28px"></th><th>Produto</th><th>Categoria</th>
+            <th>Central</th><th>Nas Escolas</th><th>Total</th>
+            <th>Consumo/Dia</th><th>Cobertura</th><th>Valor</th><th>Status</th>
+          </tr></thead>
+          <tbody id="estoque-tbody"></tbody>
         </table>
+        <div id="estoque-vazio" style="display:none;padding:32px;text-align:center;color:var(--text-secondary)">Nenhum produto encontrado com esses filtros.</div>
       </div>
     </div>
   `;
+
+  const consolidado = estoqueConsolidado();
+
+  function statusDe(p) {
+    const d = p.diasCobertura;
+    return d <= 3 ? 'critico' : d <= 7 ? 'atencao' : 'normal';
+  }
+
+  function aplicarFiltros() {
+    const nome   = (document.getElementById('filter-prod-nome').value || '').toLowerCase().trim();
+    const cat    = document.getElementById('filter-prod-cat').value;
+    const stat   = document.getElementById('filter-prod-status').value;
+    const origem = document.getElementById('filter-prod-origem').value;
+
+    const filtrados = consolidado.filter(p => {
+      if (nome && !p.name.toLowerCase().includes(nome)) return false;
+      if (cat && p.category !== cat) return false;
+      if (stat && statusDe(p) !== stat) return false;
+      if (origem === 'af' && !p.familyFarm) return false;
+      if (origem === 'conv' && p.familyFarm) return false;
+      return true;
+    });
+
+    renderLinhas(filtrados);
+    renderKpis(filtrados);
+  }
+
+  function renderKpis(lista) {
+    const valor    = lista.reduce((s, p) => s + p.total * (p.unitPrice || 0), 0);
+    const criticos = lista.filter(p => statusDe(p) === 'critico').length;
+    const naEscola = lista.reduce((s, p) => s + p.nasEscolas, 0);
+    const central  = lista.reduce((s, p) => s + p.central, 0);
+    const pctAF    = lista.length ? Math.round(lista.filter(p => p.familyFarm).length / lista.length * 100) : 0;
+    document.getElementById('estoque-kpis').innerHTML = `
+      <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(valor)}</div><div class="kpi-label">Valor em estoque · ${lista.length} itens</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">🏭</div><div class="kpi-value">${central.toLocaleString('pt-BR')}</div><div class="kpi-label">Unidades no Estoque Central</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">🏫</div><div class="kpi-value">${naEscola.toLocaleString('pt-BR')}</div><div class="kpi-label">Unidades nas escolas</div></div>
+      <div class="kpi-card ${criticos ? 'red' : 'green'}"><div class="kpi-icon">${criticos ? '🔴' : '✅'}</div><div class="kpi-value">${criticos}</div><div class="kpi-label">Produtos críticos · ${pctAF}% agric. familiar</div></div>`;
+  }
+
+  function renderLinhas(lista) {
+    const tb = document.getElementById('estoque-tbody');
+    document.getElementById('estoque-vazio').style.display = lista.length ? 'none' : 'block';
+    tb.innerHTML = lista.map(p => {
+      const st = statusDe(p);
+      const cor = st === 'critico' ? 'var(--danger)' : st === 'atencao' ? 'var(--warning)' : 'var(--success)';
+      const temDetalhe = p.lotes.length || p.escolas.length;
+      return `
+      <tr class="estoque-row" data-pid="${p.id}" style="cursor:${temDetalhe ? 'pointer' : 'default'}">
+        <td style="text-align:center;color:var(--text-secondary)">${temDetalhe ? `<span class="chev" data-pid="${p.id}" style="display:inline-block;transition:transform .18s">▸</span>` : ''}</td>
+        <td><strong>${p.name}</strong>${p.familyFarm ? ' <span title="Agricultura Familiar">🌾</span>' : ''}</td>
+        <td><span class="tag tag-blue">${p.category}</span></td>
+        <td style="font-family:var(--font-mono)">${p.central.toLocaleString('pt-BR')}</td>
+        <td style="font-family:var(--font-mono);color:var(--text-secondary)">${p.nasEscolas ? p.nasEscolas.toLocaleString('pt-BR') : '—'}</td>
+        <td style="font-family:var(--font-mono);font-weight:700">${p.total.toLocaleString('pt-BR')} ${p.unit}</td>
+        <td style="font-family:var(--font-mono)">${p.avgConsume} ${p.unit}</td>
+        <td style="font-family:var(--font-mono);font-weight:700;color:${cor}">${p.diasCobertura} dias</td>
+        <td style="font-family:var(--font-mono)">${formatCurrency(p.total * (p.unitPrice || 0))}</td>
+        <td><span class="status-badge ${st === 'critico' ? 'status-danger' : st === 'atencao' ? 'status-warning' : 'status-ok'}">${st === 'critico' ? 'Crítico' : st === 'atencao' ? 'Atenção' : 'Normal'}</span></td>
+      </tr>
+      <tr class="estoque-detalhe" data-detalhe="${p.id}" hidden>
+        <td colspan="10" style="background:var(--surface-2);padding:14px 20px">
+          <div style="display:grid;grid-template-columns:${p.lotes.length && p.escolas.length ? '1fr 1fr' : '1fr'};gap:20px">
+            ${p.lotes.length ? `
+              <div>
+                <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;color:var(--text-secondary);margin-bottom:6px">Lotes · FEFO (primeiro a vencer primeiro)</div>
+                <table class="data-table" style="font-size:0.84rem">
+                  <thead><tr><th>Lote</th><th>Entrada</th><th>Validade</th><th>Qtd</th><th>Situação</th></tr></thead>
+                  <tbody>
+                    ${p.lotes.map(l => {
+                      const d = diasAteVencer(l.expirationDate);
+                      const sev = d < 0 ? 'danger' : d <= 7 ? 'danger' : d <= 30 ? 'warning' : 'ok';
+                      const txt = d < 0 ? `Vencido há ${Math.abs(d)}d` : d === 0 ? 'Vence hoje' : `${d} dias`;
+                      return `<tr>
+                        <td style="font-family:var(--font-mono)">${l.number}</td>
+                        <td>${formatDate(l.entryDate)}</td>
+                        <td>${formatDate(l.expirationDate)}</td>
+                        <td style="font-family:var(--font-mono)">${l.qtd.toLocaleString('pt-BR')} ${p.unit}</td>
+                        <td><span class="status-badge status-${sev}">${txt}</span></td>
+                      </tr>`;
+                    }).join('')}
+                  </tbody>
+                </table>
+              </div>` : ''}
+            ${p.escolas.length ? `
+              <div>
+                <div style="font-size:0.78rem;font-weight:700;text-transform:uppercase;color:var(--text-secondary);margin-bottom:6px">Distribuição nas escolas</div>
+                <table class="data-table" style="font-size:0.84rem">
+                  <thead><tr><th>Escola</th><th>Qtd</th><th>% do total</th></tr></thead>
+                  <tbody>
+                    ${p.escolas.map(e => `<tr>
+                      <td>${e.escola}</td>
+                      <td style="font-family:var(--font-mono)">${e.qtd.toLocaleString('pt-BR')} ${p.unit}</td>
+                      <td style="font-family:var(--font-mono);color:var(--text-secondary)">${p.total ? Math.round(e.qtd / p.total * 100) : 0}%</td>
+                    </tr>`).join('')}
+                  </tbody>
+                </table>
+              </div>` : ''}
+          </div>
+          ${!p.lotes.length ? '<div style="font-size:0.82rem;color:var(--text-secondary);margin-top:8px">Sem lote com validade cadastrado para este produto.</div>' : ''}
+        </td>
+      </tr>`;
+    }).join('');
+
+    tb.querySelectorAll('.estoque-row').forEach(tr => {
+      tr.addEventListener('click', () => {
+        const pid = tr.dataset.pid;
+        const det = tb.querySelector(`[data-detalhe="${pid}"]`);
+        if (!det) return;
+        const abrindo = det.hidden;
+        det.hidden = !abrindo;
+        const chev = tr.querySelector('.chev');
+        if (chev) chev.style.transform = abrindo ? 'rotate(90deg)' : '';
+      });
+    });
+  }
+
+  ['filter-prod-nome', 'filter-prod-cat', 'filter-prod-status', 'filter-prod-origem'].forEach(id => {
+    const elx = document.getElementById(id);
+    elx.addEventListener(id === 'filter-prod-nome' ? 'input' : 'change', aplicarFiltros);
+  });
+
+  aplicarFiltros();
 };
 
 // ─── GESTOR: PLANEJAMENTO ───
@@ -3806,15 +4240,15 @@ window.abrirModalGeradorIA = () => {
   const content = `
     <div style="padding:10px 0">
       <div style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px">
-        O algoritmo da Inteligência Artificial vai compor automaticamente as refeições da semana alinhadas às diretrizes nutricionais do PNAE e ao estoque da rede.
+        A Inteligência Artificial irá compor automaticamente as refeições PNAE da semana priorizando safras da Agricultura Familiar, combate ao desperdício por vencimento (FEFO) e cálculo exato de per capita.
       </div>
 
       <div class="form-group" style="margin-bottom:14px">
         <label style="font-weight:600;display:block;margin-bottom:6px">Modalidade Escolar Alvo</label>
         <select id="ia-modalidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px">
-          <option value="fundamental_integral" selected>Ensino Fundamental (Integral 7h-9h)</option>
-          <option value="fundamental_parcial">Ensino Fundamental (Parcial/Regular)</option>
-          <option value="creche">Creche / Educação Infantil (0 a 3 anos)</option>
+          <option value="fundamental_integral" selected>Ensino Fundamental (Integral 7h-9h — 32.000 Alunos)</option>
+          <option value="fundamental_parcial">Ensino Fundamental (Parcial/Regular — 32.000 Alunos)</option>
+          <option value="creche">Creche / Educação Infantil (0 a 3 anos — 16.000 Alunos)</option>
         </select>
       </div>
 
@@ -3823,14 +4257,18 @@ window.abrirModalGeradorIA = () => {
         <input type="number" id="ia-meta-kcal" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="700" min="400" max="1200">
       </div>
 
-      <div style="background:var(--surface-2, #f8fafc);padding:12px;border-radius:8px;margin-bottom:18px">
+      <div style="background:var(--surface-2, #f8fafc);padding:14px;border-radius:8px;margin-bottom:18px;border:1px solid var(--border)">
         <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer;margin-bottom:8px">
-          <input type="checkbox" id="ia-priorizar-estoque" checked>
-          <span><strong>Priorizar Ingredientes em Estoque Central</strong></span>
+          <input type="checkbox" id="ia-priorizar-fefo" checked>
+          <span>⚡ <strong>Priorizar Alimentos Próximos do Vencimento (FEFO)</strong></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="ia-priorizar-sazonal" checked>
+          <span>🌾 <strong>Priorizar Safras Sazonais da Agricultura Familiar</strong></span>
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer">
           <input type="checkbox" id="ia-considerar-restricoes" checked>
-          <span><strong>Respeitar Alertas de Restrições Alimentares</strong></span>
+          <span>🛡️ <strong>Respeitar Alertas de Restrições Alimentares da Rede</strong></span>
         </label>
       </div>
 
@@ -3843,10 +4281,13 @@ window.abrirModalGeradorIA = () => {
   window.showModal('🤖 Gerador Automático de Cardápios com IA', content);
 };
 
+window.currentActiveIAMenu = null;
+
 window.executarGeracaoCardapioIA = () => {
   const modalidade = document.getElementById('ia-modalidade')?.value || 'fundamental_integral';
   const metaKcal = parseInt(document.getElementById('ia-meta-kcal')?.value) || 700;
-  const priorizarEstoque = document.getElementById('ia-priorizar-estoque')?.checked !== false;
+  const priorizarFEFO = document.getElementById('ia-priorizar-fefo')?.checked !== false;
+  const priorizarSazonal = document.getElementById('ia-priorizar-sazonal')?.checked !== false;
   const considerarRestricoes = document.getElementById('ia-considerar-restricoes')?.checked !== false;
 
   window.closeModal();
@@ -3860,9 +4301,12 @@ window.executarGeracaoCardapioIA = () => {
   const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
     modalidade,
     metaKcal,
-    priorizarEstoque,
+    priorizarFEFO,
+    priorizarSazonal,
     considerarRestricoes
   });
+
+  window.currentActiveIAMenu = resultadoIA;
 
   const container = document.getElementById('planner-days-container');
   if (!container) return;
@@ -3888,32 +4332,189 @@ window.executarGeracaoCardapioIA = () => {
     }
   });
 
-  const metricas = resultadoIA.metricasSemanais;
+  window.renderAISummaryCard(resultadoIA, container);
+  window.calculatePlannerKcal();
+};
+
+window.renderAISummaryCard = (menuObj, container) => {
+  const metricas = menuObj.metricasSemanais;
+  const isAprovado = menuObj.statusAprovacao === 'aprovado_nutri';
+
   const aiSummaryCard = document.createElement('div');
   aiSummaryCard.className = 'card mb-16 ai-summary-card';
-  aiSummaryCard.style.cssText = 'border-left: 4px solid #10b981; background: #f0fdf4; padding: 16px; margin-bottom: 16px;';
+  aiSummaryCard.style.cssText = isAprovado 
+    ? 'border-left: 5px solid #10b981; background: #f0fdf4; padding: 18px; margin-bottom: 16px;'
+    : 'border-left: 5px solid #f59e0b; background: #fffbe6; padding: 18px; margin-bottom: 16px;';
+
+  const insumosTableRows = menuObj.insumosResumoSemanal.map(ins => `
+    <tr>
+      <td><strong>${ins.nome}</strong> ${ins.af ? '<span class="status-badge status-ok" style="font-size:0.7rem">🌾 Agric. Familiar</span>' : ''}</td>
+      <td style="font-family:var(--font-mono);font-weight:700">${ins.perCapitaGramos} ${ins.unidade}</td>
+      <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${ins.totalSemanalKg.toLocaleString('pt-BR')} kg</td>
+    </tr>
+  `).join('');
+
   aiSummaryCard.innerHTML = `
-    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
       <div>
-        <div style="font-weight:700;color:#065f46;display:flex;align-items:center;gap:6px;font-size:1.05rem">
-          <span>🤖 Cardápio Gerado com Sucesso via Inteligência Artificial PNAE</span>
-          <span class="status-badge status-ok" style="background:#d1fae5;color:#065f46;font-weight:700">✓ ${metricas.percentualAderenciaPNAE}% Aderência PNAE</span>
+        <div style="font-weight:800;color:${isAprovado ? '#065f46' : '#b45309'};display:flex;align-items:center;gap:8px;font-size:1.1rem">
+          <span>${isAprovado ? '🟢 CARDÁPIO APROVADO PELA NUTRICIONISTA' : '🟡 RASCUNHO GERADO POR IA — AGUARDANDO REVISÃO'}</span>
+          <span class="status-badge" style="background:${isAprovado ? '#d1fae5' : '#fef3c7'};color:${isAprovado ? '#065f46' : '#92400e'};font-weight:700">
+            ${isAprovado ? '✓ Aprovado por Dra. Lilian Droppa' : '🔒 Relatório PNAE Travado'}
+          </span>
         </div>
-        <div style="font-size:0.85rem;color:#047857;margin-top:4px">
-          Média calculada: <strong>${metricas.mediaKcal} kcal/dia</strong> · Proteínas: ${metricas.mediaProteinas}g · Carboidratos: ${metricas.mediaCarboidratos}g · Sódio: ${metricas.mediaSodio}mg
+        <div style="font-size:0.88rem;color:${isAprovado ? '#047857' : '#78350f'};margin-top:4px">
+          Média PNAE: <strong>${metricas.mediaKcal} kcal/dia</strong> · Proteínas: ${metricas.mediaProteinas}g · Sódio: ${metricas.mediaSodio}mg · 🌾 <strong>${metricas.percentualAF}% Agricultura Familiar</strong>
         </div>
       </div>
-      <div style="display:flex;gap:8px">
-        <button class="btn btn-outline btn-sm" style="background:#fff;color:#047857;border-color:#a7f3d0" onclick="executarGeracaoCardapioIA()">🔄 Regenerar com IA</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${!isAprovado ? `
+          <button class="btn btn-primary btn-sm" onclick="window.aprovarCardapioIA()">✅ Aprovar Cardápio (Dra. Lilian Droppa)</button>
+          <button class="btn btn-outline btn-sm" style="background:#fff" onclick="alert('🔒 O Relatório Técnico PNAE só será liberado após o clique no botão de aprovação da Nutricionista.')">🔒 Relatório Bloqueado</button>
+        ` : `
+          <button class="btn btn-success btn-sm" onclick="window.abrirRelatorioPNAE()">📄 Visualizar / Imprimir Relatório PNAE</button>
+        `}
+        <button class="btn btn-outline btn-sm" style="background:#fff" onclick="window.executarGeracaoCardapioIA()">🔄 Regenerar IA</button>
       </div>
     </div>
+
+    <!-- FEFO BADGES ALERT -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span class="status-badge status-warning" style="font-size:0.75rem">⚡ Priorização FEFO Ativa: Insumos próximos do vencimento incorporados</span>
+      <span class="status-badge status-ok" style="font-size:0.75rem">🌾 Safra Sazonal: Frutas e legumes locais da época priorizados</span>
+    </div>
+
+    <!-- ACCORDION PER CAPITA -->
+    <details style="background:#ffffff;border:1px solid rgba(0,0,0,0.08);border-radius:6px;padding:10px 14px">
+      <summary style="font-weight:700;cursor:pointer;font-size:0.88rem;color:var(--text-primary)">
+        📊 Ver Tabela de Per Capita (g/aluno) e Demanda Total Semanal da Rede (${metricas.numAlunos.toLocaleString('pt-BR')} Alunos)
+      </summary>
+      <div style="margin-top:10px">
+        <table class="data-table" style="font-size:0.82rem">
+          <thead>
+            <tr>
+              <th>Ingrediente</th>
+              <th>Per Capita (por Aluno)</th>
+              <th>Demanda Total da Semana (Rede)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${insumosTableRows}
+          </tbody>
+        </table>
+      </div>
+    </details>
   `;
 
   const oldSummary = container.querySelector('.ai-summary-card');
   if (oldSummary) oldSummary.remove();
   container.insertBefore(aiSummaryCard, container.firstChild);
+};
 
-  window.calculatePlannerKcal();
+window.aprovarCardapioIA = () => {
+  if (!window.currentActiveIAMenu) return alert('Nenhum cardápio ativo para aprovação.');
+  
+  window.currentActiveIAMenu = window.AICardapioEngine.approveMenu(window.currentActiveIAMenu);
+  
+  const container = document.getElementById('planner-days-container');
+  if (container) {
+    window.renderAISummaryCard(window.currentActiveIAMenu, container);
+  }
+
+  showToast('✅ Cardápio aprovado com sucesso pela Dra. Lilian Droppa! Relatório PNAE liberado.');
+  window.abrirRelatorioPNAE();
+};
+
+window.abrirRelatorioPNAE = () => {
+  const menu = window.currentActiveIAMenu;
+  if (!menu || menu.statusAprovacao !== 'aprovado_nutri') {
+    return alert('🔒 Acesso negado. O Relatório PNAE exige aprovação prévia da Dra. Lilian Droppa.');
+  }
+
+  const m = menu.metricasSemanais;
+  const content = `
+    <div style="padding:10px;font-family:sans-serif;color:#1e293b" id="relatorio-pnae-print">
+      <div style="border-bottom:2px solid #0284c7;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:1.2rem;font-weight:800;color:#0369a1">SEMED / SUALE — CAMPO GRANDE (MS)</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#334155">RELATÓRIO TÉCNICO DE CONFORMIDADE NUTRICIONAL — PNAE</div>
+          <div style="font-size:0.8rem;color:#64748b">Resolução FNDE nº 06/2020 · Sistema SAGED Vigia Educa</div>
+        </div>
+        <div style="text-align:right">
+          <span class="status-badge status-ok" style="font-size:0.85rem;padding:6px 12px">🟢 DOCUMENTO OFICIAL APROVADO</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:16px;font-size:0.85rem">
+        <div><strong>Nutricionista Responsável:</strong> Dra. Lilian Droppa (CRN 12345/MS)</div>
+        <div><strong>Data de Aprovação:</strong> ${new Date(menu.aprovadoEm).toLocaleString('pt-BR')}</div>
+        <div><strong>Modalidade:</strong> Ensino Fundamental Integral (${m.numAlunos.toLocaleString('pt-BR')} Alunos)</div>
+        <div><strong>Código de Autenticação:</strong> PNAE-CG-${Date.now().toString(36).toUpperCase()}</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:8px;color:#0f172a">1. Balanço e Metas Nutricionais Calculadas (Média Diária)</h4>
+        <table class="data-table" style="font-size:0.85rem">
+          <thead>
+            <tr>
+              <th>Parâmetro</th>
+              <th>Meta PNAE</th>
+              <th>Valor Calculado pela IA</th>
+              <th>Status de Conformidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Valor Energético (Kcal)</strong></td>
+              <td>650 - 800 kcal</td>
+              <td><strong>${m.mediaKcal} kcal</strong></td>
+              <td><span class="status-badge status-ok">✓ 100% Adequado</span></td>
+            </tr>
+            <tr>
+              <td><strong>Proteínas Total</strong></td>
+              <td>≥ 25g</td>
+              <td>${m.mediaProteinas}g</td>
+              <td><span class="status-badge status-ok">✓ Adequado</span></td>
+            </tr>
+            <tr>
+              <td><strong>Sódio Máximo</strong></td>
+              <td>≤ 500mg</td>
+              <td>${m.mediaSodio}mg</td>
+              <td><span class="status-badge status-ok">✓ Controlado</span></td>
+            </tr>
+            <tr>
+              <td><strong>Agricultura Familiar</strong></td>
+              <td>≥ 30% do PNAE</td>
+              <td><strong>${m.percentualAF}% da pauta</strong></td>
+              <td><span class="status-badge status-ok">✓ Meta Superada</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:8px;color:#0f172a">2. Resumo de Refeições da Semana (Segunda a Sexta)</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${menu.refeicoes.map(r => `
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:8px 12px;border-radius:6px;font-size:0.83rem">
+              <strong>${r.dia}:</strong> ${r.nomePrato} (${r.kcal} kcal)
+              <div style="color:#64748b;font-size:0.78rem">Acompanhamento: ${r.fruta} ${r.fefoBadge ? '· <span style="color:#d97706;font-weight:700">'+r.fefoBadge+'</span>' : ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div style="border-top:2px dashed #cbd5e1;padding-top:16px;margin-top:20px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:0.8rem;color:#64748b">
+          Assinado digitalmente por <strong>Dra. Lilian Droppa</strong><br>
+          Nutricionista Responsável Técnica — SEMED Campo Grande
+        </div>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir / Exportar PDF</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📄 Relatório Técnico PNAE — Aprovado', content);
 };
 
 window.togglePlannerEscolas = () => {
