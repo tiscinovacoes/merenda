@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 const APP_BUILD_DATE = '2026-07-29';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -5399,35 +5399,41 @@ PAGE_RENDERERS.cooperativa_escolas = (el) => {
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Escolas Atendidas</div>
-      <div class="page-subtitle">Pontos de entrega e situação de abastecimento</div>
+      <div class="page-subtitle">Pontos de entrega e situação de abastecimento das ${schools.length} Escolas Piloto (${total.toLocaleString('pt-BR')} Alunos)</div>
     </div>
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${schools.length}</div><div class="kpi-label">Escolas</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${schools.length}</div><div class="kpi-label">Escolas Piloto</div></div>
       <div class="kpi-card green"><div class="kpi-icon">👥</div><div class="kpi-value">${total.toLocaleString('pt-BR')}</div><div class="kpi-label">Alunos Atendidos</div></div>
       <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${schools.filter(s=>s.stockStatus==='warning').length}</div><div class="kpi-label">Em Atenção</div></div>
       <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${risco}</div><div class="kpi-label">Em Risco</div></div>
     </div>
     <div class="card">
-      <div class="card-header"><div class="card-title">Pontos de Entrega</div></div>
+      <div class="card-header"><div class="card-title">Pontos de Entrega (Escolas Piloto Real)</div></div>
       <div class="card-body">
         <div class="table-wrapper">
           <table class="data-table">
-            <thead><tr><th>Escola</th><th>Região</th><th>Modalidade</th><th>Alunos</th><th>Estoque Atual</th><th>Status</th><th>Última Entrega</th><th>Ação</th></tr></thead>
+            <thead><tr><th>Escola Piloto</th><th>Região</th><th>Modalidade</th><th>Alunos</th><th>Restrições</th><th>Estoque Atual</th><th>Status</th><th>Última Entrega</th></tr></thead>
             <tbody>
-              ${schools.sort((a,b) => a.stockPct - b.stockPct).map(s => `
-              <tr>
-                <td><strong>${s.name}</strong></td>
-                <td><span class="tag tag-blue">${s.region}</span></td>
-                <td><span class="tag tag-teal" style="font-size:0.7rem">${s.modality || 'Escolar Urbana'}</span></td>
-                <td style="font-family:var(--font-mono)">${s.students}</td>
-                <td><div style="display:flex;align-items:center;gap:8px">
-                  <div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
-                  <span style="font-family:var(--font-mono);font-size:0.78rem">${s.stockPct}%</span>
-                </div></td>
-                <td><span class="status-badge ${statusClass(s.stockStatus)}">${statusLabel(s.stockStatus)}</span></td>
-                <td style="font-size:0.82rem">${s.lastDelivery ? formatDate(s.lastDelivery) : '—'}</td>
-                <td><button class="table-action" onclick="alert('Programar entrega para ${s.name.replace(/'/g,"'")}')">Programar →</button></td>
-              </tr>`).join('')}
+              ${schools.map(s => {
+                const restrCount = (SharedState.getRestricoes(s.id) || []).filter(r => r.status === 'ativo').reduce((a,b)=>a+(b.quantidade||1), 0);
+                const localStock = SharedState.getSchoolStock(s.name) || [];
+                const deliveries = SharedState.getDeliveries().filter(d => d.school === s.name || d.escola === s.name);
+                const lastDel = deliveries.length > 0 ? (deliveries[deliveries.length-1].confirmadoEm || deliveries[deliveries.length-1].criadoEm) : s.lastDelivery;
+                return `
+                <tr>
+                  <td><strong>${s.name}</strong></td>
+                  <td><span class="tag tag-blue">${s.region}</span></td>
+                  <td><span class="tag tag-teal" style="font-size:0.7rem">${s.modality || 'Escolar Urbana'}</span></td>
+                  <td style="font-family:var(--font-mono)">${s.students}</td>
+                  <td>${restrCount > 0 ? `<span class="status-badge warning" style="font-size:0.7rem">⚠️ ${restrCount} aluno(s)</span>` : '<span style="color:var(--text-tertiary);font-size:0.8rem">Nenhuma</span>'}</td>
+                  <td><div style="display:flex;align-items:center;gap:8px">
+                    <div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
+                    <span style="font-family:var(--font-mono);font-size:0.78rem">${s.stockPct}% (${localStock.length} itens)</span>
+                  </div></td>
+                  <td><span class="status-badge ${statusClass(s.stockStatus)}">${statusLabel(s.stockStatus)}</span></td>
+                  <td style="font-size:0.82rem">${lastDel ? (lastDel.slice(0, 10)) : '—'}</td>
+                </tr>`;
+              }).join('')}
             </tbody>
           </table>
         </div>
@@ -5436,42 +5442,10 @@ PAGE_RENDERERS.cooperativa_escolas = (el) => {
   `;
 };
 
-PAGE_RENDERERS.agricultor_escolas = (el) => { PAGE_RENDERERS.cooperativa_escolas(el); };
-
-PAGE_RENDERERS.estoque_escolas = (el) => {
-  const schools = DATA.schools || [];
-  const regioes = {};
-  schools.forEach(s => { (regioes[s.region] = regioes[s.region] || []).push(s); });
-  el.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Escolas Atendidas</div>
-      <div class="page-subtitle">Unidades escolares agrupadas por região de distribuição</div>
-    </div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${schools.length}</div><div class="kpi-label">Escolas</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">🗺️</div><div class="kpi-value">${Object.keys(regioes).length}</div><div class="kpi-label">Regiões</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${schools.filter(s=>s.stockStatus==='warning').length}</div><div class="kpi-label">Em Atenção</div></div>
-      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${schools.filter(s=>s.stockStatus==='danger').length}</div><div class="kpi-label">Em Risco</div></div>
-    </div>
-    ${Object.entries(regioes).map(([regiao, list]) => `
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-header"><div class="card-title">${regiao} <span class="tag tag-blue" style="font-size:0.7rem">${list.length} escola(s)</span></div></div>
-        <div class="card-body" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
-          ${list.map(s => `
-            <div style="border:1px solid var(--border);border-radius:8px;padding:12px">
-              <div style="font-weight:600;margin-bottom:4px">${s.name}</div>
-              <div style="font-size:0.78rem;color:var(--text-secondary);margin-bottom:8px">${s.sigla || ''} · ${s.students} alunos · ${s.director || (s.diretor ? s.diretor.name : '')}</div>
-              <div style="display:flex;align-items:center;gap:8px">
-                <div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
-                <span class="status-badge ${statusClass(s.stockStatus)}" style="font-size:0.7rem">${statusLabel(s.stockStatus)}</span>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-      </div>
-    `).join('')}
-  `;
-};
+PAGE_RENDERERS.gestor_escolas = PAGE_RENDERERS.cooperativa_escolas;
+PAGE_RENDERERS.estoque_escolas = PAGE_RENDERERS.cooperativa_escolas;
+PAGE_RENDERERS.nutricionista_escolas = PAGE_RENDERERS.cooperativa_escolas;
+PAGE_RENDERERS.agricultor_escolas = PAGE_RENDERERS.cooperativa_escolas;
 
 PAGE_RENDERERS.motorista_escolas = (el) => {
   const schools = DATA.schools || [];
