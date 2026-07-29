@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.5.2';
+const APP_VERSION = '1.5.3';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -4424,8 +4424,8 @@ window.abrirModalGeradorIA = () => {
       </div>
 
       <div style="display:flex;justify-content:flex-end;gap:10px">
-        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-primary" onclick="executarGeracaoCardapioIA()">⚡ Gerar Cardápio Semanal (IA)</button>
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="window.executarGeracaoCardapioIA(event)">⚡ Gerar Cardápio Semanal (IA)</button>
       </div>
     </div>
   `;
@@ -4435,105 +4435,118 @@ window.abrirModalGeradorIA = () => {
 window.currentActiveIAMenu = null;
 window.tempIAMenuPreview = null;
 
-window.executarGeracaoCardapioIA = () => {
-  const modalidade = document.getElementById('ia-modalidade')?.value || 'piloto_completo';
-  const metaKcal = parseInt(document.getElementById('ia-meta-kcal')?.value) || 700;
-  const priorizarFEFO = document.getElementById('ia-priorizar-fefo')?.checked !== false;
-  const priorizarSazonal = document.getElementById('ia-priorizar-sazonal')?.checked !== false;
-  const considerarRestricoes = document.getElementById('ia-considerar-restricoes')?.checked !== false;
+window.executarGeracaoCardapioIA = (evt) => {
+  if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
 
-  const totalAlunosPiloto = (DATA.schools && DATA.schools.length > 0) 
-    ? DATA.schools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
-    : 10380;
+  try {
+    const modalidade = document.getElementById('ia-modalidade')?.value || 'piloto_completo';
+    const metaKcal = parseInt(document.getElementById('ia-meta-kcal')?.value) || 700;
+    const priorizarFEFO = document.getElementById('ia-priorizar-fefo')?.checked !== false;
+    const priorizarSazonal = document.getElementById('ia-priorizar-sazonal')?.checked !== false;
+    const considerarRestricoes = document.getElementById('ia-considerar-restricoes')?.checked !== false;
 
-  let numAlunos = totalAlunosPiloto;
-  if (modalidade === 'rede_total') {
-    numAlunos = 32000;
-  } else if (modalidade === 'creche') {
-    numAlunos = Math.round(totalAlunosPiloto * 0.22);
-  }
+    const totalAlunosPiloto = (DATA.schools && DATA.schools.length > 0) 
+      ? DATA.schools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
+      : 10380;
 
-  window.closeModal();
+    let numAlunos = totalAlunosPiloto;
+    if (modalidade === 'rede_total') {
+      numAlunos = 32000;
+    } else if (modalidade === 'creche') {
+      numAlunos = Math.round(totalAlunosPiloto * 0.22);
+    }
 
-  if (!window.AICardapioEngine) {
-    return alert('Motor de IA não carregado.');
-  }
+    if (!window.AICardapioEngine) {
+      return alert('Motor de IA não carregado.');
+    }
 
-  // 1. Gera os blocos de dias se estiver no planejador semanal
-  if (typeof window.generatePlannerDays === 'function') {
-    window.generatePlannerDays();
-  }
+    // 1. Executa o algoritmo da IA
+    const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
+      modalidade,
+      metaKcal,
+      numAlunos,
+      priorizarFEFO,
+      priorizarSazonal,
+      considerarRestricoes
+    });
 
-  // 2. Executa o gerador de IA
-  const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
-    modalidade,
-    metaKcal,
-    numAlunos,
-    priorizarFEFO,
-    priorizarSazonal,
-    considerarRestricoes
-  });
+    if (!resultadoIA) {
+      return alert('Falha ao gerar cardápio com a IA.');
+    }
 
-  window.currentActiveIAMenu = resultadoIA;
-  window.tempIAMenuPreview = resultadoIA;
+    window.currentActiveIAMenu = resultadoIA;
+    window.tempIAMenuPreview = resultadoIA;
 
-  // 3. Preenche os selects da página principal imediatamente
-  const container = document.getElementById('planner-days-container');
-  if (container) {
-    const dayBlocks = container.querySelectorAll('.planner-day-block');
-    dayBlocks.forEach((block, idx) => {
-      const refeicao = resultadoIA.refeicoes[idx % resultadoIA.refeicoes.length];
-      if (!refeicao) return;
+    // 2. Fecha o modal de configuração
+    window.closeModal();
 
-      const selectAlmoco = block.querySelector('select[id^="planner-lun-"]');
-      if (selectAlmoco) {
-        let found = false;
-        for (let opt of selectAlmoco.options) {
-          if (opt.text.toLowerCase().includes(refeicao.nomePrato.slice(0, 15).toLowerCase())) {
-            selectAlmoco.value = opt.value;
-            found = true;
-            break;
+    // 3. Preenche os blocos e selects da página principal imediatamente
+    if (typeof window.generatePlannerDays === 'function') {
+      window.generatePlannerDays();
+    }
+
+    const container = document.getElementById('planner-days-container');
+    if (container) {
+      const dayBlocks = container.querySelectorAll('.planner-day-block');
+      dayBlocks.forEach((block, idx) => {
+        const refeicao = resultadoIA.refeicoes[idx % resultadoIA.refeicoes.length];
+        if (!refeicao) return;
+
+        const selectAlmoco = block.querySelector('select[id^="planner-lun-"]');
+        if (selectAlmoco) {
+          let found = false;
+          for (let opt of selectAlmoco.options) {
+            if (opt.text.toLowerCase().includes(refeicao.nomePrato.slice(0, 15).toLowerCase())) {
+              selectAlmoco.value = opt.value;
+              found = true;
+              break;
+            }
+          }
+          if (!found && selectAlmoco.options.length > 1) {
+            selectAlmoco.selectedIndex = (idx % (selectAlmoco.options.length - 1)) + 1;
           }
         }
-        if (!found && selectAlmoco.options.length > 1) {
-          selectAlmoco.selectedIndex = (idx % (selectAlmoco.options.length - 1)) + 1;
-        }
+      });
+
+      if (typeof window.renderAISummaryCard === 'function') {
+        window.renderAISummaryCard(resultadoIA, container);
       }
-    });
+      if (typeof window.calculatePlannerKcal === 'function') {
+        window.calculatePlannerKcal();
+      }
+    }
 
-    window.renderAISummaryCard(resultadoIA, container);
-    window.calculatePlannerKcal();
-  }
+    // 4. Grava no SharedState (Planejamento Alimentar & Cardápios da Escola)
+    if (window.SharedState) {
+      const d1 = new Date().toLocaleDateString('pt-BR');
+      const d2 = new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
+      SharedState.addMenu({
+        nome: `Cardápio IA — ${resultadoIA.params?.modalidade || 'PNAE'}`,
+        periodo: `${d1} a ${d2}`,
+        escolas: (DATA.schools||[]).length,
+        escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
+        status: 'Publicado',
+        tipo: 'Semanal',
+        autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
+      });
+      SharedState.addWeeklyMenu({
+        nome: `Cardápio Semanal IA PNAE (${numAlunos.toLocaleString('pt-BR')} Alunos)`,
+        periodo: `${d1} a ${d2}`,
+        semana: `${d1} a ${d2}`,
+        escola: 'Toda a Rede Piloto',
+        escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
+        refeicoes: (resultadoIA.refeicoes||[]).map(r => ({ dia: r.dia, tipo: 'Almoço', item: `${r.nomePrato} (${r.kcal} kcal)`, kcal: r.kcal })),
+        kcalMedia: resultadoIA.metricasSemanais?.mediaKcal || 700,
+        autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
+      });
+    }
 
-  // 4. Grava no SharedState (Planejamento Alimentar & Cardápios da Escola)
-  if (window.SharedState) {
-    const d1 = new Date().toLocaleDateString('pt-BR');
-    const d2 = new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
-    SharedState.addMenu({
-      nome: `Cardápio IA — ${resultadoIA.params?.modalidade || 'PNAE'}`,
-      periodo: `${d1} a ${d2}`,
-      escolas: (DATA.schools||[]).length,
-      escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
-      status: 'Publicado',
-      tipo: 'Semanal',
-      autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
-    });
-    SharedState.addWeeklyMenu({
-      nome: `Cardápio Semanal IA PNAE (${numAlunos.toLocaleString('pt-BR')} Alunos)`,
-      periodo: `${d1} a ${d2}`,
-      semana: `${d1} a ${d2}`,
-      escola: 'Toda a Rede Piloto',
-      escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
-      refeicoes: resultadoIA.refeicoes.map(r => ({ dia: r.dia, tipo: 'Almoço', item: `${r.nomePrato} (${r.kcal} kcal)`, kcal: r.kcal })),
-      kcalMedia: resultadoIA.metricasSemanais?.mediaKcal || 700,
-      autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
-    });
-  }
-
-  // 5. Abre o modal de pré-visualização interativa
-  setTimeout(() => {
+    // 5. Abre o modal de pré-visualização interativa
     window.abrirModalPreviewIA(resultadoIA);
-  }, 100);
+  } catch (err) {
+    console.error('Erro na geração de IA:', err);
+    alert('Erro ao gerar cardápio com IA: ' + err.message);
+  }
 };
 
 window.abrirModalPreviewIA = (resultadoIA) => {
