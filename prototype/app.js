@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.2';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -48,35 +48,41 @@ const USAR_CATALOGO_LOCAL = true;
 window.USAR_CATALOGO_LOCAL = USAR_CATALOGO_LOCAL;
 
 // ============================
-// MODAL SYSTEM
+// MODAL SYSTEM (Redimensionado e Responsivo)
 // ============================
-window.showModal = (title, content) => {
+window.showModal = (title, content, customWidth) => {
   let modal = document.getElementById('global-modal');
+  let modalContent = document.getElementById('global-modal-content');
+
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'global-modal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:9999;';
+    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15, 23, 42, 0.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
     
-    const modalContent = document.createElement('div');
+    modalContent = document.createElement('div');
+    modalContent.id = 'global-modal-content';
     modalContent.className = 'card';
-    modalContent.style.cssText = 'width:90%;max-width:500px;background:var(--bg);border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-lg);';
+    modalContent.style.cssText = 'width:95%;max-width:900px;max-height:90vh;background:var(--bg, #ffffff);border-radius:12px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
     
     const header = document.createElement('div');
     header.className = 'card-header';
-    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border, #e2e8f0);background:var(--surface-1, #f8fafc);flex-shrink:0;';
     
     const titleEl = document.createElement('h3');
     titleEl.id = 'global-modal-title';
-    titleEl.style.margin = '0';
+    titleEl.style.cssText = 'margin:0;font-size:1.15rem;font-weight:700;color:var(--text-primary, #0f172a);';
     
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '✕';
-    closeBtn.style.cssText = 'background:none;border:none;font-size:1.2rem;cursor:pointer;color:var(--text-secondary);';
+    closeBtn.style.cssText = 'background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-secondary, #64748b);padding:4px 8px;border-radius:6px;line-height:1;';
+    closeBtn.onmouseover = () => closeBtn.style.background = '#e2e8f0';
+    closeBtn.onmouseout = () => closeBtn.style.background = 'none';
     closeBtn.onclick = closeModal;
     
     const body = document.createElement('div');
     body.className = 'card-body';
     body.id = 'global-modal-body';
+    body.style.cssText = 'padding:20px;overflow-y:auto;max-height:calc(90vh - 70px);box-sizing:border-box;';
     
     header.appendChild(titleEl);
     header.appendChild(closeBtn);
@@ -84,6 +90,10 @@ window.showModal = (title, content) => {
     modalContent.appendChild(body);
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
+  }
+  
+  if (modalContent) {
+    modalContent.style.maxWidth = customWidth || '900px';
   }
   
   document.getElementById('global-modal-title').innerText = title;
@@ -4638,7 +4648,7 @@ window.abrirRelatorioPNAE = () => {
     </div>
   `;
 
-  window.showModal('📄 Relatório Técnico PNAE — Aprovado', content);
+  window.showModal('📄 Relatório Técnico PNAE — Aprovado', content, '950px');
 };
 
 window.togglePlannerEscolas = () => {
