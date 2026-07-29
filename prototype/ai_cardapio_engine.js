@@ -368,9 +368,11 @@
       }
 
       // Métricas Nutricionais Calculadas da Semana
-      const mediaKcal = Math.round(refeicoesGeradas.reduce((a, b) => a + b.kcal, 0) / 5);
-      const mediaProteinas = Math.round(refeicoesGeradas.reduce((a, b) => a + b.proteinas, 0) / 5);
-      const mediaSodio = Math.round(refeicoesGeradas.reduce((a, b) => a + b.sodio, 0) / 5);
+      const totalKcal = Math.round(refeicoesGeradas.reduce((a, b) => a + (b.kcal || 0), 0) / 5);
+      const totalProt = Math.round(refeicoesGeradas.reduce((a, b) => a + (b.proteinas || 0), 0) / 5);
+      const totalCarb = Math.round(refeicoesGeradas.reduce((a, b) => a + (b.carboidratos || 0), 0) / 5);
+      const totalLip = Math.round(refeicoesGeradas.reduce((a, b) => a + (b.lipideos || 0), 0) / 5);
+      const totalSodio = Math.round(refeicoesGeradas.reduce((a, b) => a + (b.sodio || 0), 0) / 5);
 
       // Consolidação de Insumos da Semana
       const insumosResumoSemanal = Object.values(acumuladorInsumos).map(ins => ({
