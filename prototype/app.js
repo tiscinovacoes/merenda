@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.7.2';
+const APP_VERSION = '1.8.0';
 const APP_BUILD_DATE = '2026-07-29';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -4043,9 +4043,10 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
         <td><span class="status-badge status-${c.status === 'Publicado' ? 'ok' : 'info'}">${c.status}</span></td>
         <td style="font-size:0.82rem">${c.autor || '—'}</td>
         <td>
-          ${(!readOnly && c.status !== 'Publicado')
-            ? `<button class="table-action" onclick="viewCardapio('${c.id || i}')">Editar</button>`
-            : `<button class="table-action" onclick="viewCardapio('${c.id || i}')">Visualizar</button>`}
+          <div style="display:flex;gap:4px">
+            <button class="table-action" onclick="editarCardapio('${c.id || i}')">✏️ Editar</button>
+            ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${c.id || i}')">🗑️ Excluir</button>` : ''}
+          </div>
         </td>
       </tr>
     `;
@@ -4054,7 +4055,7 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">${readOnly ? 'Cardápios da Rede' : 'Gestão de Cardápios'}</div>
-      <div class="page-subtitle">${readOnly ? 'Cardápios elaborados pela Nutricionista SEMED e distribuídos à sua escola' : 'Elaboração, publicação e vinculação de cardápios escolares'}</div>
+      <div class="page-subtitle">${readOnly ? 'Cardápios elaborados pela Nutricionista SEMED e distribuídos à sua escola' : 'Elaboração, publicação, edição e exclusão de cardápios escolares'}</div>
     </div>
 
     ${!readOnly ? `
@@ -4093,8 +4094,8 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
     <div class="card">
       <div class="card-header"><div class="card-title">🗓️ Cardápios Semanais Publicados</div><span class="status-badge status-ok">${weekly.length} recentes</span></div>
       <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Destino</th><th>Autor</th><th>Publicado em</th><th>Média Kcal</th></tr></thead><tbody>
-          ${weekly.map(w => `
+        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Destino</th><th>Autor</th><th>Publicado em</th><th>Média Kcal</th><th>Ações</th></tr></thead><tbody>
+          ${weekly.map((w, idx) => `
             <tr>
               <td><strong>${w.nome || 'Cardápio Semanal'}</strong></td>
               <td>${w.periodo || '—'}</td>
@@ -4102,12 +4103,44 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
               <td style="font-size:0.82rem">${w.autor || '—'}</td>
               <td style="font-size:0.82rem">${new Date(w.publicadoEm).toLocaleString('pt-BR')}</td>
               <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${w.kcalMedia || '—'} kcal/dia</td>
+              <td>
+                <div style="display:flex;gap:4px">
+                  <button class="table-action" onclick="editarCardapio('${idx}')">✏️ Editar</button>
+                  ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${idx}')">🗑️ Excluir</button>` : ''}
+                </div>
+              </td>
             </tr>
           `).join('')}
         </tbody></table>
       </div>
     </div>` : ''}
   `;
+};
+
+window.excluirCardapio = (idOrIdx) => {
+  if (!confirm('Tem certeza que deseja excluir este cardápio? Esta ação removerá o registro do sistema.')) return;
+
+  const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+  const idx = parseInt(idOrIdx);
+  if (!isNaN(idx) && idx >= 0 && idx < legacy.length) {
+    legacy.splice(idx, 1);
+    localStorage.setItem('cardapios_publicados', JSON.stringify(legacy));
+  }
+
+  if (window.SharedState && typeof window.SharedState.deleteMenu === 'function') {
+    window.SharedState.deleteMenu(idOrIdx);
+  }
+
+  if (typeof showToast === 'function') showToast('✅ Cardápio excluído com sucesso!');
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.nutricionista_cardapios(container);
+};
+
+window.editarCardapio = (idOrIdx) => {
+  if (typeof window.showMenuPlanner === 'function') {
+    window.showMenuPlanner();
+    if (typeof showToast === 'function') showToast('✏️ Cardápio carregado no planejador para edição.');
+  }
 };
 
 window.viewCardapio = (id) => {
@@ -4404,6 +4437,35 @@ window.abrirModalGeradorIA = () => {
   const startDateInput = document.getElementById('planner-start-date')?.value || '';
   const endDateInput = document.getElementById('planner-end-date')?.value || '';
 
+  // 1. Detectar modalidade e escopo pré-selecionados na tela principal do planejador
+  const preSelectedModality = document.getElementById('planner-modalidade')?.value || 'piloto_completo';
+  const escopoRede = document.getElementById('planner-escopo-rede')?.checked !== false;
+  const selectedSchoolNames = escopoRede 
+    ? (DATA.schools || []).map(s => s.name)
+    : Array.from(document.querySelectorAll('.planner-escola-chk:checked')).map(c => c.value);
+
+  // 2. Verificar restrições alimentares ativas para o escopo selecionado
+  const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo');
+  const restricoesNaSelecao = activeRestricoes.filter(r => 
+    escopoRede || selectedSchoolNames.some(sName => (r.schoolName || '').toLowerCase().includes(sName.toLowerCase()))
+  );
+
+  const totalAlunosRestr = restricoesNaSelecao.reduce((acc, r) => acc + (r.quantidade || 1), 0);
+  const tiposRestrUnicos = Array.from(new Set(restricoesNaSelecao.map(r => r.tipo))).join(', ');
+
+  let restricoesAlertHtml = '';
+  if (totalAlunosRestr > 0) {
+    restricoesAlertHtml = `
+      <div style="background:#fff7ed; border-left:4px solid #f97316; padding:10px 14px; border-radius:6px; margin-bottom:14px; color:#c2410c; font-size:0.88rem;">
+        🛡️ <strong>Alerta de Restrições na Seleção:</strong> A pré-seleção inclui <strong>${totalAlunosRestr} aluno(s)</strong> com laudo médico / restrição ativa (<em>${tiposRestrUnicos}</em>). A IA filtrará apenas receitas seguras.
+      </div>
+    `;
+  }
+
+  let escopoLabelInfo = escopoRede 
+    ? `Escolas Piloto (${totalAlunosPiloto.toLocaleString('pt-BR')} alunos)`
+    : `${selectedSchoolNames.length} escola(s) específica(s) pré-selecionada(s)`;
+
   let dateBadgeHtml = '';
   if (startDateInput && endDateInput) {
     const d1Formatted = startDateInput.split('-').reverse().join('/');
@@ -4418,18 +4480,19 @@ window.abrirModalGeradorIA = () => {
   const content = `
     <div style="padding:10px 0">
       ${dateBadgeHtml}
+      ${restricoesAlertHtml}
       <div style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px">
-        A Inteligência Artificial irá compor automaticamente as refeições PNAE da semana com base na população das <strong>Escolas Piloto (${totalAlunosPiloto.toLocaleString('pt-BR')} alunos)</strong>, priorizando Agricultura Familiar, combate ao desperdício (FEFO) e per capita técnico.
+        A Inteligência Artificial irá compor automaticamente as refeições PNAE da semana respeitando o escopo de <strong>${escopoLabelInfo}</strong>, priorizando Agricultura Familiar, combate ao desperdício (FEFO) e per capita técnico.
       </div>
 
       <div class="form-group" style="margin-bottom:14px">
-        <label style="font-weight:600;display:block;margin-bottom:6px">Escopo & Modalidade Escolar Alvo</label>
+        <label style="font-weight:600;display:block;margin-bottom:6px">Escopo & Modalidade Escolar Alvo (Pré-Selecionada)</label>
         <select id="ia-modalidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px">
-          <option value="piloto_completo" selected>🏫 Escolas Piloto SUALE 2026 (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Atendidos)</option>
-          <option value="fundamental_integral">Ensino Fundamental Integral (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
-          <option value="fundamental_parcial">Ensino Fundamental Parcial (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
-          <option value="creche">Creche / EMEIs Piloto (${Math.round(totalAlunosPiloto * 0.22).toLocaleString('pt-BR')} Alunos)</option>
-          <option value="rede_total">Projeção Toda a Rede Municipal (183 Escolas — 32.000 Alunos)</option>
+          <option value="piloto_completo" ${preSelectedModality === 'piloto_completo' ? 'selected' : ''}>🏫 Escolas Piloto SUALE 2026 (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Atendidos)</option>
+          <option value="fundamental_integral" ${preSelectedModality === 'fundamental_integral' ? 'selected' : ''}>Ensino Fundamental Integral (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
+          <option value="fundamental_parcial" ${preSelectedModality === 'fundamental_parcial' ? 'selected' : ''}>Ensino Fundamental Parcial (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
+          <option value="creche" ${preSelectedModality === 'creche' ? 'selected' : ''}>Creche / EMEIs Piloto (${Math.round(totalAlunosPiloto * 0.22).toLocaleString('pt-BR')} Alunos)</option>
+          <option value="rede_total" ${preSelectedModality === 'rede_total' ? 'selected' : ''}>Projeção Toda a Rede Municipal (183 Escolas — 32.000 Alunos)</option>
         </select>
       </div>
 
@@ -4449,7 +4512,7 @@ window.abrirModalGeradorIA = () => {
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer">
           <input type="checkbox" id="ia-considerar-restricoes" checked>
-          <span>🛡️ <strong>Respeitar Alertas de Restrições Alimentares da Rede</strong></span>
+          <span>🛡️ <strong>Respeitar Alertas de Restrições Alimentares (${totalAlunosRestr} alunos na seleção)</strong></span>
         </label>
       </div>
 
@@ -4891,7 +4954,10 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
                   <strong style="font-size:0.98rem; color:#0f172a;">🏫 ${o.escola.name}</strong>
                   <span style="font-size:0.8rem; color:#64748b; margin-left:8px;">· Região: ${o.escola.region || 'Urbana'} · População: <strong>${o.escola.students} Alunos</strong></span>
                 </div>
-                <span class="status-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem;">OS nº OS-2026/${o.escola.id}08</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="status-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem;">OS nº OS-2026/${o.escola.id}08</span>
+                  <button class="btn btn-outline btn-sm" style="font-size:0.78rem;" onclick="window.imprimirOSIndividualEscola('${o.escola.name.replace(/'/g,"\\'")}', 'OS-2026/${o.escola.id}08')">🖨️ Imprimir Guia OS</button>
+                </div>
               </div>
 
               <div style="overflow-x:auto;">
@@ -4935,7 +5001,10 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
                   <strong style="font-size:0.98rem; color:#14532d;">🌾 ${c.cooperativa}</strong>
                   <div style="font-size:0.8rem; color:#475569; margin-top:2px;">Contato / Responsável: <strong>${c.contato}</strong></div>
                 </div>
-                <span class="status-badge status-ok" style="font-weight:700; font-size:0.78rem;">🟢 ORDEM DE COLHEITA EMITIDA</span>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="status-badge status-ok" style="font-weight:700; font-size:0.78rem;">🟢 ORDEM DE COLHEITA EMITIDA</span>
+                  <button class="btn btn-outline btn-sm" style="font-size:0.78rem; border-color:#16a34a; color:#15803d;" onclick="window.imprimirGuiaCooperativaAF('${c.cooperativa.replace(/'/g,"\\'")}')">🖨️ Imprimir Guia AF</button>
+                </div>
               </div>
 
               <div style="overflow-x:auto;">
@@ -4976,6 +5045,141 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
   `;
 
   window.showModal('📋 Ordens de Serviço (Escolas & Agricultura Familiar)', content, '950px');
+};
+
+window.imprimirOSIndividualEscola = (escolaName, osNumero) => {
+  const school = (DATA.schools || []).find(s => s.name === escolaName) || { name: escolaName, region: 'Urbana', students: 450 };
+  const orders = SharedState.getOrders().filter(o => o.school === escolaName || o.escola === escolaName);
+  const items = orders.length > 0 ? (orders[orders.length - 1].itens || []) : [
+    { produto: 'Arroz Agulhinha Tipo 1 (Saco 5kg)', qtd: 50, unidade: 'kg', regra: '10 pacotes x 5kg' },
+    { produto: 'Feijão Carioca Novo (Pacote 1kg)', qtd: 25, unidade: 'kg', regra: '25 pacotes x 1kg' },
+    { produto: 'Carne Bovina Bife Moída congelada', qtd: 40, unidade: 'kg', regra: 'Caixas de 10kg' },
+    { produto: 'Banana Prata Orgânica AF', qtd: 30, unidade: 'kg', regra: 'Caixas de 15kg' },
+  ];
+
+  const html = `
+    <div style="padding:20px;font-family:sans-serif;color:#0f172a;max-width:800px;margin:0 auto" id="print-os-guias">
+      <div style="border-bottom:2px solid #0284c7;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:1.1rem;font-weight:800;color:#0369a1">SEMED · PREFEITURA MUNICIPAL DE CAMPO GRANDE</div>
+          <div style="font-size:1rem;font-weight:700;color:#334155">ORDEM DE SERVIÇO DE EXPEDIÇÃO & CONFERÊNCIA — ESTOQUE CENTRAL</div>
+          <div style="font-size:0.8rem;color:#64748b">Sistema SAGED · Alimentação Escolar PNAE</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--font-mono);font-size:1.1rem;font-weight:800;color:#0284c7">${osNumero || 'OS-2026/01'}</div>
+          <div style="font-size:0.75rem;color:#64748b">${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:16px;font-size:0.85rem;border:1px solid #e2e8f0">
+        <div><strong>Unidade Escolar Destino:</strong> ${school.name}</div>
+        <div><strong>Região de Atendimento:</strong> ${school.region || 'Urbana'}</div>
+        <div><strong>População Atendida:</strong> ${school.students || 450} Alunos</div>
+        <div><strong>Status da OS:</strong> <span style="color:#0284c7;font-weight:700">🚚 Aguardando Separação / Expedição</span></div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:8px;color:#0f172a">Itens da Ordem de Serviço (Embalagens Inteiras Fechadas)</h4>
+        <table class="data-table" style="font-size:0.85rem;width:100%">
+          <thead>
+            <tr>
+              <th>Item / Insumo</th>
+              <th>Quantidade Expedida</th>
+              <th>Instrução de Embalagem / Regra</th>
+              <th style="text-align:center">Conferido (Separador)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(it => `
+              <tr>
+                <td><strong>${it.produto}</strong></td>
+                <td style="font-family:var(--font-mono);font-weight:700;color:#0284c7">${it.qtd} ${it.unidade || 'kg'}</td>
+                <td style="font-size:0.8rem">${it.regra || 'Caixa/Fardo Fechado'}</td>
+                <td style="text-align:center;font-size:1.1rem">☐</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="border-top:2px dashed #cbd5e1;padding-top:24px;margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;text-align:center;font-size:0.8rem;color:#475569">
+        <div>_______________________________<br><strong>Conferente Estoque Central</strong></div>
+        <div>_______________________________<br><strong>Motorista / Transportador</strong></div>
+        <div>_______________________________<br><strong>Recebimento na Escola (Direção)</strong></div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Guia de Expedição</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal(`📄 Guia de Ordem de Serviço — ${escolaName}`, html, '850px');
+};
+
+window.imprimirGuiaCooperativaAF = (coopName) => {
+  const prod = SharedState.getProduction().filter(p => p.cooperativa === coopName || (p.cooperativa || '').toLowerCase().includes(coopName.toLowerCase()));
+  const items = prod.length > 0 ? prod : [
+    { produto: 'Melancia em cubos (Safra Local AF)', quantidadeTotalKg: 350, prazoColheita: 'Até 03/08/2026' },
+    { produto: 'Banana Prata Orgânica AF', quantidadeTotalKg: 280, prazoColheita: 'Até 03/08/2026' },
+  ];
+
+  const html = `
+    <div style="padding:20px;font-family:sans-serif;color:#0f172a;max-width:800px;margin:0 auto" id="print-af-guias">
+      <div style="border-bottom:2px solid #16a34a;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:1.1rem;font-weight:800;color:#15803d">SEMED · AGRICULTURA FAMILIAR PNAE</div>
+          <div style="font-size:1rem;font-weight:700;color:#334155">ORDEM DE COLHEITA & FORNECIMENTO COOPERATIVADO</div>
+          <div style="font-size:0.8rem;color:#64748b">Chamada Pública PNAE · Campo Grande (MS)</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--font-mono);font-size:1.1rem;font-weight:800;color:#16a34a">ORDEM AF-2026/04</div>
+          <div style="font-size:0.75rem;color:#64748b">${new Date().toLocaleDateString('pt-BR')}</div>
+        </div>
+      </div>
+
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:12px;border-radius:8px;margin-bottom:16px;font-size:0.85rem">
+        <div><strong>Entidade Fornecedora:</strong> ${coopName}</div>
+        <div><strong>Destino do Carregamento:</strong> Entreposto Central SEMED / Unidades Escolares Piloto</div>
+        <div><strong>Status:</strong> <span style="color:#15803d;font-weight:700">🌾 Autorizado para Colheita e Entrega</span></div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:8px;color:#0f172a">Produtos e Quantidades Autorizadas para Colheita</h4>
+        <table class="data-table" style="font-size:0.85rem;width:100%">
+          <thead>
+            <tr>
+              <th>Produto (Safra Sazonal AF)</th>
+              <th>Volume Solicitado (kg)</th>
+              <th>Prazo Limite de Colheita</th>
+              <th style="text-align:center">Vistoria Sanitária</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(it => `
+              <tr>
+                <td><strong>${it.produto}</strong> <span class="status-badge status-ok" style="font-size:0.7rem">🌾 AF</span></td>
+                <td style="font-family:var(--font-mono);font-weight:800;color:#15803d">${it.quantidadeTotalKg || it.qtd} kg</td>
+                <td style="color:#d97706;font-weight:700">${it.prazoColheita || 'Até 03/08/2026'}</td>
+                <td style="text-align:center">✓ Aprovado</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="border-top:2px dashed #cbd5e1;padding-top:24px;margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:20px;text-align:center;font-size:0.88rem;color:#475569">
+        <div>_______________________________<br><strong>Presidente / Resp. Cooperativa</strong></div>
+        <div>_______________________________<br><strong>Eng. Agrônomo / SEMED Nutrição</strong></div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;justify-content:flex-end">
+        <button class="btn btn-success" onclick="window.print()">🖨️ Imprimir Guia de Colheita AF</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal(`🌾 Guia de Colheita AF — ${coopName}`, html, '850px');
 };
 
 window.alternarAbasOS = (aba) => {
