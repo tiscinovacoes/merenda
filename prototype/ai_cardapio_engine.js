@@ -254,9 +254,9 @@
         // Bônus FEFO: se usa item perto de vencer do estoque consolidado
         if (priorizarFEFO) {
           const itemFefo = listaFEFO.find(f => 
-            r.ingredientes.some(ing => 
-              ing.nome.toLowerCase().includes(f.itemKey) ||
-              ing.estoqueItem.toLowerCase().includes(f.itemKey)
+            (r.ingredientes || []).some(ing => 
+              (ing.nome || '').toLowerCase().includes(f.itemKey || '') ||
+              (ing.estoqueItem || '').toLowerCase().includes(f.itemKey || '')
             )
           );
           if (itemFefo) {
@@ -288,15 +288,15 @@
         const receita = ordenadas[i % ordenadas.length];
 
         // Processar ingredientes, per capita e necessidade da rede em kg/litros
-        const ingredientesProcessados = receita.ingredientes.map(ing => {
+        const ingredientesProcessados = (receita.ingredientes || []).map(ing => {
           let disponivel = true;
           let qtdEstoque = 'Disponível';
 
           if (window.SharedState && typeof window.SharedState.getCentralStock === 'function') {
             const stock = window.SharedState.getCentralStock() || [];
             const match = stock.find(s => 
-              s.item.toLowerCase().includes(ing.nome.toLowerCase()) ||
-              (ing.estoqueItem && s.item.toLowerCase().includes(ing.estoqueItem.toLowerCase()))
+              (s.item || '').toLowerCase().includes((ing.nome || '').toLowerCase()) ||
+              (ing.estoqueItem && (s.item || '').toLowerCase().includes(String(ing.estoqueItem).toLowerCase()))
             );
             if (match) {
               qtdEstoque = `${match.qtd} ${match.unit}`;
@@ -416,7 +416,7 @@
         let fefoItems = [];
         if (listaFEFO && listaFEFO.length > 0) {
           listaFEFO.forEach(f => {
-            if (r.ingredientes.some(ing => ing.nome.toLowerCase().includes(f.itemKey) || ing.estoqueItem.toLowerCase().includes(f.itemKey))) {
+            if ((r.ingredientes || []).some(ing => (ing.nome || '').toLowerCase().includes(f.itemKey || '') || (ing.estoqueItem || '').toLowerCase().includes(f.itemKey || ''))) {
               score += 15;
               fefoItems.push(f.nome);
             }
@@ -474,7 +474,7 @@
     addReceita: function (novaReceita) {
       if (!novaReceita || !novaReceita.nome) return;
       const id = String(novaReceita.id || 'rec_' + Date.now());
-      const existe = CATALOGO_RECEITAS.some(r => String(r.id) === id || r.nome.toLowerCase() === novaReceita.nome.toLowerCase());
+      const existe = CATALOGO_RECEITAS.some(r => String(r.id) === id || (r.nome && novaReceita.nome && String(r.nome).toLowerCase() === String(novaReceita.nome).toLowerCase()));
       if (!existe) {
         CATALOGO_RECEITAS.push({
           id: id,
