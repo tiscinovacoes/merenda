@@ -498,6 +498,69 @@
           modalidades: ['fundamental_integral', 'fundamental_parcial', 'creche', 'eja']
         });
       }
+    },
+
+    /**
+     * Calcula a separação de produtos por escola e aplica a regra de embalagens inteiras não-fracionadas (arroz, feijão, macarrão, óleo, sal, açúcar, etc.)
+     */
+    calcularDemandaPorEscola: function (menuObj, escolaObj) {
+      if (!menuObj || !escolaObj) return [];
+      const numAlunos = escolaObj.students || 100;
+      const insumos = menuObj.insumosResumoSemanal || [];
+
+      // Dicionário de Tamanho de Embalagem Comercial Mínima (Não-Fracionáveis)
+      const embalagensNaoFracionaveis = {
+        'arroz': { tamanho: 5.0, unidadePack: 'Saco 5kg', fracionavel: false },
+        'feijao': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+        'feijão': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+        'macarrao': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+        'macarrão': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+        'oleo': { tamanho: 1.0, unidadePack: 'Frasco 1L', fracionavel: false },
+        'óleo': { tamanho: 1.0, unidadePack: 'Frasco 1L', fracionavel: false },
+        'sal': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+        'acucar': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+        'açúcar': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+        'leite em po': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+        'leite em pó': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
+      };
+
+      return insumos.map(ins => {
+        const perCapitaG = ins.perCapitaGramos || 50;
+        const totalBrutoKg = parseFloat(((numAlunos * perCapitaG * 5) / 1000).toFixed(2));
+        
+        const nomeLower = (ins.nome || '').toLowerCase();
+        let packRule = null;
+        for (let key in embalagensNaoFracionaveis) {
+          if (nomeLower.includes(key)) {
+            packRule = embalagensNaoFracionaveis[key];
+            break;
+          }
+        }
+
+        let qtdEnviada = totalBrutoKg;
+        let numPacotes = 1;
+        let detalheRegra = 'Item fracionável em Kg';
+
+        if (packRule) {
+          numPacotes = Math.ceil(totalBrutoKg / packRule.tamanho);
+          if (numPacotes < 1) numPacotes = 1;
+          qtdEnviada = numPacotes * packRule.tamanho;
+          detalheRegra = `📦 Embalagem Inteira (${numPacotes} x ${packRule.unidadePack})`;
+        } else {
+          qtdEnviada = Math.max(1, parseFloat(totalBrutoKg.toFixed(1)));
+        }
+
+        return {
+          nome: ins.nome,
+          af: ins.af || false,
+          perCapitaGramos: perCapitaG,
+          demandaCalculadaKg: totalBrutoKg,
+          qtdEnviadaKg: qtdEnviada,
+          numPacotes: numPacotes,
+          detalheRegra: detalheRegra,
+          naoFracionavel: !!packRule
+        };
+      });
     }
   };
 

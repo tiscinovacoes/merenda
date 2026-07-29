@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.4.1';
+const APP_VERSION = '1.5.0';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -4555,6 +4555,7 @@ window.abrirModalPreviewIA = (resultadoIA) => {
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
         <button class="btn btn-outline" onclick="window.abrirModalGeradorIA()">🔄 Gerar Outra Opção com IA</button>
         <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-outline" style="border-color:#16a34a; color:#15803d; font-weight:600;" onclick="window.gerarOrdensDeServicoPorEscola(window.tempIAMenuPreview)">🚚 Gerar Ordens de Serviço por Escola</button>
           <button class="btn btn-outline" style="border-color:#0284c7; color:#0369a1; font-weight:600;" onclick="window.aplicarIAMenuAoPlanejador(window.tempIAMenuPreview, false)">✏️ Carregar no Planejador para Ajustar</button>
           <button class="btn btn-success" style="font-weight:700;" onclick="window.aplicarIAMenuAoPlanejador(window.tempIAMenuPreview, true)">✅ Aprovar & Aplicar Cardápio (Dra. Lilian Droppa)</button>
         </div>
@@ -4575,6 +4576,31 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
   }
 
   window.currentActiveIAMenu = menuObj;
+
+  // Registrar no SharedState (Planejamento Alimentar & Visão Escolas)
+  if (window.SharedState) {
+    const d1 = new Date().toLocaleDateString('pt-BR');
+    const d2 = new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
+    SharedState.addMenu({
+      nome: `Cardápio Oficial IA — ${menuObj.modalidade || 'PNAE'}`,
+      periodo: `${d1} a ${d2}`,
+      escolas: (DATA.schools||[]).length,
+      escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
+      status: aprovarDireto ? 'Publicado' : 'Em Elaboração',
+      tipo: 'Semanal',
+      autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
+    });
+    SharedState.addWeeklyMenu({
+      nome: `Cardápio Semanal IA PNAE (${menuObj.metricasSemanais?.numAlunos || 10380} Alunos)`,
+      periodo: `${d1} a ${d2}`,
+      semana: `${d1} a ${d2}`,
+      escola: 'Toda a Rede Piloto',
+      escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
+      refeicoes: (menuObj.refeicoes||[]).map(r => ({ dia: r.dia, tipo: 'Almoço', item: `${r.nomePrato} (${r.kcal} kcal)`, kcal: r.kcal })),
+      kcalMedia: menuObj.metricasSemanais?.mediaKcal || 700,
+      autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
+    });
+  }
 
   // Carregar no planejador semanal se a tela de planejamento estiver aberta
   const container = document.getElementById('planner-days-container');
@@ -4613,7 +4639,7 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
 
   if (aprovarDireto) {
     if (typeof showToast === 'function') {
-      showToast('✅ Cardápio aprovado com sucesso pela Dra. Lilian Droppa! Relatório PNAE liberado.');
+      showToast('✅ Cardápio aprovado e registrado em Planejamento Alimentar & Cardápios da Escola!');
     }
     setTimeout(() => window.abrirRelatorioPNAE(), 200);
   } else {
@@ -4621,6 +4647,128 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
       showToast('📋 Cardápio sugerido pela IA carregado no planejador para revisão da Dra. Lilian Droppa.');
     }
   }
+};
+
+window.gerarOrdensDeServicoPorEscola = (menuObj) => {
+  menuObj = menuObj || window.currentActiveIAMenu || window.tempIAMenuPreview;
+  if (!menuObj || !window.AICardapioEngine) {
+    return alert('Nenhum cardápio ativo para fracionamento de Ordem de Serviço.');
+  }
+
+  const schools = (DATA.schools && DATA.schools.length > 0) ? DATA.schools : [
+    { id: 1, name: 'EM ADV. DEMOSTHENES MARTINS', region: 'Segredo', students: 454 },
+    { id: 2, name: 'EM PROF. ANTÔNIO LOPES LINS', region: 'Lagoa', students: 1698 },
+    { id: 3, name: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', region: 'Rural', students: 436 },
+    { id: 4, name: 'EMTI PROFª IRACEMA MARIA VICENTE', region: 'Bandeira', students: 539 },
+  ];
+
+  // Gera Ordens de Serviço por escola aplicando a regra de embalagens inteiras não-fracionadas
+  const ordensPorEscola = schools.map(sc => {
+    const demandaInsumos = window.AICardapioEngine.calcularDemandaPorEscola(menuObj, sc);
+    
+    // Registra pedido e entrega no SharedState para a escola
+    if (window.SharedState) {
+      const order = {
+        escolaId: sc.id,
+        escola: sc.name,
+        tipo: 'Ordem de Serviço PNAE (IA)',
+        status: 'Pendente',
+        itens: demandaInsumos.map(i => ({ produto: i.nome, qtd: i.qtdEnviadaKg, unidade: 'kg', regra: i.detalheRegra })),
+        criadoEm: new Date().toISOString()
+      };
+      SharedState.addOrder(order);
+    }
+
+    return {
+      escola: sc,
+      demanda: demandaInsumos
+    };
+  });
+
+  // Renderiza Modal de Ordens de Serviço por Escola
+  const content = `
+    <div style="padding:4px 0; font-family:sans-serif; color:#1e293b;" id="os-print-container">
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div>
+          <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📋 ORDENS DE SERVIÇO & GUIA DE REMESSA POR ESCOLA</div>
+          <div style="font-size:0.85rem; color:#166534; margin-top:2px;">
+            Separação técnica de insumos com <strong>Regra de Embalagens Inteiras Não-Fracionadas (Arroz, Feijão, Macarrão, Óleo)</strong>
+          </div>
+        </div>
+        <span class="status-badge status-ok" style="font-size:0.85rem; padding:6px 12px;">🟢 EMISSÃO CONCLUÍDA</span>
+      </div>
+
+      <!-- SELETOR DE ESCOLA -->
+      <div style="margin-bottom:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+        <strong style="font-size:0.88rem; color:#334155;">Filtrar Romaneio por Escola:</strong>
+        <select id="os-school-filter" class="btn btn-outline" style="padding:6px 12px; font-weight:600; text-align:left;" onchange="window.filtrarOSEscola(this.value)">
+          <option value="TODAS">Ver Todas as Escolas (${ordensPorEscola.length} unidades)</option>
+          ${ordensPorEscola.map(o => `<option value="${o.escola.id}">${o.escola.name} (${o.escola.students} alunos)</option>`).join('')}
+        </select>
+      </div>
+
+      <!-- TABELAS POR ESCOLA -->
+      <div id="os-tables-container" style="display:flex; flex-direction:column; gap:16px;">
+        ${ordensPorEscola.map(o => `
+          <div class="os-school-block" data-school-id="${o.escola.id}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:14px;">
+            <div style="border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+              <div>
+                <strong style="font-size:0.98rem; color:#0f172a;">🏫 ${o.escola.name}</strong>
+                <span style="font-size:0.8rem; color:#64748b; margin-left:8px;">· Região: ${o.escola.region || 'Urbana'} · População: <strong>${o.escola.students} Alunos</strong></span>
+              </div>
+              <span class="status-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem;">OS nº OS-2026/${o.escola.id}08</span>
+            </div>
+
+            <div style="overflow-x:auto;">
+              <table class="data-table" style="font-size:0.82rem; width:100%;">
+                <thead>
+                  <tr>
+                    <th>Item / Insumo</th>
+                    <th>Per Capita (por Aluno)</th>
+                    <th>Demanda Bruta Calculada</th>
+                    <th>📦 Qtd. Expedida (Embalagem Inteira)</th>
+                    <th>Regra de Abastecimento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${o.demanda.map(d => `
+                    <tr ${d.naoFracionavel ? 'style="background:#fefce8"' : ''}>
+                      <td><strong>${d.nome}</strong> ${d.af ? '<span class="status-badge status-ok" style="font-size:0.7rem">🌾 AF</span>' : ''}</td>
+                      <td style="font-family:var(--font-mono)">${d.perCapitaGramos}g</td>
+                      <td style="font-family:var(--font-mono);color:#64748b">${d.demandaCalculadaKg.toLocaleString('pt-BR')} kg</td>
+                      <td style="font-family:var(--font-mono);font-weight:800;color:${d.naoFracionavel ? '#d97706' : '#0284c7'}">
+                        ${d.qtdEnviadaKg.toLocaleString('pt-BR')} kg
+                      </td>
+                      <td style="font-size:0.78rem;">${d.detalheRegra}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <!-- RODAPE COM IMPRESSAO -->
+      <div style="border-top:1px solid #cbd5e1; padding-top:14px; margin-top:18px; display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Guias de Remessa / Romaneios PDF</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📋 Ordens de Serviço de Abastecimento por Escola', content, '950px');
+};
+
+window.filtrarOSEscola = (escolaId) => {
+  const blocks = document.querySelectorAll('.os-school-block');
+  blocks.forEach(b => {
+    if (escolaId === 'TODAS' || b.dataset.schoolId === String(escolaId)) {
+      b.style.display = 'block';
+    } else {
+      b.style.display = 'none';
+    }
+  });
 };
 
 window.renderAISummaryCard = (menuObj, container) => {
