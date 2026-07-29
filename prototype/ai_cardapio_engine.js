@@ -210,33 +210,33 @@
     },
 
     /**
-     * Gera um cardápio semanal PNAE com priorização de Sazonalidade, FEFO e Per Capita.
+     * Executa o algoritmo de otimização de cardápio semanal
      */
     generateWeeklyMenu: function (params) {
       params = params || {};
       const modalidade = params.modalidade || 'fundamental_integral';
       const metaKcal = parseInt(params.metaKcal) || 700;
-      const priorizarEstoque = params.priorizarEstoque !== false;
       const priorizarFEFO = params.priorizarFEFO !== false;
       const priorizarSazonal = params.priorizarSazonal !== false;
-      const considerarRestricoes = params.considerarRestricoes !== false;
-      const numAlunos = parseInt(params.numAlunos) || (modalidade === 'creche' ? 2288 : 10380);
+      const numAlunos = parseInt(params.numAlunos) || (modalidade === 'rede_total' ? 32000 : 10380);
+
+      // 1. Estoque FEFO ativo (insumos perto de vencer)
       const listaFEFO = getEstoqueFEFOAtivo();
 
-      // 1. Filtrar receitas por modalidade
+      // 2. Filtrar receitas elegíveis para a modalidade
       let candidatas = CATALOGO_RECEITAS.filter(r => 
-        !r.modalidades || r.modalidades.includes(modalidade)
+        !r.modalidades || r.modalidades.includes(modalidade) || modalidade === 'piloto_completo' || modalidade === 'rede_total'
       );
 
-      if (candidatas.length === 0) candidatas = CATALOGO_RECEITAS;
+      if (candidatas.length < 5) candidatas = CATALOGO_RECEITAS;
 
-      // 2. Filtrar restrições alimentares (Glúten / Lactose)
-      if (considerarRestricoes && window.SharedState && typeof window.SharedState.getRestricoes === 'function') {
-        const restricoesAtivas = window.SharedState.getRestricoes() || [];
-        const temLactose = restricoesAtivas.some(r => (r.tipo || '').toLowerCase().includes('lactose'));
-        const temGluten = restricoesAtivas.some(r => (r.tipo || '').toLowerCase().includes('gluten'));
-
-        if (temLactose || temGluten) {
+      // Respeito estrito a restrições de emergência registradas no SharedState
+      if (window.SharedState && typeof window.SharedState.getRestricoes === 'function') {
+        const restricoesAtivas = window.SharedState.getRestricoes().filter(r => r.status === 'ativo');
+        if (restricoesAtivas.length > 0) {
+          const temLactose = restricoesAtivas.some(r => (r.tipo || '').toLowerCase().includes('lactose'));
+          const temGluten = restricoesAtivas.some(r => (r.tipo || '').toLowerCase().includes('celíaca') || (r.tipo || '').toLowerCase().includes('glúten'));
+          
           candidatas = candidatas.filter(r => {
             if (temLactose && !r.restricoesEvitadas.includes('lactose')) return false;
             if (temGluten && !r.restricoesEvitadas.includes('gluten')) return false;
@@ -280,7 +280,29 @@
       // Ordenar por maior pontuação estratégica
       const ordenadas = [...candidatasPontuadas].sort((a, b) => b.scoreFinal - a.scoreFinal);
 
-      const diasSemana = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+      // Formatação de datas do intervalo selecionado
+      let startDateObj = params.startDate ? new Date(params.startDate + 'T00:00:00') : null;
+      let endDateObj = params.endDate ? new Date(params.endDate + 'T00:00:00') : null;
+      const diasSemanaBase = ['Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira'];
+      const diasSemana = [];
+
+      if (startDateObj && !isNaN(startDateObj.getTime())) {
+        let cur = new Date(startDateObj);
+        for (let i = 0; i < 5; i++) {
+          const dayName = cur.toLocaleDateString('pt-BR', { weekday: 'long' });
+          const dayNameCap = dayName.charAt(0).toUpperCase() + dayName.slice(1);
+          const dateStr = cur.toLocaleDateString('pt-BR');
+          diasSemana.push(`${dayNameCap} (${dateStr})`);
+          cur.setDate(cur.getDate() + (cur.getDay() === 5 ? 3 : 1));
+        }
+      } else {
+        diasSemana.push(...diasSemanaBase);
+      }
+
+      const d1Str = startDateObj && !isNaN(startDateObj.getTime()) ? startDateObj.toLocaleDateString('pt-BR') : new Date().toLocaleDateString('pt-BR');
+      const d2Str = endDateObj && !isNaN(endDateObj.getTime()) ? endDateObj.toLocaleDateString('pt-BR') : new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
+      const periodoStr = `${d1Str} a ${d2Str}`;
+
       const refeicoesGeradas = [];
       const acumuladorInsumos = {};
 
@@ -331,34 +353,34 @@
 
         refeicoesGeradas.push({
           dia: diasSemana[i],
-          receitaId: receita.id,
           nomePrato: receita.nome,
-          categoria: receita.categoria,
           kcal: receita.kcal,
           proteinas: receita.proteinas,
           carboidratos: receita.carboidratos,
           lipideos: receita.lipideos,
           sodio: receita.sodio,
           fruta: receita.frutaAcompanhamento,
-          sazonal: receita.sazonal || false,
-          agriculturaFamiliar: receita.agriculturaFamiliar || false,
           fefoBadge: receita.fefoBadge,
           ingredientes: ingredientesProcessados,
-          estoqueOk: todosDisponiveis,
-          scoreIA: Math.min(99, Math.floor(receita.scoreFinal + (Math.random() * 5)))
+          statusEstoque: todosDisponiveis ? 'Estoque Suficiente' : 'Atenção ao Estoque'
         });
       }
 
-      // Média semanal
-      const totalKcal = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.kcal, 0) / 5);
-      const totalProt = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.proteinas, 0) / 5);
-      const totalCarb = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.carboidratos, 0) / 5);
-      const totalLip = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.lipideos, 0) / 5);
-      const totalSodio = Math.round(refeicoesGeradas.reduce((acc, r) => acc + r.sodio, 0) / 5);
+      // Métricas Nutricionais Calculadas da Semana
+      const mediaKcal = Math.round(refeicoesGeradas.reduce((a, b) => a + b.kcal, 0) / 5);
+      const mediaProteinas = Math.round(refeicoesGeradas.reduce((a, b) => a + b.proteinas, 0) / 5);
+      const mediaSodio = Math.round(refeicoesGeradas.reduce((a, b) => a + b.sodio, 0) / 5);
 
-      const insumosResumoSemanal = Object.values(acumuladorInsumos);
-      const afCount = insumosResumoSemanal.filter(i => i.af).length;
-      const percentualAF = Math.round((afCount / Math.max(1, insumosResumoSemanal.length)) * 100);
+      // Consolidação de Insumos da Semana
+      const insumosResumoSemanal = Object.values(acumuladorInsumos).map(ins => ({
+        ...ins,
+        totalSemanalKg: Math.round(ins.totalSemanalKg * 5) // 5 dias de consumo
+      }));
+
+      const itensAF = insumosResumoSemanal.filter(i => i.af).length;
+      const percentualAF = insumosResumoSemanal.length > 0 
+        ? Math.round((itensAF / insumosResumoSemanal.length) * 100)
+        : 35;
 
       return {
         id: 'cardapio_ia_' + Date.now(),

@@ -13,8 +13,8 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.5.4';
-const APP_BUILD_DATE = '2026-07-28';
+const APP_VERSION = '1.6.0';
+const APP_BUILD_DATE = '2026-07-29';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
 
@@ -4285,12 +4285,27 @@ window.showMenuPlanner = (preselectRecipeId) => {
   const dStart = nextMonday.toISOString().split('T')[0];
   const dEnd = nextFriday.toISOString().split('T')[0];
 
-  const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo');
+  const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo').map(r => ({
+    ...r,
+    tipo: (function(t) {
+      if (!t) return 'Outras Restrições';
+      const l = t.toLowerCase();
+      if (l.includes('lactose')) return 'Intolerância à lactose';
+      if (l.includes('celíaca') || l.includes('celiaca') || l.includes('gluten') || l.includes('glúten')) return 'Doença celíaca';
+      if (l.includes('diabete')) return 'Diabetes';
+      if (l.includes('aplv') || l.includes('proteína do leite') || l.includes('proteina do leite')) return 'Alergia à Proteína do Leite (APLV)';
+      if (l.includes('vegetari') || l.includes('vega')) return 'Vegetariano/Vegano';
+      return t;
+    })(r.tipo)
+  }));
+
+  const totalAlunosRestricaoRede = activeRestricoes.reduce((acc, r) => acc + (r.quantidade || 1), 0);
+
   const restricoesSummaryHtml = activeRestricoes.length > 0 ? `
     <div style="background: #fff7ed; border-left: 4px solid #f97316; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
       <div>
         <div style="font-weight:700; color:#c2410c; display:flex; align-items:center; gap:6px;">
-          <span>⚠️ Alerta de Restrições Alimentares Registradas na Rede (${activeRestricoes.length} ativas)</span>
+          <span>⚠️ Alerta de Restrições Alimentares na Rede Piloto (${totalAlunosRestricaoRede} aluno(s) afetados)</span>
         </div>
         <div style="font-size:0.83rem; color:#ea580c; margin-top:2px;">
           ${Array.from(new Set(activeRestricoes.map(r => r.tipo))).map(t => `${t}: ${activeRestricoes.filter(r=>r.tipo===t).reduce((a,b)=>a+(b.quantidade||1),0)} aluno(s)`).join(' · ')}
@@ -4386,8 +4401,23 @@ window.abrirModalGeradorIA = () => {
     ? DATA.schools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
     : 10380;
 
+  const startDateInput = document.getElementById('planner-start-date')?.value || '';
+  const endDateInput = document.getElementById('planner-end-date')?.value || '';
+
+  let dateBadgeHtml = '';
+  if (startDateInput && endDateInput) {
+    const d1Formatted = startDateInput.split('-').reverse().join('/');
+    const d2Formatted = endDateInput.split('-').reverse().join('/');
+    dateBadgeHtml = `
+      <div style="background:#e0f2fe; border-left:4px solid #0284c7; padding:10px 14px; border-radius:6px; margin-bottom:14px; color:#0369a1; font-size:0.88rem; display:flex; align-items:center; gap:8px;">
+        <span>📅 <strong>Período Selecionado no Planejador:</strong> ${d1Formatted} a ${d2Formatted} (5 Dias Úteis)</span>
+      </div>
+    `;
+  }
+
   const content = `
     <div style="padding:10px 0">
+      ${dateBadgeHtml}
       <div style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px">
         A Inteligência Artificial irá compor automaticamente as refeições PNAE da semana com base na população das <strong>Escolas Piloto (${totalAlunosPiloto.toLocaleString('pt-BR')} alunos)</strong>, priorizando Agricultura Familiar, combate ao desperdício (FEFO) e per capita técnico.
       </div>
@@ -4445,6 +4475,9 @@ window.executarGeracaoCardapioIA = (evt) => {
     const priorizarSazonal = document.getElementById('ia-priorizar-sazonal')?.checked !== false;
     const considerarRestricoes = document.getElementById('ia-considerar-restricoes')?.checked !== false;
 
+    const startDate = document.getElementById('planner-start-date')?.value || '';
+    const endDate = document.getElementById('planner-end-date')?.value || '';
+
     const totalAlunosPiloto = (DATA.schools && DATA.schools.length > 0) 
       ? DATA.schools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
       : 10380;
@@ -4460,14 +4493,16 @@ window.executarGeracaoCardapioIA = (evt) => {
       return alert('Motor de IA não carregado.');
     }
 
-    // 1. Executa o algoritmo da IA
+    // 1. Executa o algoritmo da IA repassando as datas do planejador
     const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
       modalidade,
       metaKcal,
       numAlunos,
       priorizarFEFO,
       priorizarSazonal,
-      considerarRestricoes
+      considerarRestricoes,
+      startDate,
+      endDate
     });
 
     if (!resultadoIA) {
@@ -5846,11 +5881,91 @@ window.applyStockSuggestion = (recipeId) => {
   window.runPnaeSimulation({ preventDefault: () => {} });
 };
 
-window.addToPlanner = (recipeId) => {
-  alert('A receita será selecionada no Planejador Semanal.');
-  // Em um sistema real, salvaríamos no estado qual receita pré-selecionar. 
-  // Aqui abrimos direto a tela.
-  window.showMenuPlanner();
+PAGE_RENDERERS.nutricionista_restricoes = (el) => {
+  const restricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo').map(r => ({
+    ...r,
+    tipo: (function(t) {
+      if (!t) return 'Outras Restrições';
+      const l = t.toLowerCase();
+      if (l.includes('lactose')) return 'Intolerância à lactose';
+      if (l.includes('celíaca') || l.includes('celiaca') || l.includes('gluten') || l.includes('glúten')) return 'Doença celíaca';
+      if (l.includes('diabete')) return 'Diabetes';
+      if (l.includes('aplv') || l.includes('proteína do leite') || l.includes('proteina do leite')) return 'Alergia à Proteína do Leite (APLV)';
+      if (l.includes('vegetari') || l.includes('vega')) return 'Vegetariano/Vegano';
+      return t;
+    })(r.tipo)
+  }));
+
+  const schools = DATA.schools || [];
+  const totalAlunosRestr = restricoes.reduce((a, b) => a + (b.quantidade || 1), 0);
+  const tiposUnicos = Array.from(new Set(restricoes.map(r => r.tipo)));
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Gestão de Restrições Alimentares</div>
+      <div class="page-subtitle">Consolidação oficial dos laudos e prescrições das ${schools.length} Escolas Piloto (4.430 Alunos)</div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${totalAlunosRestr}</div><div class="kpi-label">Alunos com Restrição</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${restricoes.length}</div><div class="kpi-label">Registros Ativos</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">🏫</div><div class="kpi-value">${new Set(restricoes.map(r=>r.schoolName)).size}</div><div class="kpi-label">Escolas Notificando</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">🧬</div><div class="kpi-value">${tiposUnicos.length}</div><div class="kpi-label">Categorias Clínicas</div></div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-header">
+        <div class="card-title">🛡️ Resumo por Tipo de Restrição Clinicamente Mapeada</div>
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
+          ${tiposUnicos.map(tipo => {
+            const count = restricoes.filter(r => r.tipo === tipo).reduce((a, b) => a + (b.quantidade || 1), 0);
+            const escCount = new Set(restricoes.filter(r => r.tipo === tipo).map(r => r.schoolName)).size;
+            return `
+              <div style="background:var(--surface-2,#f8fafc);border:1px solid var(--border);border-radius:8px;padding:14px">
+                <div style="font-weight:700;color:var(--primary);font-size:0.95rem">${tipo}</div>
+                <div style="font-size:1.4rem;font-weight:800;color:var(--text-primary);margin:6px 0">${count} <span style="font-size:0.8rem;font-weight:400;color:var(--text-secondary)">aluno(s)</span></div>
+                <div style="font-size:0.78rem;color:var(--text-secondary)">Presente em ${escCount} escola(s) piloto</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">📋 Notificações por Unidade Escolar Piloto</div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Escola Piloto</th>
+              <th>Tipo de Restrição</th>
+              <th>Alunos</th>
+              <th>Observações Nutricionais / Laudo</th>
+              <th>Registrado Por</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${restricoes.map(r => `
+              <tr>
+                <td><strong>${r.schoolName}</strong></td>
+                <td><span class="status-badge status-warning" style="font-weight:700">${r.tipo}</span></td>
+                <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${r.quantidade || 1}</td>
+                <td style="font-size:0.85rem">${r.observacao || '—'}</td>
+                <td style="font-size:0.82rem">${r.registradoPor || 'Dra. Lilian Droppa'}</td>
+                <td style="font-size:0.8rem;color:var(--text-secondary)">${(r.criadoEm || '').slice(0,10)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
 };
 
 PAGE_RENDERERS.nutricionista_simulacoes = (el) => {
