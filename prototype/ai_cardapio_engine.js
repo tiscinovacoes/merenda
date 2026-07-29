@@ -218,6 +218,7 @@
       const metaKcal = parseInt(params.metaKcal) || 700;
       const priorizarFEFO = params.priorizarFEFO !== false;
       const priorizarSazonal = params.priorizarSazonal !== false;
+      const considerarRestricoes = params.considerarRestricoes !== false;
       const numAlunos = parseInt(params.numAlunos) || (modalidade === 'rede_total' ? 32000 : 10380);
 
       // 1. Estoque FEFO ativo (insumos perto de vencer)
