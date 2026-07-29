@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.8.0';
+const APP_VERSION = '1.9.0';
 const APP_BUILD_DATE = '2026-07-29';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -640,7 +640,14 @@ const SharedState = {
         { id: 'restr-105', schoolId: 3, schoolName: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', tipo: 'Doença celíaca', quantidade: 14, observacao: 'Dieta celíaca PNAE', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-25' },
         { id: 'restr-106', schoolId: 3, schoolName: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', tipo: 'Intolerância à lactose', quantidade: 28, observacao: 'Zero lactose', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-26' },
         { id: 'restr-107', schoolId: 4, schoolName: 'EMTI PROFª IRACEMA MARIA VICENTE', tipo: 'Doença celíaca', quantidade: 30, observacao: 'Alunos tempo integral', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-07-01' },
+        { id: 'restr-107', schoolId: 4, schoolName: 'EMTI PROFª IRACEMA MARIA VICENTE', tipo: 'Doença celíaca', quantidade: 30, observacao: 'Alunos tempo integral', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-07-01' },
         { id: 'restr-108', schoolId: 4, schoolName: 'EMTI PROFª IRACEMA MARIA VICENTE', tipo: 'Intolerância à lactose', quantidade: 72, observacao: 'Demanda de leite vegetal/zero lactose', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-07-02' },
+      ],
+      alunosEspeciais: [
+        { id: 'aluno-101', nome: 'Matheus Henrique Silva', escola: 'EM ADV. DEMOSTHENES MARTINS', turma: 'Creche II-B', dataNascimento: '2024-09-12', restricao: 'Intolerância à lactose', laudo: 'Laudo Dr. Carlos Rossi - CRM 4521', registradoEm: '2026-02-10' },
+        { id: 'aluno-102', nome: 'Sophia Victoria Oliveira', escola: 'EM ADV. DEMOSTHENES MARTINS', turma: 'EF 3º Ano A', dataNascimento: '2018-04-20', restricao: 'Doença celíaca', laudo: 'Laudo Dra. Ana Lima - CRM 8821', registradoEm: '2026-03-05' },
+        { id: 'aluno-103', nome: 'Gabriel Souza Santos', escola: 'EM PROF. ANTÔNIO LOPES LINS', turma: 'EF 5º Ano C', dataNascimento: '2016-11-15', restricao: 'Diabetes', laudo: 'Laudo Dr. Roberto Mello', registradoEm: '2026-03-12' },
+        { id: 'aluno-104', nome: 'Enzo Gabriel Santos', escola: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', turma: 'Berçário I', dataNascimento: '2025-01-10', restricao: 'Intolerância à lactose', laudo: 'Laudo Dra. Juliana - CRM 9012', registradoEm: '2026-04-01' }
       ],
       lastEventAt: null,
     };
@@ -729,6 +736,19 @@ const SharedState = {
   getRestricoes(schoolId) {
     const all = this._data.restricoes || [];
     return schoolId ? all.filter(r => r.schoolId === schoolId) : [...all];
+  },
+  getAlunosEspeciais(escolaName) {
+    const all = this._data.alunosEspeciais || [];
+    return escolaName ? all.filter(a => a.escola === escolaName || a.escola.toLowerCase().includes(escolaName.toLowerCase())) : [...all];
+  },
+  addAlunoEspecial(aluno) {
+    const a = { id: 'aluno-' + Date.now(), registradoEm: new Date().toISOString().slice(0, 10), ...aluno };
+    (this._data.alunosEspeciais = this._data.alunosEspeciais || []).unshift(a);
+    this._persist(); this._emit('aluno:add'); return a;
+  },
+  deleteAlunoEspecial(id) {
+    this._data.alunosEspeciais = (this._data.alunosEspeciais || []).filter(a => a.id !== id);
+    this._persist(); this._emit('aluno:delete');
   },
 
   addRestricao(restricao) {
@@ -5212,6 +5232,292 @@ window.filtrarOSEscola = (escolaId) => {
   });
 };
 
+window.dispararNotificacoesProdutores = () => {
+  const coops = [
+    { name: 'COOPAGRAN (Cooperativa Indubrasil)', contato: '(67) 99888-3030' },
+    { name: 'COOPRAN (Produtores Terenos)', contato: '(67) 99888-4040' },
+    { name: 'COOPAERGS (Assoc. Agricultura Familiar)', contato: '(67) 99777-5050' }
+  ];
+
+  const content = `
+    <div style="padding:10px 0; font-family:sans-serif;">
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:16px;">
+        <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📱 Central de Notificação Automática aos Produtores (RF-007)</div>
+        <div style="font-size:0.85rem; color:#166534; margin-top:2px;">
+          O cardápio aprovado pela Dra. Lilian Droppa disparou comunicações automáticas com a lista de colheita e escolas destino para os fornecedores cadastrados.
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        ${coops.map(c => `
+          <div style="background:#fff; border:1px solid #e2e8f0; border-left:4px solid #16a34a; border-radius:8px; padding:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <strong>🌾 ${c.name}</strong>
+              <span class="status-badge status-ok" style="font-size:0.75rem;">✓ NOTIFICAÇÃO ENVIADA AUTOMATICAMENTE</span>
+            </div>
+            <div style="font-size:0.82rem; color:#475569; margin-bottom:6px;">
+              Envio via WhatsApp API / SMS / Portal do Fornecedor para <strong>${c.contato}</strong>
+            </div>
+            <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; font-family:var(--font-mono); font-size:0.78rem; color:#334155; border:1px dashed #cbd5e1;">
+              "Olá! A Nutricionista SEMED aprovou o Cardápio PNAE. Ordem de Colheita AF emitida com sucesso. Acesse a guia de carregamento no portal."
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+        <button class="btn btn-primary" onclick="closeModal()">Concluído</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📱 Disparo Automático aos Agricultores (RF-007)', content, '800px');
+};
+
+window.gerarRelatorioMensal4Paginas = () => {
+  const today = new Date();
+  const mesNome = today.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+  const numAlunos = (DATA.schools || []).reduce((a, b) => a + b.students, 0);
+
+  const semanas = [
+    { num: 1, periodo: '01 a 07 de ' + mesNome },
+    { num: 2, periodo: '08 a 14 de ' + mesNome },
+    { num: 3, periodo: '15 a 21 de ' + mesNome },
+    { num: 4, periodo: '22 a 28 de ' + mesNome },
+  ];
+
+  const html = `
+    <div style="padding:10px;font-family:sans-serif;color:#0f172a" id="print-mensal-4paginas">
+      <div style="background:#0284c7;color:#fff;padding:12px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:800;font-size:1.1rem">📄 RELATÓRIO MENSAL PADRONIZADO (4 PÁGINAS / MÊS - RF-010)</div>
+          <div style="font-size:0.85rem;opacity:0.9">Formatado para afixação em mural escolar · Mês: ${mesNome}</div>
+        </div>
+        <button class="btn" style="background:#fff;color:#0284c7;font-weight:700" onclick="window.print()">🖨️ Imprimir 4 Folhas A4</button>
+      </div>
+
+      ${semanas.map(sem => `
+        <div style="background:#fff;border:2px solid #0284c7;border-radius:8px;padding:20px;margin-bottom:30px;page-break-after:always;">
+          <div style="border-bottom:2px solid #0284c7;padding-bottom:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:800;font-size:1.1rem;color:#0369a1">PREFEITURA MUNICIPAL DE CAMPO GRANDE · SEMED</div>
+              <div style="font-weight:700;font-size:0.95rem;color:#334155">CARDÁPIO OFICIAL PNAE — SEMANA 0${sem.num} (${sem.periodo})</div>
+            </div>
+            <div style="text-align:right;font-size:0.8rem;color:#64748b">
+              Página ${sem.num} de 4<br>
+              <strong>Folha de Mural Escolar</strong>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;background:#f8fafc;padding:10px;border-radius:6px;margin-bottom:14px;font-size:0.82rem">
+            <div><strong>Nutricionista:</strong> Dra. Lilian Droppa (CRN 12345)</div>
+            <div><strong>Meta Nutricional:</strong> 700 kcal/dia</div>
+            <div><strong>População Atendida:</strong> ${numAlunos.toLocaleString('pt-BR')} Alunos</div>
+          </div>
+
+          <table class="data-table" style="width:100%;font-size:0.85rem">
+            <thead>
+              <tr style="background:#e0f2fe">
+                <th>Dia</th>
+                <th>Desjejum / Café</th>
+                <th>Almoço Principal</th>
+                <th>Lanche da Tarde</th>
+                <th>Ícones de Alergênicos / Obs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Segunda</strong></td><td>Pão c/ Manteiga e Leite</td><td>Arroz, Feijão Carioca, Frango Grelhado, Salada de Alface e Tomate AF 🌾</td><td>Vitamina de Banana</td><td>🥛 Contém Lactose</td></tr>
+              <tr><td><strong>Terça</strong></td><td>Mingau de Aveia</td><td>Arroz, Feijão Preto, Carne Bovina Moída, Cenoura Ralada AF 🌾</td><td>Maçã Gala (100g)</td><td>🌾 Contém Glúten</td></tr>
+              <tr><td><strong>Quarta</strong></td><td>Leite c/ Cacau e Pão</td><td>Risoto de Frango com Legumes e Abóbora Cabotiá AF 🌾</td><td>Biscoito Maisena e Suco Natural</td><td>🥛 Contém Lactose</td></tr>
+              <tr><td><strong>Quinta</strong></td><td>Vitamina de Mamão AF 🌾</td><td>Arroz Integral, Feijão, Ovos Mexidos, Beterraba Cozida AF 🌾</td><td>Melancia Fatiada AF 🌾</td><td>🟢 Sem Alergênicos Comuns</td></tr>
+              <tr><td><strong>Sexta</strong></td><td>Pão c/ Queijo e Leite</td><td>Macarrão com Molho de Frango e Salada Colorida AF 🌾</td><td>Salada de Frutas Mistas AF 🌾</td><td>🌾 Contém Glúten / 🥛 Lactose</td></tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top:30px;border-top:1px solid #ccc;padding-top:14px;display:flex;justify-content:space-between;font-size:0.78rem;color:#475569">
+            <div>Assinatura Nutricionista: __________________________</div>
+            <div>Visto Direção Escolar: __________________________</div>
+            <div>Carimbo SEMED Nutrição</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  window.showModal('📄 Relatório Mensal Padronizado (4 Páginas - RF-010)', html, '950px');
+};
+
+PAGE_RENDERERS.nutricionista_restricoes = (el) => {
+  const restricoesAgrupadas = SharedState.getRestricoes();
+  const alunosEspeciais = SharedState.getAlunosEspeciais();
+  const totalAlunosComRestricao = alunosEspeciais.length > 0
+    ? alunosEspeciais.length
+    : restricoesAgrupadas.reduce((a, b) => a + (b.quantidade || 1), 0);
+
+  const htmlAlunos = alunosEspeciais.map(a => {
+    const subInfo = window.AICardapioEngine
+      ? window.AICardapioEngine.determinarSubstitutoRestricao(a.restricao, a.dataNascimento)
+      : null;
+
+    let dobFormatted = a.dataNascimento ? a.dataNascimento.split('-').reverse().join('/') : '—';
+    return `
+      <tr>
+        <td><strong>${a.nome}</strong></td>
+        <td>${a.escola}</td>
+        <td><span class="tag tag-blue">${a.turma || 'Geral'}</span></td>
+        <td style="font-size:0.82rem">${dobFormatted}</td>
+        <td><span class="status-badge status-warning">${a.restricao}</span></td>
+        <td style="font-size:0.8rem;color:#0284c7">
+          ${subInfo ? subInfo.regraEtaria : 'Alimento Adaptado'}
+        </td>
+        <td style="font-size:0.78rem">${a.laudo || 'Laudo Anexado'}</td>
+        <td>
+          <button class="table-action btn-sm" style="color:var(--danger)" onclick="window.excluirAlunoEspecial('${a.id}')">🗑️ Excluir</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Gestão de Restrições Alimentares & Dietas Especiais</div>
+      <div class="page-subtitle">Cadastro nominal de alunos (RF-003), laudos clínicos e motor de substituição por faixa etária (RN-002)</div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+      <div class="kpi-card orange"><div class="kpi-icon">🛡️</div><div class="kpi-value">${totalAlunosComRestricao}</div><div class="kpi-label">Alunos c/ Dieta Especial</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">🍼</div><div class="kpi-value">${alunosEspeciais.filter(a => { const d = new Date(a.dataNascimento); return !isNaN(d) && ((Date.now()-d)/(365.25*86400000)) < 2; }).length}</div><div class="kpi-label">Creche / 0-2 anos (Fórmula)</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">🥛</div><div class="kpi-value">${alunosEspeciais.filter(a => { const d = new Date(a.dataNascimento); return !isNaN(d) && ((Date.now()-d)/(365.25*86400000)) >= 2; }).length}</div><div class="kpi-label">Fundamental (Zero Lactose)</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📄</div><div class="kpi-value">100%</div><div class="kpi-label">Laudos Médicos Auditados</div></div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">👶 Cadastro Nominal de Alunos com Restrição Clínica (RF-003 & RN-002)</div>
+        <button class="btn btn-primary btn-sm" onclick="window.abrirModalNovoAlunoEspecial()">+ Cadastrar Aluno Especial</button>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Aluno(a)</th>
+                <th>Escola Destino</th>
+                <th>Turma</th>
+                <th>Data Nasc.</th>
+                <th>Restrição Clínica</th>
+                <th>Substituição Automática IA (RN-002)</th>
+                <th>Laudo Médico</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${htmlAlunos}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🏫 Resumo por Unidade Escolar & Categoria de Restrição</div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Unidade Escolar</th><th>Tipo de Restrição</th><th>Alunos Afetados</th><th>Observações Nutricionais</th><th>Status</th></tr></thead>
+          <tbody>
+            ${restricoesAgrupadas.map(r => `
+              <tr>
+                <td><strong>${r.schoolName}</strong></td>
+                <td><span class="status-badge status-warning">${r.tipo}</span></td>
+                <td style="font-family:var(--font-mono);font-weight:700">${r.quantidade} alunos</td>
+                <td style="font-size:0.82rem">${r.observacao}</td>
+                <td><span class="status-badge status-ok">${r.status}</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+};
+
+PAGE_RENDERERS.escola_restricoes = PAGE_RENDERERS.nutricionista_restricoes;
+PAGE_RENDERERS.gestor_restricoes = PAGE_RENDERERS.nutricionista_restricoes;
+
+window.abrirModalNovoAlunoEspecial = () => {
+  const schools = DATA.schools || [];
+  const content = `
+    <form onsubmit="window.salvarNovoAlunoEspecial(event)">
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Nome Completo do Aluno(a)</label>
+        <input type="text" id="aluno-nome" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Lucas Gabriel Mello" required>
+      </div>
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Escola Alvo</label>
+        <select id="aluno-escola" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          ${schools.map(s => `<option value="${s.name}">${s.name} (${s.region})</option>`).join('')}
+        </select>
+      </div>
+      <div class="grid-2 gap-10 mb-12">
+        <div>
+          <label style="font-weight:600;display:block;margin-bottom:4px">Turma</label>
+          <input type="text" id="aluno-turma" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Creche II-A ou EF 4º Ano B" required>
+        </div>
+        <div>
+          <label style="font-weight:600;display:block;margin-bottom:4px">Data de Nascimento (RN-002 Faixa Etária)</label>
+          <input type="date" id="aluno-nascimento" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+        </div>
+      </div>
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Tipo de Restrição Clínica</label>
+        <select id="aluno-restricao" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          <option value="Intolerância à lactose">Intolerância à lactose</option>
+          <option value="Doença celíaca (Glúten)">Doença celíaca (Glúten)</option>
+          <option value="Diabetes">Diabetes</option>
+          <option value="Alergia à Proteína do Leite (APLV)">Alergia à Proteína do Leite (APLV)</option>
+          <option value="Fenilcetonúria">Fenilcetonúria</option>
+          <option value="Vegetariano/Vegano">Vegetariano/Vegano</option>
+        </select>
+      </div>
+      <div class="form-group mb-18">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Identificação do Laudo Médico</label>
+        <input type="text" id="aluno-laudo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Laudo Dr. Carlos Rossi - CRM 4521" required>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💾 Salvar Cadastrado Nominal</button>
+      </div>
+    </form>
+  `;
+  window.showModal('👶 Novo Cadastro Nominal de Aluno Especial (RF-003)', content, '650px');
+};
+
+window.salvarNovoAlunoEspecial = (e) => {
+  e.preventDefault();
+  const nome = document.getElementById('aluno-nome').value;
+  const escola = document.getElementById('aluno-escola').value;
+  const turma = document.getElementById('aluno-turma').value;
+  const dataNascimento = document.getElementById('aluno-nascimento').value;
+  const restricao = document.getElementById('aluno-restricao').value;
+  const laudo = document.getElementById('aluno-laudo').value;
+
+  SharedState.addAlunoEspecial({ nome, escola, turma, dataNascimento, restricao, laudo });
+  showToast(`✅ Aluno(a) ${nome} cadastrado(a) com sucesso no controle nominal de dietas!`);
+  closeModal();
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.nutricionista_restricoes(container);
+};
+
+window.excluirAlunoEspecial = (id) => {
+  if (!confirm('Deseja remover este cadastro de aluno especial?')) return;
+  SharedState.deleteAlunoEspecial(id);
+  showToast('✅ Aluno removido com sucesso!');
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.nutricionista_restricoes(container);
+};
+
 window.renderAISummaryCard = (menuObj, container) => {
   const metricas = menuObj.metricasSemanais;
   const isAprovado = menuObj.statusAprovacao === 'aprovado_nutri';
@@ -5249,6 +5555,7 @@ window.renderAISummaryCard = (menuObj, container) => {
           <button class="btn btn-outline btn-sm" style="background:#fff" onclick="alert('🔒 O Relatório Técnico PNAE só será liberado após o clique no botão de aprovação da Nutricionista.')">🔒 Relatório Bloqueado</button>
         ` : `
           <button class="btn btn-success btn-sm" onclick="window.abrirRelatorioPNAE()">📄 Visualizar / Imprimir Relatório PNAE</button>
+          <button class="btn btn-outline btn-sm" style="background:#fff" onclick="window.gerarRelatorioMensal4Paginas()">📄 Relatório Mensal (4 Páginas)</button>
         `}
         <button class="btn btn-outline btn-sm" style="background:#fff" onclick="window.executarGeracaoCardapioIA()">🔄 Regenerar IA</button>
       </div>
@@ -5297,8 +5604,8 @@ window.aprovarCardapioIA = () => {
     window.renderAISummaryCard(window.currentActiveIAMenu, container);
   }
 
-  showToast('✅ Cardápio aprovado com sucesso pela Dra. Lilian Droppa! Relatório PNAE liberado.');
-  window.abrirRelatorioPNAE();
+  showToast('✅ Cardápio aprovado com sucesso pela Dra. Lilian Droppa! Notificações automáticas disparadas.');
+  window.dispararNotificacoesProdutores();
 };
 
 window.abrirRelatorioPNAE = () => {

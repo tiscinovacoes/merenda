@@ -527,6 +527,67 @@
 
     /**
      * Calcula a separação de produtos por escola e aplica a regra de embalagens inteiras não-fracionadas (arroz, feijão, macarrão, óleo, sal, açúcar, etc.)
+    /**
+     * RN-002: Determina o produto substituto baseado no tipo de restrição e na faixa etária (Data de Nascimento)
+     */
+    determinarSubstitutoRestricao: function (restricaoTipo, dataNascimento) {
+      if (!restricaoTipo) return null;
+      const t = String(restricaoTipo).toLowerCase();
+      
+      let idadeAnos = 5; // Default para alunos de ensino fundamental
+      if (dataNascimento) {
+        const dob = new Date(dataNascimento);
+        if (!isNaN(dob.getTime())) {
+          const diffMs = Date.now() - dob.getTime();
+          idadeAnos = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+        }
+      }
+
+      if (t.includes('lactose')) {
+        if (idadeAnos < 2) {
+          return {
+            substituto: 'Fórmula Infantil Especial Zero Lactose (Lata 400g)',
+            perCapitaGramos: 120,
+            unidade: 'Lata 400g',
+            regraEtaria: '🍼 RN-002: Faixa Etária 0-2 anos (Creche) ➔ Fórmula Infantil Específica',
+            naoFracionavel: true
+          };
+        } else {
+          return {
+            substituto: 'Leite UHT Zero Lactose (Caixa 1L)',
+            perCapitaGramos: 200,
+            unidade: 'Caixa 1L',
+            regraEtaria: '🥛 RN-002: Faixa Etária > 2 anos ➔ Leite UHT Zero Lactose Comum',
+            naoFracionavel: true
+          };
+        }
+      }
+
+      if (t.includes('celíaca') || t.includes('celiaca') || t.includes('gluten') || t.includes('glúten')) {
+        return {
+          substituto: 'Biscoito & Pão Especial Sem Glúten (Pct 300g)',
+          perCapitaGramos: 60,
+          unidade: 'Pacote 300g',
+          regraEtaria: '🌾 RN-002: Dieta Celíaca Sem Glúten Estrita',
+          naoFracionavel: true
+        };
+      }
+
+      if (t.includes('diabete')) {
+        return {
+          substituto: 'Alimentos Diet / Sem Açúcar Adicionado (Pct 500g)',
+          perCapitaGramos: 50,
+          unidade: 'Pacote 500g',
+          regraEtaria: '🍯 RN-002: Dieta com Restrição de Açúcares/Glicemia',
+          naoFracionavel: true
+        };
+      }
+
+      return null;
+    },
+
+    /**
+     * Calcula a separação de produtos por escola e aplica a regra de embalagens inteiras não-fracionadas (arroz, feijão, macarrão, óleo, sal, açúcar, etc.)
      */
     calcularDemandaPorEscola: function (menuObj, escolaObj) {
       if (!menuObj || !escolaObj) return [];
@@ -549,7 +610,7 @@
         'leite em pó': { tamanho: 1.0, unidadePack: 'Pacote 1kg', fracionavel: false },
       };
 
-      return insumos.map(ins => {
+      const resultadoDemanda = insumos.map(ins => {
         const perCapitaG = ins.perCapitaGramos || 50;
         const totalBrutoKg = parseFloat(((numAlunos * perCapitaG * 5) / 1000).toFixed(2));
         
@@ -586,6 +647,30 @@
           naoFracionavel: !!packRule
         };
       });
+
+      // RN-002 / RF-004: Inclusão Automática de Insumos Especiais para Alunos Cadastrados
+      if (window.SharedState && typeof window.SharedState.getAlunosEspeciais === 'function') {
+        const alunosEscola = window.SharedState.getAlunosEspeciais(escolaObj.name) || [];
+        alunosEscola.forEach(aluno => {
+          const subInfo = AICardapioEngine.determinarSubstitutoRestricao(aluno.restricao, aluno.dataNascimento);
+          if (subInfo) {
+            const totalUnid = Math.max(2, Math.ceil((subInfo.perCapitaGramos * 5) / 300));
+            resultadoDemanda.push({
+              nome: `${subInfo.substituto} (${aluno.nome.split(' ')[0]} - ${aluno.turma || 'Especial'})`,
+              af: false,
+              perCapitaGramos: subInfo.perCapitaGramos,
+              demandaCalculadaKg: totalUnid,
+              qtdEnviadaKg: totalUnid,
+              numPacotes: totalUnid,
+              detalheRegra: `${subInfo.regraEtaria} (Demanda Automática RF-004)`,
+              naoFracionavel: true,
+              itemEspecial: true
+            });
+          }
+        });
+      }
+
+      return resultadoDemanda;
     }
   };
 
