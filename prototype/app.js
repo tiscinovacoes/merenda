@@ -782,6 +782,12 @@ const SharedState = {
     this._persist(); this._emit('ficha:add');
     return f;
   },
+  addProduction(prod) {
+    const p = { id: 'prod-' + Date.now(), criadoEm: new Date().toISOString(), status: 'Ativo', ...prod };
+    (this._data.productions = this._data.productions || []).unshift(p);
+    this._persist(); this._emit('production:add');
+    return p;
+  },
   addOrder(order) {
     const nextNum = ((this._data.orders[0]?.numero) || 100) + 1;
     const o = {
@@ -4662,7 +4668,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
     { id: 4, name: 'EMTI PROFª IRACEMA MARIA VICENTE', region: 'Bandeira', students: 539 },
   ];
 
-  // Gera Ordens de Serviço por escola aplicando a regra de embalagens inteiras não-fracionadas
+  // 1. Gera Ordens de Serviço por escola aplicando a regra de embalagens inteiras não-fracionadas
   const ordensPorEscola = schools.map(sc => {
     const demandaInsumos = window.AICardapioEngine.calcularDemandaPorEscola(menuObj, sc);
     
@@ -4685,79 +4691,198 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
     };
   });
 
-  // Renderiza Modal de Ordens de Serviço por Escola
+  // 2. Gera Ordens de Produção & Colheita para Cooperativas e Agricultores Familiares (Produtos AF)
+  const insumosAF = (menuObj.insumosResumoSemanal || []).filter(i => i.af);
+  const totalAlunos = (menuObj.metricasSemanais?.numAlunos || 10380);
+  
+  const ordensAgricultores = [
+    {
+      cooperativa: 'COOPAGRAN — Cooperativa Agrícola de Campo Grande',
+      contato: 'Carlos Mendes (67) 99222-1010',
+      itens: (insumosAF.length > 0 ? insumosAF.slice(0, Math.ceil(insumosAF.length / 2)) : [
+        { nome: 'Melancia em cubos (Safra Local AF)', perCapitaGramos: 120 },
+        { nome: 'Banana prata orgânica (Safra Local AF)', perCapitaGramos: 100 }
+      ]).map(i => ({
+        produto: i.nome,
+        perCapita: i.perCapitaGramos || 100,
+        totalKg: Math.round(((i.perCapitaGramos || 100) * totalAlunos * 5) / 1000),
+        prazoColheita: 'Até 03/08/2026',
+        destinos: 'Entreposto Central SEMED / Escolas Piloto'
+      }))
+    },
+    {
+      cooperativa: 'Associação dos Produtores Rurais do Indubrasil & Terenos',
+      contato: 'Dona Maria de Fátima (67) 99888-4040',
+      itens: (insumosAF.length > 1 ? insumosAF.slice(Math.ceil(insumosAF.length / 2)) : [
+        { nome: 'Mamão formosa fatiado (Safra Local AF)', perCapitaGramos: 100 },
+        { nome: 'Cenoura e Legumes Frescos AF', perCapitaGramos: 60 }
+      ]).map(i => ({
+        produto: i.nome,
+        perCapita: i.perCapitaGramos || 100,
+        totalKg: Math.round(((i.perCapitaGramos || 100) * totalAlunos * 5) / 1000),
+        prazoColheita: 'Até 03/08/2026',
+        destinos: 'Entreposto Central SEMED / Escolas Piloto'
+      }))
+    }
+  ];
+
+  // Registra as ordens de produção no SharedState para a Cooperativa e Agricultores
+  if (window.SharedState) {
+    ordensAgricultores.forEach(coop => {
+      coop.itens.forEach(it => {
+        SharedState.addProduction({
+          cooperativa: coop.cooperativa,
+          produto: it.produto,
+          quantidadeTotalKg: it.totalKg,
+          prazoColheita: it.prazoColheita,
+          status: 'Ordem de Colheita Emitida',
+          origem: 'Gerador de Cardápios IA Nutricional'
+        });
+      });
+    });
+  }
+
+  // Renderiza Modal de Ordens de Serviço
   const content = `
     <div style="padding:4px 0; font-family:sans-serif; color:#1e293b;" id="os-print-container">
       <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
         <div>
-          <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📋 ORDENS DE SERVIÇO & GUIA DE REMESSA POR ESCOLA</div>
+          <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📋 ORDENS DE SERVIÇO & ROMANEIOS (ESCOLA & AGRICULTURA FAMILIAR)</div>
           <div style="font-size:0.85rem; color:#166534; margin-top:2px;">
-            Separação técnica de insumos com <strong>Regra de Embalagens Inteiras Não-Fracionadas (Arroz, Feijão, Macarrão, Óleo)</strong>
+            Separação técnica de abastecimento por Escola (embalagens inteiras) e Ordens de Colheita por Cooperativa/Agricultor.
           </div>
         </div>
         <span class="status-badge status-ok" style="font-size:0.85rem; padding:6px 12px;">🟢 EMISSÃO CONCLUÍDA</span>
       </div>
 
-      <!-- SELETOR DE ESCOLA -->
-      <div style="margin-bottom:16px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-        <strong style="font-size:0.88rem; color:#334155;">Filtrar Romaneio por Escola:</strong>
-        <select id="os-school-filter" class="btn btn-outline" style="padding:6px 12px; font-weight:600; text-align:left;" onchange="window.filtrarOSEscola(this.value)">
-          <option value="TODAS">Ver Todas as Escolas (${ordensPorEscola.length} unidades)</option>
-          ${ordensPorEscola.map(o => `<option value="${o.escola.id}">${o.escola.name} (${o.escola.students} alunos)</option>`).join('')}
-        </select>
+      <!-- SELEÇÃO DE VISÃO / ABAS -->
+      <div style="display:flex; gap:10px; margin-bottom:16px; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">
+        <button class="btn btn-primary btn-sm" id="tab-os-escolas-btn" onclick="window.alternarAbasOS('escolas')">🏫 Ordens de Serviço por Escola (${ordensPorEscola.length} unidades)</button>
+        <button class="btn btn-outline btn-sm" id="tab-os-coop-btn" onclick="window.alternarAbasOS('coop')">🌾 Ordens de Produção & Colheita AF (${ordensAgricultores.length} Cooperativas)</button>
       </div>
 
-      <!-- TABELAS POR ESCOLA -->
-      <div id="os-tables-container" style="display:flex; flex-direction:column; gap:16px;">
-        ${ordensPorEscola.map(o => `
-          <div class="os-school-block" data-school-id="${o.escola.id}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:14px;">
-            <div style="border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-              <div>
-                <strong style="font-size:0.98rem; color:#0f172a;">🏫 ${o.escola.name}</strong>
-                <span style="font-size:0.8rem; color:#64748b; margin-left:8px;">· Região: ${o.escola.region || 'Urbana'} · População: <strong>${o.escola.students} Alunos</strong></span>
-              </div>
-              <span class="status-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem;">OS nº OS-2026/${o.escola.id}08</span>
-            </div>
+      <!-- SEÇÃO 1: ORDENS DE SERVIÇO POR ESCOLA -->
+      <div id="secao-os-escolas">
+        <div style="margin-bottom:14px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <strong style="font-size:0.88rem; color:#334155;">Filtrar por Escola:</strong>
+          <select id="os-school-filter" class="btn btn-outline" style="padding:6px 12px; font-weight:600; text-align:left;" onchange="window.filtrarOSEscola(this.value)">
+            <option value="TODAS">Ver Todas as Escolas (${ordensPorEscola.length} unidades)</option>
+            ${ordensPorEscola.map(o => `<option value="${o.escola.id}">${o.escola.name} (${o.escola.students} alunos)</option>`).join('')}
+          </select>
+        </div>
 
-            <div style="overflow-x:auto;">
-              <table class="data-table" style="font-size:0.82rem; width:100%;">
-                <thead>
-                  <tr>
-                    <th>Item / Insumo</th>
-                    <th>Per Capita (por Aluno)</th>
-                    <th>Demanda Bruta Calculada</th>
-                    <th>📦 Qtd. Expedida (Embalagem Inteira)</th>
-                    <th>Regra de Abastecimento</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${o.demanda.map(d => `
-                    <tr ${d.naoFracionavel ? 'style="background:#fefce8"' : ''}>
-                      <td><strong>${d.nome}</strong> ${d.af ? '<span class="status-badge status-ok" style="font-size:0.7rem">🌾 AF</span>' : ''}</td>
-                      <td style="font-family:var(--font-mono)">${d.perCapitaGramos}g</td>
-                      <td style="font-family:var(--font-mono);color:#64748b">${d.demandaCalculadaKg.toLocaleString('pt-BR')} kg</td>
-                      <td style="font-family:var(--font-mono);font-weight:800;color:${d.naoFracionavel ? '#d97706' : '#0284c7'}">
-                        ${d.qtdEnviadaKg.toLocaleString('pt-BR')} kg
-                      </td>
-                      <td style="font-size:0.78rem;">${d.detalheRegra}</td>
+        <div id="os-tables-container" style="display:flex; flex-direction:column; gap:16px;">
+          ${ordensPorEscola.map(o => `
+            <div class="os-school-block" data-school-id="${o.escola.id}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:14px;">
+              <div style="border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                  <strong style="font-size:0.98rem; color:#0f172a;">🏫 ${o.escola.name}</strong>
+                  <span style="font-size:0.8rem; color:#64748b; margin-left:8px;">· Região: ${o.escola.region || 'Urbana'} · População: <strong>${o.escola.students} Alunos</strong></span>
+                </div>
+                <span class="status-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem;">OS nº OS-2026/${o.escola.id}08</span>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="data-table" style="font-size:0.82rem; width:100%;">
+                  <thead>
+                    <tr>
+                      <th>Item / Insumo</th>
+                      <th>Per Capita (por Aluno)</th>
+                      <th>Demanda Bruta Calculada</th>
+                      <th>📦 Qtd. Expedida (Embalagem Inteira)</th>
+                      <th>Regra de Abastecimento</th>
                     </tr>
-                  `).join('')}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    ${o.demanda.map(d => `
+                      <tr ${d.naoFracionavel ? 'style="background:#fefce8"' : ''}>
+                        <td><strong>${d.nome}</strong> ${d.af ? '<span class="status-badge status-ok" style="font-size:0.7rem">🌾 AF</span>' : ''}</td>
+                        <td style="font-family:var(--font-mono)">${d.perCapitaGramos}g</td>
+                        <td style="font-family:var(--font-mono);color:#64748b">${d.demandaCalculadaKg.toLocaleString('pt-BR')} kg</td>
+                        <td style="font-family:var(--font-mono);font-weight:800;color:${d.naoFracionavel ? '#d97706' : '#0284c7'}">
+                          ${d.qtdEnviadaKg.toLocaleString('pt-BR')} kg
+                        </td>
+                        <td style="font-size:0.78rem;">${d.detalheRegra}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        `).join('')}
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- SEÇÃO 2: ORDENS DE PRODUÇÃO E COLHEITA AF (COOPERATIVAS) -->
+      <div id="secao-os-coop" style="display:none;">
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          ${ordensAgricultores.map(c => `
+            <div style="background:#ffffff; border:1px solid #bbf7d0; border-left:5px solid #16a34a; border-radius:8px; padding:14px;">
+              <div style="border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                  <strong style="font-size:0.98rem; color:#14532d;">🌾 ${c.cooperativa}</strong>
+                  <div style="font-size:0.8rem; color:#475569; margin-top:2px;">Contato / Responsável: <strong>${c.contato}</strong></div>
+                </div>
+                <span class="status-badge status-ok" style="font-weight:700; font-size:0.78rem;">🟢 ORDEM DE COLHEITA EMITIDA</span>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="data-table" style="font-size:0.82rem; width:100%;">
+                  <thead>
+                    <tr>
+                      <th>Produto AF (Safra Sazonal)</th>
+                      <th>Per Capita Rede</th>
+                      <th>Demanda Total Solicitada (Rede)</th>
+                      <th>Prazo Limite de Colheita</th>
+                      <th>Destino / Logística</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${c.itens.map(it => `
+                      <tr>
+                        <td><strong>${it.produto}</strong> <span class="status-badge status-ok" style="font-size:0.7rem">🌾 AF</span></td>
+                        <td style="font-family:var(--font-mono)">${it.perCapita}g/aluno</td>
+                        <td style="font-family:var(--font-mono);font-weight:800;color:#15803d;font-size:0.95rem">${it.totalKg.toLocaleString('pt-BR')} kg</td>
+                        <td style="color:#d97706;font-weight:700">${it.prazoColheita}</td>
+                        <td style="font-size:0.78rem;">${it.destinos}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `).join('')}
+        </div>
       </div>
 
       <!-- RODAPE COM IMPRESSAO -->
       <div style="border-top:1px solid #cbd5e1; padding-top:14px; margin-top:18px; display:flex; justify-content:space-between; align-items:center;">
         <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
-        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Guias de Remessa / Romaneios PDF</button>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Ordens de Serviço & Guias (PDF)</button>
       </div>
     </div>
   `;
 
-  window.showModal('📋 Ordens de Serviço de Abastecimento por Escola', content, '950px');
+  window.showModal('📋 Ordens de Serviço (Escolas & Agricultura Familiar)', content, '950px');
+};
+
+window.alternarAbasOS = (aba) => {
+  const secEscolas = document.getElementById('secao-os-escolas');
+  const secCoop = document.getElementById('secao-os-coop');
+  const btnEscolas = document.getElementById('tab-os-escolas-btn');
+  const btnCoop = document.getElementById('tab-os-coop-btn');
+
+  if (aba === 'coop') {
+    if (secEscolas) secEscolas.style.display = 'none';
+    if (secCoop) secCoop.style.display = 'block';
+    if (btnEscolas) { btnEscolas.className = 'btn btn-outline btn-sm'; }
+    if (btnCoop) { btnCoop.className = 'btn btn-primary btn-sm'; }
+  } else {
+    if (secEscolas) secEscolas.style.display = 'block';
+    if (secCoop) secCoop.style.display = 'none';
+    if (btnEscolas) { btnEscolas.className = 'btn btn-primary btn-sm'; }
+    if (btnCoop) { btnCoop.className = 'btn btn-outline btn-sm'; }
+  }
 };
 
 window.filtrarOSEscola = (escolaId) => {
