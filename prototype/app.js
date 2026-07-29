@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.4.0';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -4404,6 +4404,7 @@ window.abrirModalGeradorIA = () => {
 };
 
 window.currentActiveIAMenu = null;
+window.tempIAMenuPreview = null;
 
 window.executarGeracaoCardapioIA = () => {
   const modalidade = document.getElementById('ia-modalidade')?.value || 'piloto_completo';
@@ -4429,8 +4430,6 @@ window.executarGeracaoCardapioIA = () => {
     return alert('Motor de IA não carregado.');
   }
 
-  window.generatePlannerDays();
-
   const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
     modalidade,
     metaKcal,
@@ -4440,34 +4439,165 @@ window.executarGeracaoCardapioIA = () => {
     considerarRestricoes
   });
 
-  window.currentActiveIAMenu = resultadoIA;
+  window.tempIAMenuPreview = resultadoIA;
+  window.abrirModalPreviewIA(resultadoIA);
+};
 
+window.abrirModalPreviewIA = (resultadoIA) => {
+  if (!resultadoIA) return;
+  const m = resultadoIA.metricasSemanais;
+
+  const content = `
+    <div style="padding:4px 0; font-family:sans-serif; color:#1e293b;">
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div>
+          <div style="font-weight:800; color:#0369a1; font-size:1.05rem;">🤖 CARDÁPIO SEMANAL SUGERIDO PELA IA (PRÉ-VISUALIZAÇÃO PNAE)</div>
+          <div style="font-size:0.85rem; color:#0c4a6e; margin-top:2px;">
+            Nutricionista: <strong>Dra. Lilian Droppa (CRN 12345/MS)</strong> · População: <strong>${m.numAlunos.toLocaleString('pt-BR')} Alunos Piloto</strong>
+          </div>
+        </div>
+        <span class="status-badge" style="background:#fef3c7; color:#92400e; font-weight:700; font-size:0.85rem; padding:6px 12px;">
+          🟡 RASCUNHO SUGERIDO · AGUARDANDO SUAS REVISÕES/APROVAÇÃO
+        </span>
+      </div>
+
+      <!-- METRICAS NUTRICCIONAIS -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:16px;">
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Energia Média</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#0284c7;">${m.mediaKcal} kcal/dia</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Proteínas</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#16a34a;">${m.mediaProteinas} g/dia</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Sódio</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#dc2626;">${m.mediaSodio} mg/dia</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Agric. Familiar</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#d97706;">🌾 ${m.percentualAF}%</div>
+        </div>
+      </div>
+
+      <!-- CARDS DE REFEICAO DA SEMANA -->
+      <div style="margin-bottom:16px;">
+        <h4 style="margin-bottom:10px; color:#0f172a; font-size:0.95rem;">📅 Refeições Diárias Sugeridas (Segunda a Sexta)</h4>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${resultadoIA.refeicoes.map(r => `
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #0284c7; border-radius:8px; padding:10px 14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <strong style="color:#0369a1; font-size:0.9rem;">${r.dia}</strong>
+                <span class="status-badge status-ok" style="font-size:0.75rem;">${r.kcal} kcal · ${r.categoria}</span>
+              </div>
+              <div style="font-weight:700; font-size:0.9rem; margin:4px 0; color:#1e293b;">${r.nomePrato}</div>
+              <div style="font-size:0.8rem; color:#475569;">
+                🍎 <strong>Fruta:</strong> ${r.fruta}
+                ${r.fefoBadge ? `<span style="color:#d97706; font-weight:700; margin-left:8px;">· ${r.fefoBadge}</span>` : ''}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- TABELA EXPANSIVEL PER CAPITA E DEMANDA REDE -->
+      <details style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:18px;">
+        <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; color:#0f172a;">
+          📊 Ver Tabela de Per Capita (g/aluno) e Demanda Total Semanal (${m.numAlunos.toLocaleString('pt-BR')} Alunos)
+        </summary>
+        <div style="margin-top:10px; overflow-x:auto;">
+          <table class="data-table" style="font-size:0.82rem; width:100%;">
+            <thead>
+              <tr>
+                <th>Ingrediente</th>
+                <th>Per Capita (por Aluno)</th>
+                <th>Demanda Total da Semana (Rede)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${resultadoIA.insumosResumoSemanal.map(ins => `
+                <tr>
+                  <td><strong>${ins.nome}</strong> ${ins.af ? '<span class="status-badge status-ok" style="font-size:0.7rem">🌾 Agric. Familiar</span>' : ''}</td>
+                  <td style="font-family:var(--font-mono);font-weight:700">${ins.perCapitaGramos} ${ins.unidade}</td>
+                  <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${ins.totalSemanalKg.toLocaleString('pt-BR')} kg</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <!-- BOTOES DE ACAO NO RODAPE -->
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
+        <button class="btn btn-outline" onclick="window.abrirModalGeradorIA()">🔄 Gerar Outra Opção com IA</button>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="btn btn-outline" style="border-color:#0284c7; color:#0369a1; font-weight:600;" onclick="window.aplicarIAMenuAoPlanejador(window.tempIAMenuPreview, false)">✏️ Carregar no Planejador para Ajustar</button>
+          <button class="btn btn-success" style="font-weight:700;" onclick="window.aplicarIAMenuAoPlanejador(window.tempIAMenuPreview, true)">✅ Aprovar & Aplicar Cardápio (Dra. Lilian Droppa)</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  window.showModal('🤖 Pré-visualização do Cardápio Sugerido pela IA', content, '950px');
+};
+
+window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
+  if (!menuObj) return alert('Nenhum cardápio gerado pela IA.');
+
+  window.closeModal();
+
+  if (aprovarDireto && window.AICardapioEngine) {
+    menuObj = window.AICardapioEngine.approveMenu(menuObj);
+  }
+
+  window.currentActiveIAMenu = menuObj;
+
+  // Carregar no planejador semanal se a tela de planejamento estiver aberta
   const container = document.getElementById('planner-days-container');
-  if (!container) return;
+  if (container) {
+    window.generatePlannerDays();
 
-  const dayBlocks = container.querySelectorAll('.planner-day-block');
-  dayBlocks.forEach((block, idx) => {
-    const refeicao = resultadoIA.refeicoes[idx % resultadoIA.refeicoes.length];
-    if (!refeicao) return;
+    setTimeout(() => {
+      const currentContainer = document.getElementById('planner-days-container');
+      if (!currentContainer) return;
 
-    const selectAlmoco = block.querySelector('select[id^="planner-lun-"]');
-    if (selectAlmoco) {
-      let found = false;
-      for (let opt of selectAlmoco.options) {
-        if (opt.text.toLowerCase().includes(refeicao.nomePrato.slice(0, 15).toLowerCase())) {
-          selectAlmoco.value = opt.value;
-          found = true;
-          break;
+      const dayBlocks = currentContainer.querySelectorAll('.planner-day-block');
+      dayBlocks.forEach((block, idx) => {
+        const refeicao = menuObj.refeicoes[idx % menuObj.refeicoes.length];
+        if (!refeicao) return;
+
+        const selectAlmoco = block.querySelector('select[id^="planner-lun-"]');
+        if (selectAlmoco) {
+          let found = false;
+          for (let opt of selectAlmoco.options) {
+            if (opt.text.toLowerCase().includes(refeicao.nomePrato.slice(0, 15).toLowerCase())) {
+              selectAlmoco.value = opt.value;
+              found = true;
+              break;
+            }
+          }
+          if (!found && selectAlmoco.options.length > 1) {
+            selectAlmoco.selectedIndex = (idx % (selectAlmoco.options.length - 1)) + 1;
+          }
         }
-      }
-      if (!found && selectAlmoco.options.length > 1) {
-        selectAlmoco.selectedIndex = (idx % (selectAlmoco.options.length - 1)) + 1;
-      }
-    }
-  });
+      });
 
-  window.renderAISummaryCard(resultadoIA, container);
-  window.calculatePlannerKcal();
+      window.renderAISummaryCard(menuObj, currentContainer);
+      window.calculatePlannerKcal();
+    }, 100);
+  }
+
+  if (aprovarDireto) {
+    if (typeof showToast === 'function') {
+      showToast('✅ Cardápio aprovado com sucesso pela Dra. Lilian Droppa! Relatório PNAE liberado.');
+    }
+    setTimeout(() => window.abrirRelatorioPNAE(), 200);
+  } else {
+    if (typeof showToast === 'function') {
+      showToast('📋 Cardápio sugerido pela IA carregado no planejador para revisão da Dra. Lilian Droppa.');
+    }
+  }
 };
 
 window.renderAISummaryCard = (menuObj, container) => {
