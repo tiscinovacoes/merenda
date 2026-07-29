@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SUALE – Sistema de Gestão da Alimentação Escolar | SEMED Campo Grande</title>
+  <meta name="description" content="Plataforma integrada de gestão da alimentação escolar da Secretaria Municipal de Educação de Campo Grande - MS">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ===== LOGIN SCREEN ===== -->
+<div id="screen-login" class="screen active">
+  <div class="login-bg">
+    <div class="login-orb orb-1"></div>
+    <div class="login-orb orb-2"></div>
+    <div class="login-orb orb-3"></div>
+    <div class="login-grid"></div>
+  </div>
+  <div class="login-container">
+    <div class="login-left">
+      <div class="login-brand">
+        <div class="login-logo">
+          <svg width="52" height="52" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+            <rect width="48" height="48" rx="14" fill="url(#gradLogin)"/>
+            <path d="M14 34L24 14L34 34H14Z" fill="white" opacity="0.9"/>
+            <circle cx="24" cy="24" r="4" fill="url(#gradLogin)"/>
+            <defs><linearGradient id="gradLogin" x1="0" y1="0" x2="48" y2="48"><stop offset="0%" stop-color="#1565C0"/><stop offset="100%" stop-color="#0277BD"/></linearGradient></defs>
+          </svg>
+        </div>
+        <div>
+          <div class="login-system-name">SUALE</div>
+          <div class="login-system-subtitle">Sistema de Gestão da Alimentação Escolar</div>
+        </div>
+      </div>
+      <div class="login-gov-strip">
+        <span class="gov-badge-strip">🇧🇷 Gov.br</span>
+        <span class="separator-line"></span>
+        <span>Secretaria Municipal de Educação · Campo Grande · MS</span>
+      </div>
+      <div class="login-hero-text">
+        <h1>Alimentação Escolar<br><span class="text-gradient">Inteligente e Transparente</span></h1>
+        <p>Plataforma integrada para planejamento alimentar, controle de estoque, gestão de contratos com agricultores familiares e inteligência artificial para previsão de demanda.</p>
+      </div>
+      <div class="login-feature-list">
+        <div class="feature-item"><span class="feature-icon">📊</span><span>Dashboard executivo em tempo real</span></div>
+        <div class="feature-item"><span class="feature-icon">🤖</span><span>IA preditiva de demanda alimentar</span></div>
+        <div class="feature-item"><span class="feature-icon">🌾</span><span>Rastreabilidade da agricultura familiar</span></div>
+        <div class="feature-item"><span class="feature-icon">🔒</span><span>Conformidade com LGPD e transparência pública</span></div>
+      </div>
+      <div class="login-stats">
+        <div class="stat-item"><div class="stat-value">183</div><div class="stat-label">Escolas Atendidas</div></div>
+        <div class="stat-item"><div class="stat-value">94,7K</div><div class="stat-label">Alunos</div></div>
+        <div class="stat-item"><div class="stat-value">R$ 18M</div><div class="stat-label">Em Atas Vigentes</div></div>
+        <div class="stat-item"><div class="stat-value">47</div><div class="stat-label">Cooperativas</div></div>
+      </div>
+    </div>
+    <div class="login-right">
+      <div class="login-card">
+        <div class="login-card-header">
+          <h2>Acesso ao Sistema</h2>
+          <p>Selecione o perfil e entre com suas credenciais institucionais</p>
+        </div>
+        <div class="profile-selector" role="group" aria-label="Selecionar perfil">
+          <!-- SEMED -->
+          <button class="profile-btn active" data-profile="gestor" id="btn-profile-gestor" type="button">
+            <div class="profile-icon">🏛️</div>
+            <span>Gestor SEMED</span>
+          </button>
+          <button class="profile-btn" data-profile="nutricionista" id="btn-profile-nutricionista" type="button">
+            <div class="profile-icon">🥗</div>
+            <span>Nutricionista</span>
+          </button>
+          <!-- ESCOLA (perfil unificado) -->
+          <button class="profile-btn" data-profile="escola" id="btn-profile-escola" type="button">
+            <div class="profile-icon">🏫</div>
+            <span>Escola</span>
+          </button>
+          <!-- FORNECEDORES (perfil unificado) -->
+          <button class="profile-btn" data-profile="colaboradores" id="btn-profile-colaboradores" type="button">
+            <div class="profile-icon">🤝</div>
+            <span>Colaboradores</span>
+          </button>
+          <!-- LOGÍSTICA -->
+          <button class="profile-btn" data-profile="estoque" id="btn-profile-estoque" type="button">
+            <div class="profile-icon">📦</div>
+            <span>Estoque Central</span>
+          </button>
+          <button class="profile-btn" data-profile="motorista" id="btn-profile-motorista" type="button">
+            <div class="profile-icon">🚚</div>
+            <span>Motorista</span>
+          </button>
+        </div>
+
+        <!-- Seletor de escola — aparece para perfil Escola -->
+        <div id="school-picker-row" style="display:none;margin-bottom:12px">
+          <label for="school-picker-select" style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">Unidade Escolar</label>
+          <select id="school-picker-select" class="form-control" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.88rem;background:var(--bg);color:var(--text)">
+            <option value="">— Selecione a unidade escolar —</option>
+            <option value="1">EM ADV. DEMOSTHENES MARTINS (Segredo · 454 alunos)</option>
+            <option value="2">EM PROF. ANTÔNIO LOPES LINS (Lagoa · 1.698 alunos)</option>
+            <option value="3">EMRTI AGRICOLA GOV. ARNALDO ESTEVAO DE FIGUEREDO (Rural · 436 alunos)</option>
+            <option value="4">EMTI PROFª IRACEMA MARIA VICENTE (Bandeira · 539 alunos)</option>
+            <option value="5">EMEI CLEOMAR BAPTISTA DOS SANTOS (Anhanduizinho · 128 alunos)</option>
+            <option value="6">EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA (Prosa · 191 alunos)</option>
+            <option value="7">EMEI CLOTILDE CHAIA (Imbirussu · 192 alunos)</option>
+            <option value="8">EMEI ELEODES ESTEVAN (Centro · 354 alunos)</option>
+          </select>
+        </div>
+        <!-- Seletor de função — aparece junto com o school picker -->
+        <div id="subrole-picker-row" style="display:none;margin-bottom:16px">
+          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--text-secondary)">Função na escola</label>
+          <div style="display:flex;gap:8px">
+            <button class="subrole-btn active" data-subrole="diretor" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--primary,#1565C0);border-radius:8px;background:var(--primary-light,#E3F2FD);color:var(--primary,#1565C0);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="font-size:1.2rem">🎓</span>Diretor(a)
+            </button>
+            <button class="subrole-btn" data-subrole="merendeira" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--border);border-radius:8px;background:none;color:var(--text-secondary);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="font-size:1.2rem">👩‍🍳</span>Merendeira
+            </button>
+            <button class="subrole-btn" data-subrole="resp_estoque" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--border);border-radius:8px;background:none;color:var(--text-secondary);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="font-size:1.2rem">📋</span>Resp. Estoque
+            </button>
+          </div>
+        </div>
+        <!-- Seletor de função — aparece para perfil Colaboradores -->
+        <div id="colab-subrole-picker-row" style="display:none;margin-bottom:16px">
+          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--text-secondary)">Tipo de colaborador</label>
+          <div style="display:flex;gap:8px">
+            <button class="colab-subrole-btn active" data-subrole="cooperativa" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--primary,#1565C0);border-radius:8px;background:var(--primary-light,#E3F2FD);color:var(--primary,#1565C0);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="font-size:1.2rem">🤝</span>Cooperativa
+            </button>
+            <button class="colab-subrole-btn" data-subrole="agricultor" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--border);border-radius:8px;background:none;color:var(--text-secondary);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <span style="font-size:1.2rem">🌾</span>Agricultor
+            </button>
+          </div>
+        </div>
+        <form id="login-form" novalidate>
+          <div class="form-group">
+            <label for="login-user">CPF / Matrícula Funcional</label>
+            <div class="input-wrapper">
+              <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <input type="text" id="login-user" placeholder="000.000.000-00" maxlength="14" autocomplete="username">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="login-pass">Senha</label>
+            <div class="input-wrapper">
+              <svg class="input-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0110 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <input type="password" id="login-pass" placeholder="••••••••" maxlength="128" autocomplete="current-password">
+            </div>
+          </div>
+          <button type="submit" id="btn-login" class="btn btn-primary btn-full">
+            <span>Entrar no Sistema</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+        </form>
+        <div class="login-card-footer">
+          <a href="#" id="link-forgot">Esqueci minha senha</a>
+          <span>·</span>
+          <a href="#" id="link-support">Suporte TI</a>
+        </div>
+        <div class="login-security">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="1.5"/></svg>
+          Conexão criptografada · TLS 1.3 · LGPD compliant
+        </div>
+        <div class="login-version" style="text-align:center;margin-top:10px;font-size:0.72rem;color:var(--text-secondary);opacity:0.75">
+          SUALE <span data-app-version="full">v—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== APP SHELL ===== -->
+<div id="screen-app" class="screen" hidden>
+  <!-- SIDEBAR -->
+  <aside id="sidebar" class="sidebar" role="navigation" aria-label="Menu principal">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">
+        <svg width="30" height="30" viewBox="0 0 48 48" fill="none" aria-hidden="true">
+          <rect width="48" height="48" rx="10" fill="url(#gradSB)"/>
+          <path d="M14 34L24 14L34 34H14Z" fill="white" opacity="0.85"/>
+          <circle cx="24" cy="24" r="4" fill="white"/>
+          <defs><linearGradient id="gradSB" x1="0" y1="0" x2="48" y2="48"><stop offset="0%" stop-color="#1565C0"/><stop offset="100%" stop-color="#0277BD"/></linearGradient></defs>
+        </svg>
+        <div class="sidebar-brand">
+          <div class="sidebar-brand-name">SUALE</div>
+          <div class="sidebar-brand-sub">SEMED · Campo Grande</div>
+        </div>
+      </div>
+      <button id="sidebar-collapse-btn" class="icon-btn" aria-label="Recolher menu" title="Recolher menu">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-user-chip">
+      <div class="user-avatar" id="sidebar-avatar">GS</div>
+      <div class="user-info">
+        <div class="user-name" id="sidebar-user-name">Dr. Marcos Silva</div>
+        <div class="user-role-tag" id="sidebar-user-role">Gestor SEMED</div>
+      </div>
+    </div>
+    <nav id="sidebar-nav" class="sidebar-nav" aria-label="Navegação lateral"></nav>
+    <div class="sidebar-bottom">
+      <button class="sidebar-nav-item logout-item" id="btn-logout" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span>Sair do Sistema</span>
+      </button>
+      <div class="sidebar-version" style="text-align:center;padding:8px 0 4px;font-size:0.68rem;color:var(--text-secondary);opacity:0.6" title="Versão do sistema">
+        SUALE <span data-app-version="short">v—</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="main-wrapper">
+    <header class="app-header" role="banner">
+      <div class="header-left">
+        <button id="mobile-menu-btn" class="icon-btn mobile-only" aria-label="Abrir menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+        <nav class="breadcrumb" aria-label="Caminho de navegação" id="breadcrumb">
+          <span class="breadcrumb-item active">Dashboard</span>
+        </nav>
+      </div>
+      <div class="header-right">
+        <div class="header-search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <input type="search" id="global-search" placeholder="Pesquisar escola, produto, pedido..." aria-label="Pesquisa global" maxlength="200">
+        </div>
+        <div class="header-actions">
+          <div id="db-status-badge" title="Status do banco de dados" style="display:flex;align-items:center;gap:6px;font-size:0.75rem;padding:4px 10px;border-radius:20px;background:var(--surface-2,#F1F5F9);color:var(--text-secondary,#64748B);cursor:default;user-select:none">
+            <span id="db-status-dot" style="width:8px;height:8px;border-radius:50%;background:#94A3B8;display:inline-block"></span>
+            <span id="db-status-label">Conectando...</span>
+          </div>
+          <button class="icon-btn notif-btn" id="notification-btn" aria-label="Notificações">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span class="badge-dot" id="notif-badge">4</span>
+          </button>
+          <div class="header-user-btn" id="header-user-btn">
+            <div class="header-avatar" id="header-avatar">GS</div>
+            <div class="header-user-meta">
+              <span class="header-user-name" id="header-user-name">Dr. Marcos Silva</span>
+              <span class="header-user-role" id="header-user-role">Gestor SEMED</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main id="page-content" class="page-content" role="main" aria-live="polite"></main>
+  </div>
+
+  <!-- NOTIFICATION DRAWER -->
+  <div class="notif-drawer" id="notif-drawer" hidden role="dialog" aria-label="Notificações">
+    <div class="notif-drawer-header">
+      <h3>Notificações</h3>
+      <button id="close-notif-drawer" class="icon-btn" aria-label="Fechar notificações">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="notif-list" id="notif-list"></div>
+  </div>
+  <div class="notif-overlay" id="notif-overlay" hidden></div>
+</div>
+
+<script src="alimentos.js"></script>
+<script src="db.js"></script>
+<script src="ai_cardapio_engine.js"></script>
+<script src="app.js"></script>
+<script src="sprint_abc.js"></script>
+</body>
+</html>
