@@ -13,7 +13,7 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.4.1';
 const APP_BUILD_DATE = '2026-07-28';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
@@ -632,7 +632,16 @@ const SharedState = {
       schoolStocks: {}, // { [escolaName]: { [produto]: { qtd, unidade, ultimaEntrada } } }
       centralStock: {}, // Estoque do Estoque Central (por produto)
       consumo: [],      // { id, escola, produto, qtd, unidade, refeicao, data, responsavel }
-      restricoes: [],   // { id, schoolId, schoolName, tipo, quantidade, observacao, status, registradoPor, criadoEm }
+      restricoes: [
+        { id: 'restr-101', schoolId: 1, schoolName: 'EM ADV. DEMOSTHENES MARTINS', tipo: 'Intolerância à lactose', quantidade: 12, observacao: 'Laudo médico pré-escola e EF1', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-15' },
+        { id: 'restr-102', schoolId: 1, schoolName: 'EM ADV. DEMOSTHENES MARTINS', tipo: 'Doença celíaca', quantidade: 4, observacao: 'Sem glúten estrito (cantina separada)', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-18' },
+        { id: 'restr-103', schoolId: 2, schoolName: 'EM PROF. ANTÔNIO LOPES LINS', tipo: 'Diabetes', quantidade: 4, observacao: 'Controle de açúcares', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-20' },
+        { id: 'restr-104', schoolId: 2, schoolName: 'EM PROF. ANTÔNIO LOPES LINS', tipo: 'Vegetariano/Vegano', quantidade: 2, observacao: 'Substituição de proteína animal', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-22' },
+        { id: 'restr-105', schoolId: 3, schoolName: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', tipo: 'Doença celíaca', quantidade: 14, observacao: 'Dieta celíaca PNAE', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-25' },
+        { id: 'restr-106', schoolId: 3, schoolName: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', tipo: 'Intolerância à lactose', quantidade: 28, observacao: 'Zero lactose', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-26' },
+        { id: 'restr-107', schoolId: 4, schoolName: 'EMTI PROFª IRACEMA MARIA VICENTE', tipo: 'Doença celíaca', quantidade: 30, observacao: 'Alunos tempo integral', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-07-01' },
+        { id: 'restr-108', schoolId: 4, schoolName: 'EMTI PROFª IRACEMA MARIA VICENTE', tipo: 'Intolerância à lactose', quantidade: 72, observacao: 'Demanda de leite vegetal/zero lactose', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-07-02' },
+      ],
       lastEventAt: null,
     };
   },
@@ -645,7 +654,9 @@ const SharedState = {
         // Garante que campos novos existam se o schema for atualizado
         const defs = this._defaults();
         for (const k of Object.keys(defs)) {
-          if (!(k in this._data)) this._data[k] = defs[k];
+          if (!(k in this._data) || (Array.isArray(defs[k]) && defs[k].length > 0 && (!this._data[k] || this._data[k].length === 0))) {
+            this._data[k] = defs[k];
+          }
         }
       } else {
         this._data = this._defaults();
@@ -4317,12 +4328,24 @@ window.showMenuPlanner = (preselectRecipeId) => {
               <span>Escolas específicas</span>
             </label>
           </div>
-          <div id="planner-escolas-list" style="display:none;padding:10px;border:1px solid var(--border);border-radius:8px;max-height:180px;overflow-y:auto">
-            ${(DATA.schools||[]).map(s => `
-              <label style="display:block;padding:4px 0;font-size:0.85rem;cursor:pointer">
-                <input type="checkbox" class="planner-escola-chk" value="${s.name.replace(/"/g,'&quot;')}" style="margin-right:6px">${s.name} <span style="color:var(--text-tertiary);font-size:0.78rem">· ${s.region}</span>
-              </label>
-            `).join('')}
+          <div id="planner-escolas-list" style="display:none;padding:10px;border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto">
+            ${(DATA.schools||[]).map(s => {
+              const restrEscola = activeRestricoes.filter(r => r.schoolId === s.id || (r.schoolName || '').toLowerCase() === s.name.toLowerCase());
+              const totalAlunosRestr = restrEscola.reduce((acc, r) => acc + (r.quantidade || 1), 0);
+              const tiposText = Array.from(new Set(restrEscola.map(r => r.tipo))).join(', ');
+              const restrBadge = totalAlunosRestr > 0 
+                ? `<span class="status-badge warning" style="font-size:0.75rem;padding:3px 8px;font-weight:700" title="${totalAlunosRestr} alunos com restrição (${tiposText})">⚠️ ${totalAlunosRestr} Alunos c/ Restrição (${tiposText})</span>`
+                : '';
+              return `
+                <label style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px;font-size:0.85rem;cursor:pointer;border-bottom:1px dashed var(--border,#e2e8f0)">
+                  <div>
+                    <input type="checkbox" class="planner-escola-chk" value="${s.name.replace(/"/g,'&quot;')}" style="margin-right:6px">
+                    <strong>${s.name}</strong> <span style="color:var(--text-tertiary);font-size:0.78rem">· ${s.region}</span>
+                  </div>
+                  ${restrBadge}
+                </label>
+              `;
+            }).join('')}
           </div>
         </div>
       </div>
@@ -8313,8 +8336,44 @@ PAGE_RENDERERS.nutricionista_restricoes = (el) => {
         </div>
       </div>
     </div>
+    <!-- PAINEL DE ESCOLAS AFETADAS -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><div class="card-title">🏫 Escolas da Rede com Restrições Alimentares</div></div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Unidade Escolar</th>
+                <th>Região</th>
+                <th>Total de Alunos c/ Restrição</th>
+                <th>Tipos Registrados</th>
+                <th>Status de Alerta</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${schools.map(sc => {
+                const restrSc = ativos.filter(r => r.schoolId === sc.id || (r.schoolName || '').toLowerCase() === sc.name.toLowerCase());
+                if (restrSc.length === 0) return '';
+                const totalQtd = restrSc.reduce((a,b) => a + (b.quantidade||1), 0);
+                const badges = restrSc.map(r => `<span class="tag tag-orange" style="margin-right:4px">${r.tipo}: ${r.quantidade||1}</span>`).join('');
+                return `
+                  <tr>
+                    <td><strong>${sc.name}</strong></td>
+                    <td><span class="status-badge" style="background:#f1f5f9;color:#334155">${sc.region}</span></td>
+                    <td style="font-family:var(--font-mono);font-weight:700;color:#c2410c">${totalQtd} Aluno(s)</td>
+                    <td>${badges}</td>
+                    <td><span class="status-badge warning">⚠️ Alerta Ativo</span></td>
+                  </tr>
+                `;
+              }).filter(Boolean).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">Nenhuma escola com restrição ativa</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
     <div class="card">
-      <div class="card-header"><div class="card-title">Registros Ativos (${ativos.length})</div></div>
+      <div class="card-header"><div class="card-title">Registros Individuais Ativos (${ativos.length})</div></div>
       <div class="card-body">
         <div class="table-wrapper">
           <table class="data-table">
