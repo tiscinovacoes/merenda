@@ -282,14 +282,14 @@ const DATA = {
     { id: 6, number: 'ATA-2026/042', start: '2026-04-12', end: '2027-04-11', supplier: 'AVINORTE DISTRIBUIDORA DE AVES LTDA',modalidade: 'pregao',          globalValue: 4176000.00,  executedValue: 1376100.00, status: 'Vigente' },
   ],
   orders: [
-    { id: 1, school: 'EM Hércules Maymone', date: '2026-06-24', status: 'Pendente', coop: 'COOPAGRAN', value: 8500 },
-    { id: 2, school: 'EM Nerone Maiolino', date: '2026-06-24', status: 'Pendente', coop: 'COOPRAN', value: 7200 },
-    { id: 3, school: 'EM Elízio Ramirez Vieira', date: '2026-06-23', status: 'Em separação', coop: 'COOPAERGS', value: 9100 },
-    { id: 4, school: 'EM Elpídio Reis', date: '2026-06-23', status: 'Em transporte', coop: 'COOPAGRAN', value: 6800 },
-    { id: 5, school: 'EM Licurgo de Oliveira Bastos', date: '2026-06-22', status: 'Entregue', coop: 'COOPASUL', value: 5400 },
-    { id: 6, school: 'EM Prof. Arassuay G. de Castro', date: '2026-06-22', status: 'Entregue', coop: 'COOPERVIDA', value: 7600 },
-    { id: 7, school: 'EM Padre Tomaz Ghirardelli', date: '2026-06-21', status: 'Entregue', coop: 'COOPRAN', value: 4900 },
-    { id: 8, school: 'EM Arlindo Lima', date: '2026-06-20', status: 'Entregue', coop: 'COOPAERGS', value: 8200 },
+    { id: 1, school: 'EMTI PROFª IRACEMA MARIA VICENTE', date: '2026-06-24', status: 'Pendente', coop: 'COOPAGRAN', value: 8500 },
+    { id: 2, school: 'EMEI ELEODES ESTEVAN', date: '2026-06-24', status: 'Pendente', coop: 'COOPRAN', value: 7200 },
+    { id: 3, school: 'EM ADV. DEMOSTHENES MARTINS', date: '2026-06-23', status: 'Em separação', coop: 'COOPAERGS', value: 9100 },
+    { id: 4, school: 'EM PROF. ANTÔNIO LOPES LINS', date: '2026-06-23', status: 'Em transporte', coop: 'COOPAGRAN', value: 6800 },
+    { id: 5, school: 'EMEI CLOTILDE CHAIA', date: '2026-06-22', status: 'Entregue', coop: 'COOPASUL', value: 5400 },
+    { id: 6, school: 'EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA', date: '2026-06-22', status: 'Entregue', coop: 'COOPERVIDA', value: 7600 },
+    { id: 7, school: 'EM PROF. ANTÔNIO LOPES LINS', date: '2026-06-21', status: 'Entregue', coop: 'COOPRAN', value: 4900 },
+    { id: 8, school: 'EM ADV. DEMOSTHENES MARTINS', date: '2026-06-20', status: 'Entregue', coop: 'COOPAERGS', value: 8200 },
   ],
   // Itens de cada ata. globalValue = maxQtd × unitPrice (quantidade registrada).
   // executedValue = quanto já foi empenhado/consumido do item.
@@ -347,7 +347,7 @@ const DATA = {
     { id: 8, productId: 15, number: 'L-ACU-2606', entryDate: '2026-06-24', expirationDate: '2028-06-24', qtd: 2106 },
   ],
   separation_orders: [
-    { id: 1, pedidoId: 301, school: 'EM Arlindo Lima', items: [{ productId: 1, requested: 120, lotSugg: 'L-ARR-092', scanned: 0 }], status: 'Pendente' }
+    { id: 1, pedidoId: 301, school: 'EM ADV. DEMOSTHENES MARTINS', items: [{ productId: 1, requested: 120, lotSugg: 'L-ARR-092', scanned: 0 }], status: 'Pendente' }
   ],
   // ============================================================
   // EMPENHOS — nota de empenho (NE) do exercício 2026
@@ -436,7 +436,7 @@ const PROFILES = {
   },
   escola: {
     name: 'Maria Santos',
-    role: 'EM Arlindo Lima',
+    role: 'EM ADV. DEMOSTHENES MARTINS',
     initials: 'MS',
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard', badge: null },
@@ -1246,9 +1246,9 @@ function renderHeader() {
 // ============================
 function renderNotifications() {
   const notifs = [
-    { icon: '🔴', title: 'Estoque Crítico', desc: 'EM Hércules Maymone com estoque abaixo de 15%', time: '5 min', unread: true },
-    { icon: '🔴', title: 'Entrega Atrasada', desc: 'Pedido #003 da EM Elízio Ramirez Vieira', time: '1h', unread: true },
-    { icon: '🟡', title: 'Novo Pedido', desc: 'EM Nerone Maiolino solicitou abastecimento', time: '2h', unread: true },
+    { icon: '🔴', title: 'Estoque Crítico', desc: 'EMTI PROFª IRACEMA MARIA VICENTE com estoque abaixo de 15%', time: '5 min', unread: true },
+    { icon: '🔴', title: 'Entrega Atrasada', desc: 'Pedido #003 da EM ADV. DEMOSTHENES MARTINS', time: '1h', unread: true },
+    { icon: '🟡', title: 'Novo Pedido', desc: 'EMEI ELEODES ESTEVAN solicitou abastecimento', time: '2h', unread: true },
     { icon: '🟢', title: 'Entrega Concluída', desc: 'COOPASUL entregou na EM Licurgo', time: '4h', unread: false },
     { icon: '🤖', title: 'Alerta IA', desc: 'Banana Nanica com previsão de escassez em 5 dias', time: '6h', unread: true },
     { icon: '📊', title: 'Relatório Disponível', desc: 'Relatório mensal de consumo gerado', time: '1d', unread: false },
@@ -1476,9 +1476,9 @@ PAGE_RENDERERS.gestor_dashboard = (el) => {
                 <span class="alert-time">${new Date(i.criadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
               </div>
             `).join('')}
-            <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EM Hércules Maymone</strong> — Estoque em 15%, risco de desabastecimento</div><span class="alert-time">5min</span></div>
+            <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EMTI PROFª IRACEMA MARIA VICENTE</strong> — Estoque em 15%, risco de desabastecimento</div><span class="alert-time">5min</span></div>
             <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EM Elízio Ramirez</strong> — Estoque em 8%, situação crítica</div><span class="alert-time">1h</span></div>
-            <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EM Nerone Maiolino</strong> — Estoque em 12%, aguardando entrega</div><span class="alert-time">2h</span></div>
+            <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EMEI ELEODES ESTEVAN</strong> — Estoque em 12%, aguardando entrega</div><span class="alert-time">2h</span></div>
             <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>Alface Crespa</strong> — Estoque municipal para apenas 2 dias</div><span class="alert-time">3h</span></div>
             <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>Banana Nanica</strong> — Estoque municipal para apenas 3 dias</div><span class="alert-time">4h</span></div>
             <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>ATA-2025/018</strong> — Saldo restante de apenas 10%</div><span class="alert-time">6h</span></div>
@@ -4035,8 +4035,6 @@ PAGE_RENDERERS.nutricionista_produtos = (el) => {
   renderTable();
 };
 
-
-
 PAGE_RENDERERS.nutricionista_cardapios = (el) => {
   const readOnly = state.currentProfile === 'escola';
   const sharedMenus = SharedState.getMenus();
@@ -4064,6 +4062,7 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
         <td style="font-size:0.82rem">${c.autor || '—'}</td>
         <td>
           <div style="display:flex;gap:4px">
+            <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(c.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
             <button class="table-action" onclick="editarCardapio('${c.id || i}')">✏️ Editar</button>
             ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${c.id || i}')">🗑️ Excluir</button>` : ''}
           </div>
@@ -4125,6 +4124,7 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
               <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${w.kcalMedia || '—'} kcal/dia</td>
               <td>
                 <div style="display:flex;gap:4px">
+                  <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(w.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
                   <button class="table-action" onclick="editarCardapio('${idx}')">✏️ Editar</button>
                   ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${idx}')">🗑️ Excluir</button>` : ''}
                 </div>
@@ -4501,6 +4501,13 @@ window.abrirModalGeradorIA = () => {
     <div style="padding:10px 0">
       ${dateBadgeHtml}
       ${restricoesAlertHtml}
+      
+      ${!escopoRede && selectedSchoolNames.length > 0 ? `
+        <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px; padding:10px 12px; margin-bottom:14px; font-size:0.85rem; color:#0369a1;">
+          🎯 <strong>Escolas Pré-Selecionadas (${selectedSchoolNames.length}):</strong> ${selectedSchoolNames.join(', ')}
+        </div>
+      ` : ''}
+
       <div style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px">
         A Inteligência Artificial irá compor automaticamente as refeições PNAE da semana respeitando o escopo de <strong>${escopoLabelInfo}</strong>, priorizando Agricultura Familiar, combate ao desperdício (FEFO) e per capita técnico.
       </div>
@@ -4508,7 +4515,10 @@ window.abrirModalGeradorIA = () => {
       <div class="form-group" style="margin-bottom:14px">
         <label style="font-weight:600;display:block;margin-bottom:6px">Escopo & Modalidade Escolar Alvo (Pré-Selecionada)</label>
         <select id="ia-modalidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px">
-          <option value="piloto_completo" ${preSelectedModality === 'piloto_completo' ? 'selected' : ''}>🏫 Escolas Piloto SUALE 2026 (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Atendidos)</option>
+          ${!escopoRede && selectedSchoolNames.length > 0 ? `
+            <option value="escolas_selecionadas" selected>🎯 Escolas Selecionadas no Planejador (${selectedSchoolNames.length} Escolas)</option>
+          ` : ''}
+          <option value="piloto_completo" ${escopoRede && preSelectedModality === 'piloto_completo' ? 'selected' : ''}>🏫 Escolas Piloto SUALE 2026 (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Atendidos)</option>
           <option value="fundamental_integral" ${preSelectedModality === 'fundamental_integral' ? 'selected' : ''}>Ensino Fundamental Integral (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
           <option value="fundamental_parcial" ${preSelectedModality === 'fundamental_parcial' ? 'selected' : ''}>Ensino Fundamental Parcial (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
           <option value="creche" ${preSelectedModality === 'creche' ? 'selected' : ''}>Creche / EMEIs Piloto (${Math.round(totalAlunosPiloto * 0.22).toLocaleString('pt-BR')} Alunos)</option>
@@ -4561,22 +4571,30 @@ window.executarGeracaoCardapioIA = (evt) => {
     const startDate = document.getElementById('planner-start-date')?.value || '';
     const endDate = document.getElementById('planner-end-date')?.value || '';
 
-    const totalAlunosPiloto = (DATA.schools && DATA.schools.length > 0) 
-      ? DATA.schools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
+    // Ler escolas vinculadas especificamente selecionadas no planejador
+    const escopoRede = document.getElementById('planner-escopo-rede')?.checked !== false;
+    const selectedSchoolNames = escopoRede 
+      ? (DATA.schools || []).map(s => s.name)
+      : Array.from(document.querySelectorAll('.planner-escola-chk:checked')).map(c => c.value);
+
+    const targetSchools = (DATA.schools || []).filter(s => escopoRede || selectedSchoolNames.includes(s.name));
+
+    const totalAlunosTarget = targetSchools.length > 0 
+      ? targetSchools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
       : 10380;
 
-    let numAlunos = totalAlunosPiloto;
+    let numAlunos = totalAlunosTarget;
     if (modalidade === 'rede_total') {
       numAlunos = 32000;
     } else if (modalidade === 'creche') {
-      numAlunos = Math.round(totalAlunosPiloto * 0.22);
+      numAlunos = Math.round(totalAlunosTarget * 0.22);
     }
 
     if (!window.AICardapioEngine) {
       return alert('Motor de IA não carregado.');
     }
 
-    // 1. Executa o algoritmo da IA repassando as datas do planejador
+    // 1. Executa o algoritmo da IA repassando as datas e escolas do planejador
     const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
       modalidade,
       metaKcal,
@@ -4592,13 +4610,17 @@ window.executarGeracaoCardapioIA = (evt) => {
       return alert('Falha ao gerar cardápio com a IA.');
     }
 
+    // Anexa as escolas especificamente vinculadas a este cardápio
+    resultadoIA.escolasVinculadas = selectedSchoolNames.length > 0 ? selectedSchoolNames : (DATA.schools||[]).map(s=>s.name);
+    resultadoIA.targetSchools = targetSchools;
+
     window.currentActiveIAMenu = resultadoIA;
     window.tempIAMenuPreview = resultadoIA;
 
     // 2. Fecha o modal de configuração
     window.closeModal();
 
-    // 3. Preenche os blocos e selects da página principal imediatamente
+    // 3. Preenche os blocos e selects da página principal (Desjejum, Almoço e Lanche)
     if (typeof window.generatePlannerDays === 'function') {
       window.generatePlannerDays();
     }
@@ -4610,6 +4632,13 @@ window.executarGeracaoCardapioIA = (evt) => {
         const refeicao = resultadoIA.refeicoes[idx % resultadoIA.refeicoes.length];
         if (!refeicao) return;
 
+        // Preenche Café / Desjejum
+        const selectBkf = block.querySelector('select[id^="planner-bkf-"]');
+        if (selectBkf && selectBkf.options.length > 1) {
+          selectBkf.selectedIndex = (idx % (selectBkf.options.length - 1)) + 1;
+        }
+
+        // Preenche Almoço
         const selectAlmoco = block.querySelector('select[id^="planner-lun-"]');
         if (selectAlmoco) {
           let found = false;
@@ -4624,6 +4653,12 @@ window.executarGeracaoCardapioIA = (evt) => {
             selectAlmoco.selectedIndex = (idx % (selectAlmoco.options.length - 1)) + 1;
           }
         }
+
+        // Preenche Lanche
+        const selectSnk = block.querySelector('select[id^="planner-snk-"]');
+        if (selectSnk && selectSnk.options.length > 1) {
+          selectSnk.selectedIndex = ((idx + 1) % (selectSnk.options.length - 1)) + 1;
+        }
       });
 
       if (typeof window.renderAISummaryCard === 'function') {
@@ -4634,26 +4669,26 @@ window.executarGeracaoCardapioIA = (evt) => {
       }
     }
 
-    // 4. Grava no SharedState (Planejamento Alimentar & Cardápios da Escola)
+    // 4. Grava no SharedState
     if (window.SharedState) {
-      const d1 = new Date().toLocaleDateString('pt-BR');
-      const d2 = new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
+      const d1 = startDate ? startDate.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR');
+      const d2 = endDate ? endDate.split('-').reverse().join('/') : new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
       SharedState.addMenu({
-        nome: `Cardápio IA — ${resultadoIA.params?.modalidade || 'PNAE'}`,
+        nome: `Cardápio IA — ${selectedSchoolNames.length} Escola(s)`,
         periodo: `${d1} a ${d2}`,
-        escolas: (DATA.schools||[]).length,
-        escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
+        escolas: selectedSchoolNames.length,
+        escolasVinculadas: selectedSchoolNames,
         status: 'Publicado',
         tipo: 'Semanal',
         autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
       });
       SharedState.addWeeklyMenu({
-        nome: `Cardápio Semanal IA PNAE (${numAlunos.toLocaleString('pt-BR')} Alunos)`,
+        nome: `Cardápio Semanal IA PNAE (${selectedSchoolNames.length} Escolas)`,
         periodo: `${d1} a ${d2}`,
         semana: `${d1} a ${d2}`,
-        escola: 'Toda a Rede Piloto',
-        escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
-        refeicoes: (resultadoIA.refeicoes||[]).map(r => ({ dia: r.dia, tipo: 'Almoço', item: `${r.nomePrato} (${r.kcal} kcal)`, kcal: r.kcal })),
+        escola: `${selectedSchoolNames.length} escola(s) vinculada(s)`,
+        escolasVinculadas: selectedSchoolNames,
+        refeicoes: (resultadoIA.refeicoes||[]).map(r => ({ dia: r.dia, desjejum: 'Pão c/ Manteiga e Leite', almoco: r.nomePrato, lanche: r.fruta, kcal: r.kcal })),
         kcalMedia: resultadoIA.metricasSemanais?.mediaKcal || 700,
         autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
       });
@@ -4670,6 +4705,7 @@ window.executarGeracaoCardapioIA = (evt) => {
 window.abrirModalPreviewIA = (resultadoIA) => {
   if (!resultadoIA) return;
   const m = resultadoIA.metricasSemanais;
+  const escVinculadas = resultadoIA.escolasVinculadas || [];
 
   const content = `
     <div style="padding:4px 0; font-family:sans-serif; color:#1e293b;">
@@ -4677,7 +4713,7 @@ window.abrirModalPreviewIA = (resultadoIA) => {
         <div>
           <div style="font-weight:800; color:#0369a1; font-size:1.05rem;">🤖 CARDÁPIO SEMANAL SUGERIDO PELA IA (PRÉ-VISUALIZAÇÃO PNAE)</div>
           <div style="font-size:0.85rem; color:#0c4a6e; margin-top:2px;">
-            Nutricionista: <strong>Dra. Lilian Droppa (CRN 12345/MS)</strong> · População: <strong>${m.numAlunos.toLocaleString('pt-BR')} Alunos Piloto</strong>
+            Nutricionista: <strong>Dra. Lilian Droppa (CRN 12345/MS)</strong> · Escopo: <strong>${escVinculadas.length} Escola(s) Selecionada(s) (${m.numAlunos.toLocaleString('pt-BR')} Alunos)</strong>
           </div>
         </div>
         <span class="status-badge" style="background:#fef3c7; color:#92400e; font-weight:700; font-size:0.85rem; padding:6px 12px;">
@@ -4705,20 +4741,29 @@ window.abrirModalPreviewIA = (resultadoIA) => {
         </div>
       </div>
 
-      <!-- CARDS DE REFEICAO DA SEMANA -->
+      <!-- CARDS DE REFEICAO DA SEMANA (3 REFEICOES POR DIA) -->
       <div style="margin-bottom:16px;">
-        <h4 style="margin-bottom:10px; color:#0f172a; font-size:0.95rem;">📅 Refeições Diárias Sugeridas (Segunda a Sexta)</h4>
-        <div style="display:flex; flex-direction:column; gap:8px;">
+        <h4 style="margin-bottom:10px; color:#0f172a; font-size:0.95rem;">📅 Refeições Diárias Sugeridas (Desjejum, Almoço e Lanche)</h4>
+        <div style="display:flex; flex-direction:column; gap:10px;">
           ${resultadoIA.refeicoes.map(r => `
-            <div style="background:#ffffff; border:1px solid #e2e8f0; border-left:4px solid #0284c7; border-radius:8px; padding:10px 14px;">
-              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                <strong style="color:#0369a1; font-size:0.9rem;">${r.dia}</strong>
-                <span class="status-badge status-ok" style="font-size:0.75rem;">${r.kcal} kcal · ${r.categoria}</span>
+            <div style="background:#ffffff; border:1px solid #cbd5e1; border-left:5px solid #0284c7; border-radius:8px; padding:12px 14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:8px;">
+                <strong style="color:#0369a1; font-size:0.95rem;">${r.dia}</strong>
+                <span class="status-badge status-ok" style="font-size:0.75rem;">${r.kcal} kcal totais · Múltiplas Refeições</span>
               </div>
-              <div style="font-weight:700; font-size:0.9rem; margin:4px 0; color:#1e293b;">${r.nomePrato}</div>
-              <div style="font-size:0.8rem; color:#475569;">
-                🍎 <strong>Fruta:</strong> ${r.fruta}
-                ${r.fefoBadge ? `<span style="color:#d97706; font-weight:700; margin-left:8px;">· ${r.fefoBadge}</span>` : ''}
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; font-size:0.85rem;">
+                <div style="background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0;">
+                  <div style="font-size:0.75rem; color:#64748b; font-weight:700;">☕ CAFÉ / DESJEJUM</div>
+                  <div style="font-weight:600; color:#334155; margin-top:2px;">Pão c/ Manteiga e Leite UHT</div>
+                </div>
+                <div style="background:#f0f9ff; padding:8px; border-radius:6px; border:1px solid #bae6fd;">
+                  <div style="font-size:0.75rem; color:#0369a1; font-weight:700;">🍲 ALMOÇO PRINCIPAL</div>
+                  <div style="font-weight:700; color:#0f172a; margin-top:2px;">${r.nomePrato}</div>
+                </div>
+                <div style="background:#fdf4ff; padding:8px; border-radius:6px; border:1px solid #f5d0fe;">
+                  <div style="font-size:0.75rem; color:#86198f; font-weight:700;">🍎 LANCHE DA TARDE</div>
+                  <div style="font-weight:600; color:#701a75; margin-top:2px;">${r.fruta} ${r.fefoBadge ? `· ${r.fefoBadge}` : ''}</div>
+                </div>
               </div>
             </div>
           `).join('')}
@@ -4728,7 +4773,7 @@ window.abrirModalPreviewIA = (resultadoIA) => {
       <!-- TABELA EXPANSIVEL PER CAPITA E DEMANDA REDE -->
       <details style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:18px;">
         <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; color:#0f172a;">
-          📊 Ver Tabela de Per Capita (g/aluno) e Demanda Total Semanal (${m.numAlunos.toLocaleString('pt-BR')} Alunos)
+          📊 Ver Tabela de Per Capita (g/aluno) e Demanda Total Semanal da Seleção (${m.numAlunos.toLocaleString('pt-BR')} Alunos)
         </summary>
         <div style="margin-top:10px; overflow-x:auto;">
           <table class="data-table" style="font-size:0.82rem; width:100%;">
@@ -4736,7 +4781,7 @@ window.abrirModalPreviewIA = (resultadoIA) => {
               <tr>
                 <th>Ingrediente</th>
                 <th>Per Capita (por Aluno)</th>
-                <th>Demanda Total da Semana (Rede)</th>
+                <th>Demanda Total da Semana (Seleção)</th>
               </tr>
             </thead>
             <tbody>
@@ -4752,19 +4797,18 @@ window.abrirModalPreviewIA = (resultadoIA) => {
         </div>
       </details>
 
-      <!-- BOTOES DE ACAO NO RODAPE -->
-      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
-        <button class="btn btn-outline" onclick="window.abrirModalGeradorIA()">🔄 Gerar Outra Opção com IA</button>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-outline" style="border-color:#16a34a; color:#15803d; font-weight:600;" onclick="window.gerarOrdensDeServicoPorEscola(window.tempIAMenuPreview)">🚚 Gerar Ordens de Serviço por Escola</button>
-          <button class="btn btn-outline" style="border-color:#0284c7; color:#0369a1; font-weight:600;" onclick="window.aplicarIAMenuAoPlanejador(window.tempIAMenuPreview, false)">✏️ Carregar no Planejador para Ajustar</button>
-          <button class="btn btn-success" style="font-weight:700;" onclick="window.aplicarIAMenuAoPlanejador(window.tempIAMenuPreview, true)">✅ Aprovar & Aplicar Cardápio (Dra. Lilian Droppa)</button>
-        </div>
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn btn-outline" onclick="closeModal()">Continuar Editando no Planejador</button>
+        <button class="btn btn-primary" onclick="window.aprovarCardapioAposPreview()">✅ Aprovar e Registrar Cardápio</button>
       </div>
     </div>
   `;
 
-  window.showModal('🤖 Pré-visualização do Cardápio Sugerido pela IA', content, '950px');
+  window.showModal('🤖 Cardápio Sugerido pela IA (Pré-Visualização PNAE)', content, '900px');
+};
+
+window.aprovarCardapioAposPreview = () => {
+  window.aplicarIAMenuAoPlanejador(window.tempIAMenuPreview, true);
 };
 
 window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
@@ -4856,15 +4900,18 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
     return alert('Nenhum cardápio ativo para fracionamento de Ordem de Serviço.');
   }
 
-  const schools = (DATA.schools && DATA.schools.length > 0) ? DATA.schools : [
-    { id: 1, name: 'EM ADV. DEMOSTHENES MARTINS', region: 'Segredo', students: 454 },
-    { id: 2, name: 'EM PROF. ANTÔNIO LOPES LINS', region: 'Lagoa', students: 1698 },
-    { id: 3, name: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', region: 'Rural', students: 436 },
-    { id: 4, name: 'EMTI PROFª IRACEMA MARIA VICENTE', region: 'Bandeira', students: 539 },
-  ];
+  const allSchools = (DATA.schools && DATA.schools.length > 0) ? DATA.schools : [];
+  const escVinculadas = menuObj.escolasVinculadas || [];
+  
+  // Filtra estritamente as escolas vinculadas a este cardápio
+  const targetSchools = escVinculadas.length > 0
+    ? allSchools.filter(s => escVinculadas.includes(s.name))
+    : allSchools;
+
+  const schoolsToUse = targetSchools.length > 0 ? targetSchools : allSchools;
 
   // 1. Gera Ordens de Serviço por escola aplicando a regra de embalagens inteiras não-fracionadas
-  const ordensPorEscola = schools.map(sc => {
+  const ordensPorEscola = schoolsToUse.map(sc => {
     const demandaInsumos = window.AICardapioEngine.calcularDemandaPorEscola(menuObj, sc);
     
     // Registra pedido e entrega no SharedState para a escola
@@ -4902,7 +4949,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
         perCapita: i.perCapitaGramos || 100,
         totalKg: Math.round(((i.perCapitaGramos || 100) * totalAlunos * 5) / 1000),
         prazoColheita: 'Até 03/08/2026',
-        destinos: 'Entreposto Central SEMED / Escolas Piloto'
+        destinos: `${ordensPorEscola.length} escola(s) vinculada(s)`
       }))
     },
     {
@@ -4916,7 +4963,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
         perCapita: i.perCapitaGramos || 100,
         totalKg: Math.round(((i.perCapitaGramos || 100) * totalAlunos * 5) / 1000),
         prazoColheita: 'Até 03/08/2026',
-        destinos: 'Entreposto Central SEMED / Escolas Piloto'
+        destinos: `${ordensPorEscola.length} escola(s) vinculada(s)`
       }))
     }
   ];
@@ -4944,10 +4991,13 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
         <div>
           <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📋 ORDENS DE SERVIÇO & ROMANEIOS (ESCOLA & AGRICULTURA FAMILIAR)</div>
           <div style="font-size:0.85rem; color:#166534; margin-top:2px;">
-            Separação técnica de abastecimento por Escola (embalagens inteiras) e Ordens de Colheita por Cooperativa/Agricultor.
+            Separação técnica por Escola (embalagens inteiras) e Ordens de Colheita por Cooperativa · Escopo: <strong>${ordensPorEscola.length} Escola(s) Vinculada(s)</strong>
           </div>
         </div>
-        <span class="status-badge status-ok" style="font-size:0.85rem; padding:6px 12px;">🟢 EMISSÃO CONCLUÍDA</span>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn btn-success btn-sm" onclick="window.abrirModalDisparoManualOS()">🚀 Disparar Ordens de Serviço (Seleção Manual)</button>
+          <span class="status-badge status-ok" style="font-size:0.85rem; padding:6px 12px;">🟢 EMISSÃO CONCLUÍDA</span>
+        </div>
       </div>
 
       <!-- SELEÇÃO DE VISÃO / ABAS -->
@@ -4961,7 +5011,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
         <div style="margin-bottom:14px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
           <strong style="font-size:0.88rem; color:#334155;">Filtrar por Escola:</strong>
           <select id="os-school-filter" class="btn btn-outline" style="padding:6px 12px; font-weight:600; text-align:left;" onchange="window.filtrarOSEscola(this.value)">
-            <option value="TODAS">Ver Todas as Escolas (${ordensPorEscola.length} unidades)</option>
+            <option value="TODAS">Ver Todas as Escolas Vinculadas (${ordensPorEscola.length} unidades)</option>
             ${ordensPorEscola.map(o => `<option value="${o.escola.id}">${o.escola.name} (${o.escola.students} alunos)</option>`).join('')}
           </select>
         </div>
@@ -5230,6 +5280,203 @@ window.filtrarOSEscola = (escolaId) => {
       b.style.display = 'none';
     }
   });
+};
+
+window.abrirModalDisparoManualOS = () => {
+  const menu = window.currentActiveIAMenu || window.tempIAMenuPreview;
+  const escolasVinculadas = (menu && menu.escolasVinculadas && menu.escolasVinculadas.length > 0)
+    ? menu.escolasVinculadas
+    : (DATA.schools || []).map(s => s.name);
+
+  const coops = [
+    { id: 'c1', name: 'COOPAGRAN (Cooperativa Indubrasil)', contato: '(67) 99888-3030' },
+    { id: 'c2', name: 'COOPRAN (Produtores Terenos)', contato: '(67) 99888-4040' },
+    { id: 'c3', name: 'COOPAERGS (Assoc. Agricultura Familiar)', contato: '(67) 99777-5050' }
+  ];
+
+  const content = `
+    <div style="padding:4px 0; font-family:sans-serif; color:#1e293b;">
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:16px;">
+        <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📱 Central de Disparo Manual de Ordens de Serviço & Colheita</div>
+        <div style="font-size:0.85rem; color:#166534; margin-top:2px;">
+          Selecione com os marcadores (clickpoints) quais unidades escolares e fornecedores receberão as notificações e guias de expedição neste disparo.
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+        <!-- ESCOLAS -->
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px;">
+            <strong style="font-size:0.9rem; color:#0369a1;">🏫 Escolas Destino (${escolasVinculadas.length})</strong>
+            <label style="font-size:0.78rem; cursor:pointer; color:#0284c7;">
+              <input type="checkbox" id="chk-toggle-all-escolas" checked onchange="document.querySelectorAll('.chk-disparo-escola').forEach(c=>c.checked=this.checked)">
+              <strong>Selecionar Todas</strong>
+            </label>
+          </div>
+          <div style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+            ${escolasVinculadas.map((eName, idx) => `
+              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; background:#fff; padding:6px 8px; border-radius:4px; border:1px solid #e2e8f0; cursor:pointer;">
+                <input type="checkbox" class="chk-disparo-escola" value="${eName.replace(/"/g,'&quot;')}" checked>
+                <span>${eName}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- FORNECEDORES -->
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #bbf7d0; padding-bottom:6px; margin-bottom:8px;">
+            <strong style="font-size:0.9rem; color:#14532d;">🌾 Fornecedores AF (${coops.length})</strong>
+            <label style="font-size:0.78rem; cursor:pointer; color:#15803d;">
+              <input type="checkbox" id="chk-toggle-all-coops" checked onchange="document.querySelectorAll('.chk-disparo-coop').forEach(c=>c.checked=this.checked)">
+              <strong>Selecionar Todos</strong>
+            </label>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            ${coops.map(c => `
+              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; background:#fff; padding:8px; border-radius:4px; border:1px solid #bbf7d0; cursor:pointer;">
+                <input type="checkbox" class="chk-disparo-coop" value="${c.name.replace(/"/g,'&quot;')}" checked>
+                <div>
+                  <strong>${c.name}</strong>
+                  <div style="font-size:0.75rem; color:#475569;">${c.contato}</div>
+                </div>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:12px;">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="window.confirmarDisparoManualOS()">🚀 Disparar Notificações Selecionadas</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📱 Central de Disparo Manual de Ordens de Serviço & Colheita', content, '800px');
+};
+
+window.confirmarDisparoManualOS = () => {
+  const escolasMarcadas = Array.from(document.querySelectorAll('.chk-disparo-escola:checked')).map(c => c.value);
+  const coopsMarcadas = Array.from(document.querySelectorAll('.chk-disparo-coop:checked')).map(c => c.value);
+
+  if (escolasMarcadas.length === 0 && coopsMarcadas.length === 0) {
+    return alert('Selecione ao menos uma escola ou fornecedor para efetuar o disparo.');
+  }
+
+  showToast(`✅ Disparo de Ordens de Serviço concluído! ${escolasMarcadas.length} Escola(s) e ${coopsMarcadas.length} Fornecedor(es) notificados com sucesso.`);
+  closeModal();
+};
+
+window.visualizarEImprimirCardapio = (menuName) => {
+  const menuList = SharedState.getWeeklyMenus ? SharedState.getWeeklyMenus() : [];
+  const menu = menuList.find(m => m.nome === menuName || m.semana === menuName) || {
+    nome: menuName || 'Cardápio Semanal PNAE',
+    periodo: '03/08/2026 a 07/08/2026',
+    refeicoes: [
+      { dia: 'Segunda-feira', desjejum: 'Pão c/ Manteiga e Leite UHT', almoco: 'Arroz com Feijão, Coxa de Frango Assada e Salada Colorida', lanche: 'Laranja fatiada (100g)' },
+      { dia: 'Terça-feira', desjejum: 'Mingau de Aveia', almoco: 'Arroz Integral, Feijão Preto, Carne Moída Ensopada e Salada de Cenoura', lanche: 'Melancia em cubos (120g)' },
+      { dia: 'Quarta-feira', desjejum: 'Leite c/ Cacau e Pão', almoco: 'Galinhada Caipira com Milho e Ervilha e Salada de Pepino', lanche: 'Banana prata (1 un)' },
+      { dia: 'Quinta-feira', desjejum: 'Vitamina de Mamão AF', almoco: 'Arroz, Feijão, Omelete Assado com Legumes e Salada de Repolho Roxo', lanche: 'Maçã nacional (1 un)' },
+      { dia: 'Sexta-feira', desjejum: 'Pão c/ Queijo e Leite', almoco: 'Macarronada de Carne Moída ao Molho Caseiro de Tomate e Beterraba', lanche: 'Mamão formosa fatiado (100g)' }
+    ]
+  };
+
+  const schools = DATA.schools || [];
+
+  const html = `
+    <div style="padding:10px 0; font-family:sans-serif; color:#0f172a;" id="print-menu-viewer">
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; padding:12px; border-radius:8px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <div style="font-weight:800; color:#0369a1; font-size:1.05rem;">🍱 VISUALIZAÇÃO DE CARDÁPIO PUBLICADO</div>
+          <div style="font-size:0.85rem; color:#0c4a6e;">${menu.nome} · Período: <strong>${menu.periodo || 'Semanal'}</strong></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong style="font-size:0.85rem;">Filtrar por Escola:</strong>
+          <select id="select-view-escola-menu" class="btn btn-outline" style="padding:6px 10px; font-size:0.85rem; text-align:left;" onchange="window.filtrarVisualizacaoMenuEscola(this.value)">
+            <option value="TODAS">🌐 Toda a Rede (Cardápio Geral)</option>
+            ${schools.map(s => `<option value="${s.name}">${s.name} (${s.region})</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div id="container-cardapio-escola-detalhes">
+        <table class="data-table" style="width:100%; font-size:0.88rem;">
+          <thead>
+            <tr style="background:#e0f2fe;">
+              <th>Dia da Semana</th>
+              <th>☕ Café da Manhã / Desjejum</th>
+              <th>🍲 Almoço Principal</th>
+              <th>🍎 Lanche da Tarde</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(menu.refeicoes || []).map(r => `
+              <tr>
+                <td><strong>${r.dia}</strong></td>
+                <td>${r.desjejum || 'Pão com Manteiga e Leite'}</td>
+                <td><strong>${r.almoco || r.item || r.nomePrato || 'Arroz, Feijão e Proteína'}</strong></td>
+                <td>${r.lanche || r.fruta || 'Fruta da Época AF'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="border-top:1px solid #cbd5e1; padding-top:14px; margin-top:20px; display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Cardápio (Escola Selecionada / Geral)</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal(`🍱 Visualização & Impressão — ${menu.nome}`, html, '900px');
+};
+
+window.filtrarVisualizacaoMenuEscola = (escolaName) => {
+  const container = document.getElementById('container-cardapio-escola-detalhes');
+  if (!container) return;
+
+  if (escolaName === 'TODAS') {
+    return window.visualizarEImprimirCardapio();
+  }
+
+  const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo' && (r.schoolName || '').toLowerCase() === escolaName.toLowerCase());
+  const alunosEspeciais = SharedState.getAlunosEspeciais ? SharedState.getAlunosEspeciais(escolaName) : [];
+
+  let alertaRestrHtml = '';
+  if (alunosEspeciais.length > 0 || activeRestricoes.length > 0) {
+    const totalRestr = alunosEspeciais.length || activeRestricoes.reduce((a,b)=>a+(b.quantidade||1), 0);
+    alertaRestrHtml = `
+      <div style="background:#fff7ed; border-left:4px solid #f97316; padding:10px 12px; border-radius:6px; margin-bottom:12px; font-size:0.85rem; color:#c2410c;">
+        🛡️ <strong>Adaptações Clínicas da Escola (${escolaName}):</strong> ${totalRestr} aluno(s) com restrição clínica cadastrada (Zero Lactose, Sem Glúten). Insumos especiais calculados na OS.
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    ${alertaRestrHtml}
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:0.88rem;">
+      Unidade Escolar: <strong>${escolaName}</strong> · Cardápio Personalizado com Dieta Adaptada PNAE
+    </div>
+    <table class="data-table" style="width:100%; font-size:0.88rem;">
+      <thead>
+        <tr style="background:#e0f2fe;">
+          <th>Dia da Semana</th>
+          <th>☕ Café da Manhã / Desjejum</th>
+          <th>🍲 Almoço Principal</th>
+          <th>🍎 Lanche da Tarde</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Segunda-feira</strong></td><td>Pão c/ Manteiga e Leite (Zero Lactose p/ alunos com laudo)</td><td><strong>Arroz com Feijão, Coxa de Frango Assada e Salada Colorida</strong></td><td>Laranja fatiada (100g) AF</td></tr>
+        <tr><td><strong>Terça-feira</strong></td><td>Mingau de Aveia (Sem Lactose)</td><td><strong>Arroz Integral, Feijão Preto, Carne Moída Ensopada e Salada de Cenoura</strong></td><td>Melancia em cubos (120g) AF</td></tr>
+        <tr><td><strong>Quarta-feira</strong></td><td>Leite c/ Cacau e Pão (Sem Glúten p/ celíacos)</td><td><strong>Galinhada Caipira com Milho e Ervilha e Salada de Pepino</strong></td><td>Banana prata (1 un) AF</td></tr>
+        <tr><td><strong>Quinta-feira</strong></td><td>Vitamina de Mamão AF</td><td><strong>Arroz, Feijão, Omelete Assado com Legumes e Salada de Repolho Roxo</strong></td><td>Maçã nacional (1 un)</td></tr>
+        <tr><td><strong>Sexta-feira</strong></td><td>Pão c/ Queijo e Leite</td><td><strong>Macarronada de Carne Moída ao Molho Caseiro de Tomate e Beterraba</strong></td><td>Mamão formosa fatiado (100g) AF</td></tr>
+      </tbody>
+    </table>
+  `;
 };
 
 window.dispararNotificacoesProdutores = () => {
@@ -6160,9 +6407,9 @@ PAGE_RENDERERS.nutricionista_desperdicios = (el) => {
               ${state.currentProfile === 'escola' ? 
                 `<input class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:not-allowed" id="waste-school" value="${window.PROFILES[state.currentProfile].role}" readonly>` :
                 `<select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="waste-school" required>
-                  <option value="EM Hércules M.">EM Hércules Maymone</option>
-                  <option value="EM Franklin R.">EM Franklin Roosevelt</option>
-                  <option value="EM Arlindo L.">EM Arlindo Lima</option>
+                  <option value="EMTI PROF. IRACEMA">EMTI PROFª IRACEMA MARIA VICENTE</option>
+                  <option value="EMRTI GOV. ARNALDO">EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO</option>
+                  <option value="EM ADV. DEMOSTHENES M.">EM ADV. DEMOSTHENES MARTINS</option>
                 </select>`
               }
             </div>
@@ -6199,7 +6446,7 @@ window.renderWasteChart = (data) => {
   createChart('chart-desperdicio', {
     type: 'bar',
     data: {
-      labels: ['EM Hércules M.', 'EM Franklin R.', 'EM Arlindo L.', 'EM Elpídio R.', 'EM José R.B.'],
+      labels: ['EMTI PROF. IRACEMA', 'EMRTI GOV. ARNALDO', 'EM ADV. DEMOSTHENES M.', 'EM PROF. ANTÔNIO L.', 'EM José R.B.'],
       datasets: [{ label: 'Desperdício (kg)', data: data, backgroundColor: CHART_COLORS.red, borderRadius: 4 }]
     },
     options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } } }
@@ -7838,15 +8085,15 @@ PAGE_RENDERERS.agricultor_dashboard = (el) => {
     <div class="grid-2-1">
       <div class="card"><div class="card-header"><div class="card-title">🚨 Alertas</div></div><div class="card-body">
         <div class="alert-list">
-          <div class="alert-item warning"><span class="alert-icon">🚚</span><div class="alert-text">Entrega para <strong>EM Arlindo Lima</strong> programada para <strong>amanhã</strong></div></div>
+          <div class="alert-item warning"><span class="alert-icon">🚚</span><div class="alert-text">Entrega para <strong>EM ADV. DEMOSTHENES MARTINS</strong> programada para <strong>amanhã</strong></div></div>
           <div class="alert-item info"><span class="alert-icon">📋</span><div class="alert-text">Novo pedido da <strong>COOPAGRAN</strong>: 200 kg de Mandioca</div></div>
           <div class="alert-item success"><span class="alert-icon">🌱</span><div class="alert-text"><strong>Abóbora</strong> — Colheita prevista em 5 dias</div></div>
         </div>
       </div></div>
       <div class="card"><div class="card-header"><div class="card-title">🚚 Próximas Entregas</div></div><div class="card-body">
         <table class="data-table"><thead><tr><th>Produto</th><th>Qtd</th><th>Data</th><th>Escola</th></tr></thead><tbody>
-          <tr><td>Mandioca</td><td>200 kg</td><td>25/06</td><td>EM Arlindo Lima</td></tr>
-          <tr><td>Banana</td><td>150 kg</td><td>27/06</td><td>EM Franklin R.</td></tr>
+          <tr><td>Mandioca</td><td>200 kg</td><td>25/06</td><td>EM ADV. DEMOSTHENES MARTINS</td></tr>
+          <tr><td>Banana</td><td>150 kg</td><td>27/06</td><td>EMRTI GOV. ARNALDO</td></tr>
         </tbody></table>
       </div></div>
     </div>
@@ -8600,7 +8847,7 @@ PAGE_RENDERERS.motorista_dashboard = (el) => {
           <div style="display:flex;gap:16px;align-items:center;position:relative;z-index:1">
             <div style="width:40px;height:40px;border-radius:50%;background:var(--success);color:white;display:flex;align-items:center;justify-content:center;font-weight:700">1</div>
             <div style="flex:1">
-              <div style="font-weight:700">EM Arlindo Lima</div>
+              <div style="font-weight:700">EM ADV. DEMOSTHENES MARTINS</div>
               <div style="font-size:0.8rem;color:var(--text-secondary)">Rua Pedro Celestino, 1234 — Centro</div>
             </div>
             <div><span class="status-badge status-ok">Entregue (08:32)</span></div>
@@ -8609,7 +8856,7 @@ PAGE_RENDERERS.motorista_dashboard = (el) => {
           <div style="display:flex;gap:16px;align-items:center;position:relative;z-index:1">
             <div style="width:40px;height:40px;border-radius:50%;background:var(--warning);color:white;display:flex;align-items:center;justify-content:center;font-weight:700">2</div>
             <div style="flex:1">
-              <div style="font-weight:700">EM Elpídio Reis</div>
+              <div style="font-weight:700">EM PROF. ANTÔNIO LOPES LINS</div>
               <div style="font-size:0.8rem;color:var(--text-secondary)">Rua Barão do Rio Branco, 456 — Centro</div>
             </div>
             <div><button class="btn btn-sm btn-primary" onclick="navigateTo(null, 'entregas')">Realizar Entrega</button></div>
@@ -8618,7 +8865,7 @@ PAGE_RENDERERS.motorista_dashboard = (el) => {
           <div style="display:flex;gap:16px;align-items:center;position:relative;z-index:1">
             <div style="width:40px;height:40px;border-radius:50%;background:var(--text-tertiary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700">3</div>
             <div style="flex:1">
-              <div style="font-weight:700">EM Hércules Maymone</div>
+              <div style="font-weight:700">EMTI PROFª IRACEMA MARIA VICENTE</div>
               <div style="font-size:0.8rem;color:var(--text-secondary)">Av. Eduardo Elias Zahran, 200 — Itanhangá</div>
             </div>
             <div><span class="status-badge status-danger">Aguardando</span></div>
@@ -8643,7 +8890,7 @@ PAGE_RENDERERS.motorista_entregas = (el) => {
   const alvo = window._selectedDeliveryOrderId
     ? emTransporteList.find(o => o.id === window._selectedDeliveryOrderId)
     : emTransporteList[0];
-  const alvoNome = alvo ? alvo.school : 'EM Elpídio Reis';
+  const alvoNome = alvo ? alvo.school : 'EM PROF. ANTÔNIO LOPES LINS';
   window._currentDeliveryOrderId = alvo ? alvo.id : null;
 
   el.innerHTML = `
@@ -8743,7 +8990,7 @@ window.simulateCamera = () => {
   const img = document.getElementById('delivery-camera-img');
   if (placeholder && img) {
     placeholder.style.display = 'none';
-    img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%23c5e1a5"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%2333691e">Carga Entregue - EM Elpidio Reis</text></svg>';
+    img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%23c5e1a5"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%2333691e">Carga Entregue - EM PROF. ANTÔNIO LOPES LINS</text></svg>';
     img.style.display = 'block';
   }
 };
@@ -8815,8 +9062,8 @@ PAGE_RENDERERS.motorista_ocorrencias = (el) => {
             <label>Escola Relacionada</label>
             <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="incident-school" required>
               <option value="">Selecione a escola...</option>
-              <option value="EM Elpídio Reis">EM Elpídio Reis</option>
-              <option value="EM Hércules Maymone">EM Hércules Maymone</option>
+              <option value="EM PROF. ANTÔNIO LOPES LINS">EM PROF. ANTÔNIO LOPES LINS</option>
+              <option value="EMTI PROFª IRACEMA MARIA VICENTE">EMTI PROFª IRACEMA MARIA VICENTE</option>
               <option value="Outra">Outro incidente (Trânsito / Veículo)</option>
             </select>
           </div>

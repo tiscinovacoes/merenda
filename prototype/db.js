@@ -43,26 +43,14 @@ async function _fetch(table, options = {}) {
 
 // Dados de frequência por escola (enriquecimento frontend enquanto RLS bloqueia escrita anon)
 const ATTENDANCE_DATA = {
-  'EM Arlindo Lima':                       { attendance_avg: 572, attendance_pct: 92, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 18500 },
-  'EM Elpidio Reis':                       { attendance_avg: 421, attendance_pct: 88, grade_levels: 'EF I', meals_per_day: 2, monthly_budget: 14200 },
-  'EM Franklin Roosevelt':                 { attendance_avg: 698, attendance_pct: 93, grade_levels: 'EF I + EF II', meals_per_day: 3, monthly_budget: 22500 },
-  'EM Hercules Maymone':                   { attendance_avg: 476, attendance_pct: 85, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 16800 },
-  'EM Jose Rodrigues Benfica':             { attendance_avg: 374, attendance_pct: 91, grade_levels: 'EF I', meals_per_day: 2, monthly_budget: 12300 },
-  'EM Kame Adania':                        { attendance_avg: 482, attendance_pct: 93, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 15600 },
-  'EM Licurgo de Oliveira Bastos':         { attendance_avg: 332, attendance_pct: 87, grade_levels: 'EF I', meals_per_day: 2, monthly_budget: 11400 },
-  'EM Professora Goncalina Faustina':      { attendance_avg: 641, attendance_pct: 93, grade_levels: 'EF I + EF II', meals_per_day: 3, monthly_budget: 20700 },
-  'EM Nerone Maiolino':                    { attendance_avg: 381, attendance_pct: 89, grade_levels: 'EF I', meals_per_day: 2, monthly_budget: 12900 },
-  'EM Plinio Mendes dos Santos':           { attendance_avg: 497, attendance_pct: 92, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 16200 },
-  'EM Padre Tomaz Ghirardelli':            { attendance_avg: 325, attendance_pct: 88, grade_levels: 'EF I', meals_per_day: 2, monthly_budget: 11100 },
-  'EM Rita Caceres Mendonca':              { attendance_avg: 463, attendance_pct: 91, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 15300 },
-  'EM Nagib Raslan':                       { attendance_avg: 421, attendance_pct: 92, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 13800 },
-  'EM Nazira Anache':                      { attendance_avg: 541, attendance_pct: 92, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 17700 },
-  'EM Professor Arassuay G. de Castro':    { attendance_avg: 563, attendance_pct: 88, grade_levels: 'EF I + EF II', meals_per_day: 3, monthly_budget: 19200 },
-  'EM Sulivan Silvestre Oliveira':         { attendance_avg: 323, attendance_pct: 92, grade_levels: 'EF I', meals_per_day: 2, monthly_budget: 10500 },
-  'EM Irma Edith Coelho Netto':            { attendance_avg: 441, attendance_pct: 92, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 14400 },
-  'EM Elizio Ramirez Vieira':              { attendance_avg: 461, attendance_pct: 87, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 15900 },
-  'EM Professora Arlene M. Almeida':       { attendance_avg: 431, attendance_pct: 92, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 14100 },
-  'EM Academico Antonio Delfino Pereira':  { attendance_avg: 553, attendance_pct: 92, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 18000 },
+  'EM ADV. DEMOSTHENES MARTINS': { attendance_avg: 413, attendance_pct: 91, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 12500 },
+  'EM PROF. ANTÔNIO LOPES LINS': { attendance_avg: 1494, attendance_pct: 88, grade_levels: 'EF I + EF II', meals_per_day: 2, monthly_budget: 45000 },
+  'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO': { attendance_avg: 410, attendance_pct: 94, grade_levels: 'EF I + EF II + EM', meals_per_day: 4, monthly_budget: 22000 },
+  'EMTI PROFª IRACEMA MARIA VICENTE': { attendance_avg: 463, attendance_pct: 86, grade_levels: 'EF I + EF II', meals_per_day: 4, monthly_budget: 28000 },
+  'EMEI CLEOMAR BAPTISTA DOS SANTOS': { attendance_avg: 115, attendance_pct: 90, grade_levels: 'Maternal + Pré-escola', meals_per_day: 4, monthly_budget: 8500 },
+  'EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA': { attendance_avg: 176, attendance_pct: 92, grade_levels: 'Maternal + Pré-escola', meals_per_day: 4, monthly_budget: 11000 },
+  'EMEI CLOTILDE CHAIA': { attendance_avg: 171, attendance_pct: 89, grade_levels: 'Maternal + Pré-escola', meals_per_day: 4, monthly_budget: 11200 },
+  'EMEI ELEODES ESTEVAN': { attendance_avg: 329, attendance_pct: 93, grade_levels: 'Maternal + Pré-escola', meals_per_day: 4, monthly_budget: 19500 },
 };
 
 // Mapeia snake_case do Supabase para camelCase do DATA mock

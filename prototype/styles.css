@@ -729,3 +729,64 @@ h1,h2,h3,h4,h5,h6 { line-height: 1.3; font-weight: 600; }
   box-sizing: border-box;
 }
 
+/* Print Styles — Guarantees complete document printing without scrollbars or cutoff */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .sidebar, .app-header, .page-header, .login-bg, .login-container {
+    display: none !important;
+  }
+
+  .modal {
+    position: static !important;
+    display: block !important;
+    background: transparent !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .modal-content {
+    max-height: none !important;
+    height: auto !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    overflow: visible !important;
+  }
+
+  .modal-header, .modal-footer, button.btn:not(.btn-keep-print), .modal-close {
+    display: none !important;
+  }
+
+  .modal-body {
+    max-height: none !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .data-table {
+    width: 100% !important;
+    overflow: visible !important;
+    page-break-inside: auto !important;
+  }
+
+  .data-table tr {
+    page-break-inside: avoid !important;
+    page-break-after: auto !important;
+  }
+
+  .os-school-block {
+    page-break-inside: avoid !important;
+    margin-bottom: 20px !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+}
+

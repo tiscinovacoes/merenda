@@ -19,26 +19,14 @@ ALTER TABLE public.schools ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_sel_schools" ON public.schools FOR SELECT USING (true);
 
 INSERT INTO public.schools (name, region, director, students, stock_status, last_delivery, stock_pct) VALUES
-('EM Arlindo Lima','Anhanduizinho','Maria Santos',620,'ok','2026-06-20',82),
-('EM Elpidio Reis','Bandeira','Joao Oliveira',480,'warning','2026-06-15',38),
-('EM Franklin Roosevelt','Centro','Ana Costa',750,'ok','2026-06-22',91),
-('EM Hercules Maymone','Imbirussu','Carlos Pereira',560,'danger','2026-06-08',15),
-('EM Jose Rodrigues Benfica','Lagoa','Fernanda Lima',410,'ok','2026-06-21',75),
-('EM Kame Adania','Prosa','Roberto Alves',520,'ok','2026-06-19',88),
-('EM Licurgo de Oliveira Bastos','Segredo','Patricia Souza',380,'warning','2026-06-12',42),
-('EM Professora Goncalina Faustina','Anhanduizinho','Marcos Silva',690,'ok','2026-06-23',95),
-('EM Nerone Maiolino','Bandeira','Luciana Ferreira',430,'danger','2026-06-05',12),
-('EM Plinio Mendes dos Santos','Centro','Adriana Rocha',540,'ok','2026-06-22',79),
-('EM Padre Tomaz Ghirardelli','Imbirussu','Luis Martins',370,'warning','2026-06-14',35),
-('EM Rita Caceres Mendonca','Lagoa','Silvia Campos',510,'ok','2026-06-20',72),
-('EM Nagib Raslan','Prosa','Eduardo Nunes',460,'ok','2026-06-21',85),
-('EM Nazira Anache','Segredo','Renata Vieira',590,'ok','2026-06-18',68),
-('EM Professor Arassuay G. de Castro','Anhanduizinho','Pedro Barbosa',640,'warning','2026-06-10',30),
-('EM Sulivan Silvestre Oliveira','Bandeira','Claudia Moraes',350,'ok','2026-06-22',90),
-('EM Irma Edith Coelho Netto','Centro','Fabio Cardoso',480,'ok','2026-06-23',87),
-('EM Elizio Ramirez Vieira','Imbirussu','Juliana Melo',530,'danger','2026-06-03',8),
-('EM Professora Arlene M. Almeida','Lagoa','Ricardo Pinto',470,'ok','2026-06-19',76),
-('EM Academico Antonio Delfino Pereira','Prosa','Beatriz Ramos',600,'ok','2026-06-21',83);
+('EM ADV. DEMOSTHENES MARTINS','Segredo','Profa. Maria Amélia Santos',454,'ok','2026-07-10',82),
+('EM PROF. ANTÔNIO LOPES LINS','Lagoa','Prof. João Carlos Oliveira',1698,'warning','2026-07-05',38),
+('EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO','Rural','Profa. Ana Cristina Pereira',436,'ok','2026-07-12',91),
+('EMTI PROFª IRACEMA MARIA VICENTE','Bandeira','Prof. Antônio Carlos Mendes',539,'danger','2026-06-28',15),
+('EMEI CLEOMAR BAPTISTA DOS SANTOS','Anhanduizinho','Profa. Fernanda Lima Souza',128,'ok','2026-07-11',75),
+('EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA','Prosa','Profa. Sandra Ishida Martins',191,'ok','2026-07-09',88),
+('EMEI CLOTILDE CHAIA','Imbirussu','Profa. Patrícia da Silva Chaia',192,'warning','2026-07-02',42),
+('EMEI ELEODES ESTEVAN','Centro','Prof. Roberto Estevan Filho',354,'ok','2026-07-14',95);
 
 -- ── products ─────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.products (
@@ -159,14 +147,14 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "anon_sel_orders" ON public.orders FOR SELECT USING (true);
 
 INSERT INTO public.orders (school, date, status, cooperative, value) VALUES
-('EM Hercules Maymone','2026-06-24','Pendente','COOPAGRAN',8500),
-('EM Nerone Maiolino','2026-06-24','Pendente','COOPRAN',7200),
-('EM Elizio Ramirez Vieira','2026-06-23','Em separacao','COOPAERGS',9100),
-('EM Elpidio Reis','2026-06-23','Em transporte','COOPAGRAN',6800),
-('EM Licurgo de Oliveira Bastos','2026-06-22','Entregue','COOPASUL',5400),
-('EM Prof. Arassuay G. de Castro','2026-06-22','Entregue','COOPERVIDA',7600),
-('EM Padre Tomaz Ghirardelli','2026-06-21','Entregue','COOPRAN',4900),
-('EM Arlindo Lima','2026-06-20','Entregue','COOPAERGS',8200);
+('EMTI PROFª IRACEMA MARIA VICENTE','2026-06-24','Pendente','COOPAGRAN',8500),
+('EMEI CLOTILDE CHAIA','2026-06-24','Pendente','COOPRAN',7200),
+('EMEI CLEOMAR BAPTISTA DOS SANTOS','2026-06-23','Em separacao','COOPAERGS',9100),
+('EM PROF. ANTÔNIO LOPES LINS','2026-06-23','Em transporte','COOPAGRAN',6800),
+('EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO','2026-06-22','Entregue','COOPASUL',5400),
+('EMEI ELEODES ESTEVAN','2026-06-22','Entregue','COOPERVIDA',7600),
+('EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA','2026-06-21','Entregue','COOPRAN',4900),
+('EM ADV. DEMOSTHENES MARTINS','2026-06-20','Entregue','COOPAERGS',8200);
 
 -- ── fichas_tecnicas ──────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.fichas_tecnicas (
