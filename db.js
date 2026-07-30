@@ -151,7 +151,17 @@ window.DB = {
       const { data, error } = await _sb2.from('schools').select('*').order('name');
       if (error || !data || data.length === 0) throw new Error('empty');
       console.log(`[DB] ${data.length} escolas carregadas do Supabase`);
-      return data.map(mapSchool);
+      const validNames = [
+        'EM ADV. DEMOSTHENES MARTINS',
+        'EM PROF. ANTÔNIO LOPES LINS',
+        'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO',
+        'EMTI PROFª IRACEMA MARIA VICENTE',
+        'EMEI CLEOMAR BAPTISTA DOS SANTOS',
+        'EMEI PROFª EMY ISHIDA NASCIMENTO NOGUEIRA',
+        'EMEI CLOTILDE CHAIA',
+        'EMEI ELEODES ESTEVAN'
+      ];
+      return data.map(mapSchool).filter(s => validNames.includes(s.name));
     } catch {
       console.warn('[DB] Escolas: usando mock local');
       return null;

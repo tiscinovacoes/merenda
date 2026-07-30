@@ -4450,9 +4450,11 @@ window.showMenuPlanner = (preselectRecipeId) => {
 };
 
 window.abrirModalGeradorIA = () => {
-  const totalAlunosPiloto = (DATA.schools && DATA.schools.length > 0) 
-    ? DATA.schools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
-    : 10380;
+  const _allSchools = (DATA.schools || []);
+  const totalAlunosPiloto = _allSchools.length > 0 ? _allSchools.reduce((acc, sc) => acc + (sc.students || 0), 0) : 3992;
+  const alunosIntegral = _allSchools.filter(s => s.refeicoesDia === 4 && !s.name.includes('EMEI')).reduce((acc, sc) => acc + (sc.students || 0), 0) || 975;
+  const alunosParcial = _allSchools.filter(s => s.refeicoesDia === 2).reduce((acc, sc) => acc + (sc.students || 0), 0) || 2152;
+  const alunosCreche = _allSchools.filter(s => s.name.includes('EMEI')).reduce((acc, sc) => acc + (sc.students || 0), 0) || 865;
 
   const startDateInput = document.getElementById('planner-start-date')?.value || '';
   const endDateInput = document.getElementById('planner-end-date')?.value || '';
@@ -4519,9 +4521,9 @@ window.abrirModalGeradorIA = () => {
             <option value="escolas_selecionadas" selected>🎯 Escolas Selecionadas no Planejador (${selectedSchoolNames.length} Escolas)</option>
           ` : ''}
           <option value="piloto_completo" ${escopoRede && preSelectedModality === 'piloto_completo' ? 'selected' : ''}>🏫 Escolas Piloto SUALE 2026 (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Atendidos)</option>
-          <option value="fundamental_integral" ${preSelectedModality === 'fundamental_integral' ? 'selected' : ''}>Ensino Fundamental Integral (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
-          <option value="fundamental_parcial" ${preSelectedModality === 'fundamental_parcial' ? 'selected' : ''}>Ensino Fundamental Parcial (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Piloto)</option>
-          <option value="creche" ${preSelectedModality === 'creche' ? 'selected' : ''}>Creche / EMEIs Piloto (${Math.round(totalAlunosPiloto * 0.22).toLocaleString('pt-BR')} Alunos)</option>
+          <option value="fundamental_integral" ${preSelectedModality === 'fundamental_integral' ? 'selected' : ''}>Ensino Fundamental Integral (${alunosIntegral.toLocaleString('pt-BR')} Alunos Piloto)</option>
+          <option value="fundamental_parcial" ${preSelectedModality === 'fundamental_parcial' ? 'selected' : ''}>Ensino Fundamental Parcial (${alunosParcial.toLocaleString('pt-BR')} Alunos Piloto)</option>
+          <option value="creche" ${preSelectedModality === 'creche' ? 'selected' : ''}>Creche / EMEIs Piloto (${alunosCreche.toLocaleString('pt-BR')} Alunos)</option>
           <option value="rede_total" ${preSelectedModality === 'rede_total' ? 'selected' : ''}>Projeção Toda a Rede Municipal (183 Escolas — 32.000 Alunos)</option>
         </select>
       </div>
@@ -4581,7 +4583,7 @@ window.executarGeracaoCardapioIA = (evt) => {
 
     const totalAlunosTarget = targetSchools.length > 0 
       ? targetSchools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
-      : 10380;
+      : 3992;
 
     let numAlunos = totalAlunosTarget;
     if (modalidade === 'rede_total') {
@@ -4836,7 +4838,7 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
       autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
     });
     SharedState.addWeeklyMenu({
-      nome: `Cardápio Semanal IA PNAE (${menuObj.metricasSemanais?.numAlunos || 10380} Alunos)`,
+      nome: `Cardápio Semanal IA PNAE (${menuObj.metricasSemanais?.numAlunos || 3992} Alunos)`,
       periodo: `${d1} a ${d2}`,
       semana: `${d1} a ${d2}`,
       escola: 'Toda a Rede Piloto',
@@ -4935,7 +4937,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
 
   // 2. Gera Ordens de Produção & Colheita para Cooperativas e Agricultores Familiares (Produtos AF)
   const insumosAF = (menuObj.insumosResumoSemanal || []).filter(i => i.af);
-  const totalAlunos = (menuObj.metricasSemanais?.numAlunos || 10380);
+  const totalAlunos = (menuObj.metricasSemanais?.numAlunos || 3992);
   
   const ordensAgricultores = [
     {
