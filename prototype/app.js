@@ -889,6 +889,163 @@ const SharedState = {
     this._persist(); this._emit('order:update');
     return o;
   },
+
+  // ──────────────────────────────────────────────────────────────────
+  // R1 — MOTOR DE TRIAGEM CONTRATUAL
+  // Verifica cada item do pedido contra ATAs e Empenhos disponíveis.
+  // Retorna { ataItems, empenhoGeradoItems, semAtaItems }
+  // ──────────────────────────────────────────────────────────────────
+  processarPedido(orderId) {
+    const order = this._data.orders.find(x => x.id === orderId);
+    if (!order) return null;
+
+    const atas = this._data.atas2 || [];
+    const empenhos = this._data.empenhos2 || [];
+
+    // Produtos com cobertura local (legado) — fallback para demo sem Supabase
+    const legacyAtas = this._data.empenhos || [];
+
+    const ataItems = [];       // tem ATA + Empenho ativo → gera OS
+    const empenhoGeradoItems = []; // tem ATA mas sem Empenho → cria empenho → gera OS
+    const semAtaItems = [];    // sem ATA → vai para Lista de Compras
+
+    (order.itens || []).forEach(item => {
+      const nomeProd = (item.produto || '').toLowerCase();
+
+      // Tenta encontrar ATA vigente que contenha o produto nos itens JSONB
+      const ataMatch = atas.find(a =>
+        a.status === 'Vigente' &&
+        Array.isArray(a.itens) &&
+        a.itens.some(ai =>
+          (ai.descricao || ai.produto || '').toLowerCase().includes(nomeProd.split(' ')[0])
+        )
+      );
+
+      // Fallback: verifica empenhos legado (modo offline)
+      const legacyMatch = !ataMatch && legacyAtas.find(e =>
+        (e.produto || '').toLowerCase().includes(nomeProd.split(' ')[0]) && e.status === 'Ativo'
+      );
+
+      if (ataMatch || legacyMatch) {
+        const ataRef = ataMatch ? { numero: ataMatch.numero, id: ataMatch.id } : { numero: 'ATA-LOCAL', id: 'legacy' };
+
+        // Verifica se já existe empenho ativo para essa ATA + produto
+        const empMatch = empenhos.find(e =>
+          (e.ata_numero === ataRef.numero || e.ataId === ataRef.id) &&
+          (e.produto || '').toLowerCase().includes(nomeProd.split(' ')[0]) &&
+          e.status !== 'Cancelado'
+        ) || legacyMatch;
+
+        if (empMatch) {
+          ataItems.push({
+            ...item,
+            ataNumero: ataRef.numero,
+            empenhoNumero: empMatch.numero_empenho || empMatch.numero || 'EMP-LOCAL',
+            empenhoId: empMatch.id,
+            resultado: 'Vinculado à Ata/Empenho',
+          });
+        } else {
+          // Cria empenho automaticamente
+          const novoEmp = {
+            id: 'emp-auto-' + Date.now(),
+            numero_empenho: 'EMP-AUTO-' + String(Date.now()).slice(-5),
+            ata_numero: ataRef.numero,
+            ataId: ataRef.id,
+            produto: item.produto,
+            valor_empenhado: (item.qtd || 0) * 12,
+            valor_liquidado: 0,
+            valor_pago: 0,
+            status: 'Emitido',
+            data_empenho: new Date().toISOString().slice(0, 10),
+            escola_name: order.school,
+            fornecedor: ataMatch ? ataMatch.fornecedor : 'A definir',
+            tipo: 'AF',
+          };
+          (this._data.empenhos2 = this._data.empenhos2 || []).unshift(novoEmp);
+          empenhoGeradoItems.push({
+            ...item,
+            ataNumero: ataRef.numero,
+            empenhoNumero: novoEmp.numero_empenho,
+            empenhoId: novoEmp.id,
+            resultado: 'Empenho Gerado',
+          });
+        }
+      } else {
+        semAtaItems.push({ ...item, resultado: 'Sem Ata' });
+      }
+    });
+
+    return { order, ataItems, empenhoGeradoItems, semAtaItems };
+  },
+
+  // Aplica o resultado da triagem: gera OS + lista de compras, muda status
+  aceitarPedido(orderId, resultado) {
+    const { order, ataItems, empenhoGeradoItems, semAtaItems } = resultado;
+    const itensComOS = [...ataItems, ...empenhoGeradoItems];
+    const now = new Date().toISOString();
+
+    // 1. Gera Ordem de Serviço de separação (vai para Estoque Central)
+    if (itensComOS.length > 0) {
+      const os = {
+        id: 'os-auto-' + Date.now(),
+        numero_os: 'OS-AUTO-' + String(Date.now()).slice(-5),
+        tipo: 'Saída',
+        origem: 'Pedido Escola #' + String(order.numero).padStart(3, '0'),
+        pedidoId: order.id,
+        escola_destino: order.school,
+        status: 'Pendente',
+        responsavel: 'Gestor SEMED',
+        data_programada: new Date().toISOString().slice(0, 10),
+        itens: itensComOS.map(i => ({
+          produto: i.produto,
+          quantidade: i.qtd,
+          unidade: i.unidade,
+          ataNumero: i.ataNumero,
+          empenhoNumero: i.empenhoNumero,
+        })),
+        // Para compatibilidade com a tabela de separação existente (campo produto/unidade/quantidade)
+        produto: itensComOS.map(i => i.produto).join(', '),
+        quantidade: itensComOS.reduce((s, i) => s + (i.qtd || 0), 0),
+        unidade: itensComOS[0]?.unidade || 'kg',
+        criadoEm: now,
+      };
+      (this._data.os_estoque_central = this._data.os_estoque_central || []).unshift(os);
+    }
+
+    // 2. Envia itens sem ATA para Lista de Compras
+    if (semAtaItems.length > 0) {
+      const lc = {
+        id: 'lc-auto-' + Date.now(),
+        titulo: 'Lista Automática — Pedido #' + String(order.numero).padStart(3, '0') + ' · ' + order.school,
+        tipo: 'Automática',
+        referencia: 'Pedido #' + String(order.numero).padStart(3, '0'),
+        escola_name: order.school,
+        escola_id: order.schoolId || null,
+        status: 'Enviada',
+        criado_por: 'Motor de Triagem SUALE',
+        data_necessidade: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+        itens: semAtaItems.map(i => ({ produto: i.produto, qtd: i.qtd, unidade: i.unidade })),
+        valor_estimado: semAtaItems.reduce((s, i) => s + (i.qtd || 0) * 12, 0),
+        valor_aprovado: null,
+        criadoEm: now,
+      };
+      (this._data.lista_compras = this._data.lista_compras || []).unshift(lc);
+    }
+
+    // 3. Atualiza status do pedido
+    this.updateOrderStatus(orderId, 'Em separação', {
+      processadoEm: now,
+      triagem: {
+        ataItems: ataItems.length,
+        empenhoGerado: empenhoGeradoItems.length,
+        semAta: semAtaItems.length,
+      },
+    });
+
+    this._persist();
+    this._emit('pedido:processado');
+    return { itensComOS, semAtaItems };
+  },
   confirmDelivery(orderId, receiver, doc) {
     const o = this._data.orders.find(x => x.id === orderId);
     if (o) o.status = 'Entregue';
@@ -2292,49 +2449,258 @@ PAGE_RENDERERS.gestor_atas = (el) => {
   `;
 };
 
-// ─── GESTOR: PEDIDOS ───
+// ─── GESTOR: PEDIDOS (R1 — Triagem Contratual) ───────────────────────
 PAGE_RENDERERS.gestor_pedidos = (el) => {
   const shared = SharedState.getOrders();
-  const totalShared = shared.length;
-  const pendentes = shared.filter(o => o.status === 'Pendente').length + DATA.orders.filter(o => o.status === 'Pendente').length;
-  const emAndamento = shared.filter(o => o.status === 'Em separação' || o.status === 'Em transporte').length + DATA.orders.filter(o => o.status === 'Em separação' || o.status === 'Em transporte').length;
+  const pendentes   = shared.filter(o => o.status === 'Pendente').length   + DATA.orders.filter(o => o.status === 'Pendente').length;
+  const emSeparacao = shared.filter(o => o.status === 'Em separação').length;
+  const emAndamento = shared.filter(o => o.status === 'Em separação' || o.status === 'Em transporte').length;
+  const entregues   = shared.filter(o => o.status === 'Entregue').length   + DATA.orders.filter(o => o.status === 'Entregue').length;
+  const totalTodos  = shared.length + DATA.orders.length;
+
+  // ─── Seed de pedidos demo (se SharedState vazio) ─────────────────
+  const DEMO_ITEMS = [
+    { produto: 'Arroz Tipo 1', qtd: 50, unidade: 'kg' },
+    { produto: 'Feijão Carioca', qtd: 20, unidade: 'kg' },
+    { produto: 'Biscoito Integral', qtd: 15, unidade: 'kg' },
+  ];
+  if (shared.length === 0) {
+    SharedState.addOrder({ school: 'EM ARLINDO LIMA', cooperative: 'COOPAGRAN', itens: DEMO_ITEMS, value: 1020 });
+    SharedState.addOrder({ school: 'EM ELPIDIO REIS', cooperative: 'COOPRAN',   itens: [{ produto: 'Leite Integral', qtd: 100, unidade: 'L' }, { produto: 'Macarrão Espaguete', qtd: 25, unidade: 'kg' }], value: 810 });
+    return PAGE_RENDERERS.gestor_pedidos(el);
+  }
+
+  // ─── Helper: card status badge ────────────────────────────────────
+  const allOrders = [
+    ...shared.map(o => ({ ...o, _src: 'shared' })),
+    ...DATA.orders.map(o => ({ ...o, _src: 'data', itens: o.itens || [] })),
+  ];
 
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Pedidos</div><div class="page-subtitle">Acompanhe todos os pedidos de abastecimento · Escolas → Cooperativas → Agricultores</div></div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${totalShared + DATA.orders.length}</div><div class="kpi-label">Pedidos Totais</div></div>
-      <div class="kpi-card red"><div class="kpi-icon">⏰</div><div class="kpi-value">${pendentes}</div><div class="kpi-label">Pendentes</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">🚚</div><div class="kpi-value">${emAndamento}</div><div class="kpi-label">Em Andamento</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${shared.filter(o=>o.status==='Entregue').length + DATA.orders.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues</div></div>
+    <div class="page-header">
+      <div class="page-title">📦 Gestão de Pedidos</div>
+      <div class="page-subtitle">Triagem contratual automática · ATA · Empenho · OS · Lista de Compras</div>
     </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(5,1fr);margin-bottom:20px">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${totalTodos}</div><div class="kpi-label">Total</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">⏰</div><div class="kpi-value">${pendentes}</div><div class="kpi-label">Pendentes</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${emSeparacao}</div><div class="kpi-label">Em Separação</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">🚚</div><div class="kpi-value">${emAndamento}</div><div class="kpi-label">Em Andamento</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${entregues}</div><div class="kpi-label">Entregues</div></div>
+    </div>
+
+    <!-- Tabela de Pedidos -->
     <div class="card">
-      <div class="card-body" style="padding:0">
+      <div class="card-header">
+        <strong>Pedidos Recebidos</strong>
+        <span class="status-badge status-info">${allOrders.length} pedidos</span>
+      </div>
+      <div style="overflow-x:auto">
         <table class="data-table">
-          <thead><tr><th>#</th><th>Escola</th><th>Data</th><th>Cooperativa</th><th>Itens</th><th>Valor</th><th>Status</th></tr></thead>
+          <thead>
+            <tr>
+              <th>#</th><th>Escola</th><th>Data</th><th>Cooperativa</th>
+              <th>Itens</th><th>Valor</th><th>Status</th><th>Ação</th>
+            </tr>
+          </thead>
           <tbody>
-            ${shared.map(o => `<tr>
-              <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3, '0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
-              <td><strong>${o.school}</strong></td>
-              <td>${o.date}</td>
-              <td><span class="tag tag-teal">${o.cooperative || '—'}</span></td>
-              <td style="font-size:0.82rem">${(o.itens||[]).length} item(ns)</td>
-              <td style="font-family:var(--font-mono)">${formatCurrency(o.value || 0)}</td>
-              <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
-            </tr>`).join('')}
-            ${DATA.orders.map(o => `<tr>
-              <td style="font-family:var(--font-mono)">#${String(o.id).padStart(3, '0')}</td>
-              <td><strong>${o.school}</strong></td>
-              <td>${formatDate(o.date)}</td>
-              <td><span class="tag tag-teal">${o.coop}</span></td>
-              <td style="font-size:0.82rem;color:var(--text-tertiary)">—</td>
-              <td style="font-family:var(--font-mono)">${formatCurrency(o.value)}</td>
-              <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
-            </tr>`).join('')}
+            ${allOrders.map(o => `
+              <tr class="clickable-row" onclick="window._abrirModalPedido('${o.id}','${o._src}')">
+                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">
+                  #${String(o.numero||o.id).padStart(3,'0')}
+                  ${o._src==='shared'?'<span class="tag tag-blue" style="font-size:0.62rem">NOVO</span>':''}
+                </td>
+                <td><strong>${o.school}</strong></td>
+                <td>${o.date ? o.date.slice(0,10) : '—'}</td>
+                <td><span class="tag tag-teal">${o.cooperative||o.coop||'—'}</span></td>
+                <td style="font-size:0.82rem">${(o.itens||[]).length || '—'} item(ns)</td>
+                <td style="font-family:var(--font-mono)">${formatCurrency(o.value||0)}</td>
+                <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+                <td>
+                  ${o.status === 'Pendente'
+                    ? `<button class="btn btn-sm btn-primary" onclick="event.stopPropagation();window._abrirModalPedido('${o.id}','${o._src}')">🔍 Analisar</button>`
+                    : `<button class="btn btn-sm btn-outline" disabled>${o.status}</button>`
+                  }
+                </td>
+              </tr>`).join('')}
           </tbody>
         </table>
       </div>
     </div>
-  `;
+
+    <!-- Modal de Triagem -->
+    <div id="modal-triagem" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
+      <div id="modal-triagem-inner" style="background:var(--bg-card);border-radius:var(--radius-xl);padding:28px;max-width:780px;width:95vw;max-height:88vh;overflow-y:auto;box-shadow:var(--shadow-xl)">
+        <div id="modal-triagem-content"></div>
+      </div>
+    </div>`;
+
+  // ─── Lógica do Modal ──────────────────────────────────────────────
+  window._abrirModalPedido = (orderId, src) => {
+    const order = src === 'shared'
+      ? SharedState.getOrders().find(o => o.id === orderId)
+      : DATA.orders.find(o => String(o.id) === String(orderId));
+    if (!order) return;
+
+    const modal = document.getElementById('modal-triagem');
+    const content = document.getElementById('modal-triagem-content');
+    modal.style.display = 'flex';
+
+    // Render: detalhe do pedido + botões de ação
+    const itensHtml = (order.itens || []).length > 0
+      ? (order.itens || []).map((i, idx) => `
+          <tr>
+            <td>${idx + 1}</td>
+            <td><strong>${i.produto}</strong></td>
+            <td style="font-family:var(--font-mono)">${i.qtd} ${i.unidade}</td>
+            <td><span class="tag tag-gray">Aguardando verificação</span></td>
+          </tr>`).join('')
+      : `<tr><td colspan="4" style="text-align:center;color:#94A3B8">Pedido sem itens detalhados</td></tr>`;
+
+    content.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+        <div>
+          <h3 style="margin:0;font-size:1.1rem">Pedido #${String(order.numero||order.id).padStart(3,'0')}</h3>
+          <div style="color:var(--text-secondary);font-size:0.85rem;margin-top:4px">
+            ${order.school} · ${order.cooperative||order.coop||'—'} · ${(order.date||'').slice(0,10)}
+          </div>
+        </div>
+        <button onclick="document.getElementById('modal-triagem').style.display='none'" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-secondary)">✕</button>
+      </div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><strong>📦 Itens Solicitados</strong></div>
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Produto</th><th>Quantidade</th><th>Status Contratual</th></tr></thead>
+          <tbody id="modal-itens-tbody">${itensHtml}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:12px;justify-content:flex-end">
+        <button class="btn btn-outline" onclick="document.getElementById('modal-triagem').style.display='none'">Fechar</button>
+        ${order.status === 'Pendente' && src === 'shared' ? `
+          <button class="btn btn-warning" onclick="window._recusarPedido('${orderId}')">❌ Recusar</button>
+          <button class="btn btn-primary" id="btn-aceitar-processar" onclick="window._executarTriagem('${orderId}')">
+            🔍 Aceitar e Processar
+          </button>` : `<span style="font-size:0.85rem;color:var(--text-secondary);align-self:center">Pedido já processado: <strong>${order.status}</strong></span>`}
+      </div>`;
+  };
+
+  window._executarTriagem = (orderId) => {
+    const btn = document.getElementById('btn-aceitar-processar');
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Verificando ATAs e Empenhos...'; }
+
+    setTimeout(() => {
+      const resultado = SharedState.processarPedido(orderId);
+      if (!resultado) return;
+
+      const { order, ataItems, empenhoGeradoItems, semAtaItems } = resultado;
+      const content = document.getElementById('modal-triagem-content');
+
+      // Badge de resultado por tipo
+      const badge = (tipo) => {
+        if (tipo === 'Vinculado à Ata/Empenho') return '<span class="tag tag-green">✅ Vinculado à Ata/Empenho</span>';
+        if (tipo === 'Empenho Gerado')           return '<span class="tag tag-blue">🆕 Empenho Gerado</span>';
+        return '<span class="tag tag-orange">⚠️ Sem Ata → Lista de Compras</span>';
+      };
+
+      const allItens = [...ataItems, ...empenhoGeradoItems, ...semAtaItems];
+      const itensHtml = allItens.map((i, idx) => `
+        <tr>
+          <td>${idx + 1}</td>
+          <td><strong>${i.produto}</strong></td>
+          <td style="font-family:var(--font-mono)">${i.qtd} ${i.unidade}</td>
+          <td>${badge(i.resultado)}</td>
+          <td style="font-size:0.75rem;color:var(--text-secondary)">
+            ${i.ataNumero ? `ATA: <code>${i.ataNumero}</code>` : ''}
+            ${i.empenhoNumero ? `· EMP: <code>${i.empenhoNumero}</code>` : ''}
+          </td>
+        </tr>`).join('');
+
+      const temOS = (ataItems.length + empenhoGeradoItems.length) > 0;
+      const temLC = semAtaItems.length > 0;
+
+      content.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px">
+          <div>
+            <h3 style="margin:0;font-size:1.1rem">Resultado da Triagem — Pedido #${String(order.numero||order.id).padStart(3,'0')}</h3>
+            <div style="color:var(--text-secondary);font-size:0.85rem;margin-top:4px">${order.school}</div>
+          </div>
+          <button onclick="document.getElementById('modal-triagem').style.display='none'" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-secondary)">✕</button>
+        </div>
+
+        <!-- Resumo por resultado -->
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px">
+          <div style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:14px;text-align:center">
+            <div style="font-size:1.5rem;font-weight:700;color:#10B981">${ataItems.length}</div>
+            <div style="font-size:0.78rem;color:var(--text-secondary)">✅ Vinculados</div>
+            <div style="font-size:0.72rem;color:var(--text-tertiary)">Geram OS</div>
+          </div>
+          <div style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);border-radius:10px;padding:14px;text-align:center">
+            <div style="font-size:1.5rem;font-weight:700;color:#3B82F6">${empenhoGeradoItems.length}</div>
+            <div style="font-size:0.78rem;color:var(--text-secondary)">🆕 Empenho Gerado</div>
+            <div style="font-size:0.72rem;color:var(--text-tertiary)">Geram OS</div>
+          </div>
+          <div style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.3);border-radius:10px;padding:14px;text-align:center">
+            <div style="font-size:1.5rem;font-weight:700;color:#F59E0B">${semAtaItems.length}</div>
+            <div style="font-size:0.78rem;color:var(--text-secondary)">⚠️ Sem Ata</div>
+            <div style="font-size:0.72rem;color:var(--text-tertiary)">→ Lista de Compras</div>
+          </div>
+        </div>
+
+        <!-- Tabela detalhada -->
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><strong>Itens do Pedido — Verificação Contratual</strong></div>
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Produto</th><th>Quantidade</th><th>Resultado</th><th>Referência</th></tr></thead>
+            <tbody>${itensHtml}</tbody>
+          </table>
+        </div>
+
+        <!-- O que será gerado -->
+        <div style="background:var(--bg-subtle);border-radius:var(--radius-md);padding:14px;margin-bottom:16px;font-size:0.85rem">
+          ${temOS ? `<div style="margin-bottom:6px">🏭 <strong>OS para Estoque Central:</strong> será criada com ${ataItems.length + empenhoGeradoItems.length} item(ns) para separação imediata</div>` : ''}
+          ${temLC ? `<div>🛒 <strong>Lista de Compras:</strong> ${semAtaItems.length} item(ns) serão enviados ao setor de compras</div>` : ''}
+        </div>
+
+        <div style="display:flex;gap:12px;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="document.getElementById('modal-triagem').style.display='none'">Cancelar</button>
+          <button class="btn btn-primary" id="btn-confirmar-os" onclick="window._confirmarAceitePedido('${order.id}',${JSON.stringify(resultado).split('"').join("'")})">
+            ✅ Confirmar e Gerar OS
+          </button>
+        </div>`;
+    }, 900); // simula processamento
+  };
+
+  window._confirmarAceitePedido = (orderId, resultado) => {
+    // Se resultado veio como string por causa do stringify, refaz o processamento
+    const res = typeof resultado === 'string' ? SharedState.processarPedido(orderId) : resultado;
+    if (!res) return;
+
+    const aplicado = SharedState.aceitarPedido(orderId, res);
+    document.getElementById('modal-triagem').style.display = 'none';
+
+    const msg = [
+      aplicado.itensComOS.length > 0 ? `📦 ${aplicado.itensComOS.length} item(ns) → OS gerada para Estoque Central` : '',
+      aplicado.semAtaItems.length > 0 ? `🛒 ${aplicado.semAtaItems.length} item(ns) → Lista de Compras` : '',
+    ].filter(Boolean).join(' · ');
+
+    showToast('✅ Pedido processado! ' + msg, 'success');
+    // Re-renderiza a tela
+    setTimeout(() => PAGE_RENDERERS.gestor_pedidos(document.getElementById('page-content')), 400);
+  };
+
+  window._recusarPedido = (orderId) => {
+    SharedState.updateOrderStatus(orderId, 'Recusado');
+    document.getElementById('modal-triagem').style.display = 'none';
+    showToast('❌ Pedido recusado.', 'warning');
+    setTimeout(() => PAGE_RENDERERS.gestor_pedidos(document.getElementById('page-content')), 400);
+  };
+
+  // Fecha modal ao clicar fora
+  document.getElementById('modal-triagem')?.addEventListener('click', (e) => {
+    if (e.target.id === 'modal-triagem') e.target.style.display = 'none';
+  });
 };
 
 // ─── GESTOR: COOPERATIVAS ───
@@ -8978,39 +9344,116 @@ window.confirmRecebimento = (pedidoId, empenhoId, prodId) => {
 PAGE_RENDERERS.estoque_separacao = (el) => {
   const legacyOrders = DATA.separation_orders || [];
   const sharedOrders = SharedState.getOrders().filter(o => o.status === 'Pendente' || o.status === 'Em separação');
+  // OS geradas automaticamente pelo motor de triagem R1
+  const osAutomaticas = SharedState.getOsEstoqueCentral().filter(o => o.origem && o.origem.startsWith('Pedido Escola'));
+  const osPendentes = osAutomaticas.filter(o => o.status === 'Pendente');
+  const osExecucao  = osAutomaticas.filter(o => o.status === 'Em Separação');
 
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Ordens de Separação (Picking)</div><div class="page-subtitle">Sistema sugere os lotes baseado em FIFO (First-In, First-Out) · Pedidos das escolas em tempo real</div></div>
+    <div class="page-header">
+      <div class="page-title">📦 Ordens de Separação (Picking)</div>
+      <div class="page-subtitle">FIFO aplicado automaticamente · OS manuais e automáticas do motor de triagem SUALE</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+      <div class="kpi-card red"><div class="kpi-icon">⏳</div><div class="kpi-value">${osPendentes.length + sharedOrders.filter(o=>o.status==='Pendente').length}</div><div class="kpi-label">Aguardando Separação</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🔄</div><div class="kpi-value">${osExecucao.length + sharedOrders.filter(o=>o.status==='Em separação').length}</div><div class="kpi-label">Em Separação</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">🏭</div><div class="kpi-value">${osAutomaticas.length}</div><div class="kpi-label">OS Automáticas</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${osAutomaticas.filter(o=>o.status==='Recebido').length}</div><div class="kpi-label">Concluídas</div></div>
+    </div>
+
+    ${osAutomaticas.length > 0 ? `
+    <!-- OS Automáticas do Motor de Triagem R1 -->
     <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Fila de Separação</div>${sharedOrders.length ? '<span class="status-badge status-ok">'+sharedOrders.length+' pedido(s) da escola</span>' : ''}</div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Ordem</th><th>Escola Destino</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-          ${sharedOrders.map(o => {
-            const itensStr = (o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ');
-            return `<tr>
-              <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
+      <div class="card-header">
+        <div class="card-title">🤖 OS Geradas pelo Motor de Triagem (R1)</div>
+        <span class="status-badge status-ok">${osAutomaticas.length} OS automática(s)</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>OS</th><th>Origem (Pedido)</th><th>Escola Destino</th><th>Itens</th><th>Data Programada</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${osAutomaticas.map(os => {
+              const itensStr = (os.itens||[]).map(i => `${i.produto} (${i.quantidade}${i.unidade||'kg'})`).join(', ');
+              const itensResume = itensStr.length > 60 ? itensStr.slice(0,60)+'...' : itensStr;
+              return `<tr>
+                <td><strong style="color:var(--primary)">${os.numero_os}</strong></td>
+                <td><span class="tag tag-blue">${os.origem}</span></td>
+                <td><strong>${os.escola_destino}</strong></td>
+                <td style="font-size:0.78rem" title="${itensStr}">${itensResume}</td>
+                <td>${os.data_programada||'—'}</td>
+                <td><span class="status-badge ${os.status==='Recebido'?'status-ok':os.status==='Em Separação'?'status-warning':'status-danger'}">${os.status}</span></td>
+                <td>
+                  ${os.status === 'Pendente'
+                    ? `<button class="btn btn-sm btn-primary" onclick="window._iniciarOsAuto('${os.id}')">📦 Iniciar Separação</button>`
+                    : os.status === 'Em Separação'
+                    ? `<button class="btn btn-sm btn-warning" onclick="window._concluirOsAuto('${os.id}')">✅ Concluir</button>`
+                    : `<button class="btn btn-sm btn-outline" disabled>Concluído</button>`}
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : ''}
+
+    <!-- Fila de Separação Manual (pedidos diretos das escolas) -->
+    <div class="card mb-24">
+      <div class="card-header">
+        <div class="card-title">Fila de Separação (Pedidos Diretos)</div>
+        ${sharedOrders.length ? `<span class="status-badge status-ok">${sharedOrders.length} pedido(s) de escola</span>` : ''}
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Ordem</th><th>Escola Destino</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody>
+            ${sharedOrders.map(o => {
+              const itensStr = (o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ');
+              return `<tr>
+                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
+                <td><strong>${o.school}</strong></td>
+                <td style="font-size:0.82rem">${itensStr}</td>
+                <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+                <td>${o.status === 'Pendente'
+                  ? `<button class="btn btn-sm btn-primary" onclick="sharedStartSeparacao('${o.id}')">Iniciar Separação (FIFO)</button>`
+                  : `<button class="btn btn-sm btn-warning" onclick="sharedFinishSeparacao('${o.id}')">Concluir</button>`}</td>
+              </tr>`;
+            }).join('')}
+            ${legacyOrders.map(o => `<tr>
+              <td style="font-family:var(--font-mono);font-weight:700">#ORD-${o.id}</td>
               <td><strong>${o.school}</strong></td>
-              <td style="font-size:0.82rem">${itensStr}</td>
-              <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+              <td style="font-size:0.85rem">${o.items.length} produto(s)</td>
+              <td><span class="status-badge ${o.status==='Separado'?'status-ok':'status-warning'}">${o.status}</span></td>
               <td>${o.status === 'Pendente'
-                ? `<button class="btn btn-sm btn-primary" onclick="sharedStartSeparacao('${o.id}')">Iniciar Separação (FIFO)</button>`
-                : `<button class="btn btn-sm btn-warning" onclick="sharedFinishSeparacao('${o.id}')">Concluir</button>`}</td>
-            </tr>`;
-          }).join('')}
-          ${legacyOrders.map(o => `<tr>
-            <td style="font-family:var(--font-mono);font-weight:700">#ORD-${o.id}</td>
-            <td><strong>${o.school}</strong></td>
-            <td style="font-size:0.85rem">${o.items.length} produto(s)</td>
-            <td><span class="status-badge ${o.status==='Separado'?'status-ok':'status-warning'}">${o.status}</span></td>
-            <td>${o.status === 'Pendente'
-              ? `<button class="btn btn-sm btn-primary" onclick="startSeparacao(${o.id})">Iniciar Separação</button>`
-              : `<button class="btn btn-sm btn-outline" disabled>Separado</button>`}</td>
-          </tr>`).join('')}
-        </tbody></table>
+                ? `<button class="btn btn-sm btn-primary" onclick="startSeparacao(${o.id})">Iniciar Separação</button>`
+                : `<button class="btn btn-sm btn-outline" disabled>Separado</button>`}</td>
+            </tr>`).join('')}
+            ${sharedOrders.length === 0 && legacyOrders.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:24px">Nenhum pedido aguardando separação manual</td></tr>' : ''}
+          </tbody>
+        </table>
       </div>
     </div>
   `;
 };
+
+window._iniciarOsAuto = (osId) => {
+  const os = SharedState.getOsEstoqueCentral().find(o => o.id === osId);
+  if (!os) return;
+  os.status = 'Em Separação';
+  SharedState._persist();
+  showToast(`📦 OS ${os.numero_os} em separação — FIFO aplicado.`);
+  PAGE_RENDERERS.estoque_separacao(document.getElementById('page-content'));
+};
+window._concluirOsAuto = (osId) => {
+  const os = SharedState.getOsEstoqueCentral().find(o => o.id === osId);
+  if (!os) return;
+  os.status = 'Recebido';
+  SharedState._persist();
+  showToast(`✅ OS ${os.numero_os} concluída — carga liberada para carregamento.`);
+  PAGE_RENDERERS.estoque_separacao(document.getElementById('page-content'));
+};
+
 
 window.sharedStartSeparacao = (orderId) => {
   const o = SharedState.getOrders().find(x => x.id === orderId);
