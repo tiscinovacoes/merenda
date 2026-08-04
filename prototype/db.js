@@ -605,9 +605,134 @@ window.DB = {
     }
   },
 
+  // -------------------------
+  // MÓDULO FINANCEIRO & CONTRATOS (v2.1.0)
+  // -------------------------
 
+  async fetchAtas2() {
+    try {
+      const { data, error } = await _sb.from('atas').select('*').order('data_inicio', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] atas:', err.message);
+      return [];
+    }
+  },
 
+  async saveAta(ata) {
+    try {
+      const { data, error } = await _sb.from('atas').insert([ata]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveAta:', err.message);
+      return null;
+    }
+  },
 
+  async fetchEmpenhos2() {
+    try {
+      const { data, error } = await _sb.from('empenhos').select('*').order('data_empenho', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] empenhos:', err.message);
+      return [];
+    }
+  },
+
+  async saveEmpenho2(empenho) {
+    try {
+      const { data, error } = await _sb.from('empenhos').insert([empenho]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveEmpenho2:', err.message);
+      return null;
+    }
+  },
+
+  async fetchOsEstoqueCentral() {
+    try {
+      const { data, error } = await _sb.from('os_estoque_central').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] os_estoque_central:', err.message);
+      return [];
+    }
+  },
+
+  async saveOsEstoqueCentral(os) {
+    try {
+      const { data, error } = await _sb.from('os_estoque_central').insert([os]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveOsEstoqueCentral:', err.message);
+      return null;
+    }
+  },
+
+  async fetchListaCompras(escolaId) {
+    try {
+      let q = _sb.from('lista_compras').select('*').order('created_at', { ascending: false });
+      if (escolaId) q = q.eq('escola_id', escolaId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] lista_compras:', err.message);
+      return [];
+    }
+  },
+
+  async saveListaCompras(lista) {
+    try {
+      const { data, error } = await _sb.from('lista_compras').insert([lista]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveListaCompras:', err.message);
+      return null;
+    }
+  },
+
+  async fetchOsFornecedores(status) {
+    try {
+      let q = _sb.from('os_fornecedores').select('*').order('data_emissao', { ascending: false });
+      if (status) q = q.eq('status', status);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] os_fornecedores:', err.message);
+      return [];
+    }
+  },
+
+  async saveOsFornecedor(os) {
+    try {
+      const { data, error } = await _sb.from('os_fornecedores').insert([os]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveOsFornecedor:', err.message);
+      return null;
+    }
+  },
+
+  async updateOsFornecedor(id, payload) {
+    try {
+      const { error } = await _sb.from('os_fornecedores').update(payload).eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('[DB] updateOsFornecedor:', err.message);
+      return false;
+    }
+  },
 
   // Busca alimentos por termo (local ou Supabase)
   async searchAlimentos(term) {
