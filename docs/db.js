@@ -507,6 +507,104 @@ window.DB = {
     }
   },
 
+  // -------------------------
+  // MÓDULOS NOVOS (PILOTO 8 ESCOLAS)
+  // -------------------------
+
+  async fetchPlanejamento(schoolId) {
+    try {
+      let q = _sb.from('planejamento_alimentar').select('*').order('date', { ascending: false });
+      if (schoolId) q = q.eq('school_id', schoolId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] Erro ao buscar planejamento_alimentar:', err.message);
+      return [];
+    }
+  },
+
+  async savePlanejamento(planejamento) {
+    try {
+      const { data, error } = await _sb.from('planejamento_alimentar').insert([planejamento]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar planejamento_alimentar:', err.message);
+      return null;
+    }
+  },
+
+  async fetchEstoqueEscolas(schoolId) {
+    try {
+      let q = _sb.from('estoque_escolas').select('*').order('product_name');
+      if (schoolId) q = q.eq('school_id', schoolId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] Erro ao buscar estoque_escolas:', err.message);
+      return [];
+    }
+  },
+
+  async saveEstoqueEscola(item) {
+    try {
+      const { data, error } = await _sb.from('estoque_escolas').insert([item]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar estoque_escolas:', err.message);
+      return null;
+    }
+  },
+
+  async fetchCardapios() {
+    try {
+      const { data, error } = await _sb.from('cardapios').select('*').order('period_start', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] Erro ao buscar cardapios:', err.message);
+      return [];
+    }
+  },
+
+  async saveCardapio(cardapio) {
+    try {
+      const { data, error } = await _sb.from('cardapios').insert([cardapio]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar cardapio:', err.message);
+      return null;
+    }
+  },
+
+  async fetchAlunos(schoolId) {
+    try {
+      let q = _sb.from('alunos').select('*').order('student_name');
+      if (schoolId) q = q.eq('school_id', schoolId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] Erro ao buscar alunos:', err.message);
+      return [];
+    }
+  },
+
+  async saveAluno(aluno) {
+    try {
+      const { data, error } = await _sb.from('alunos').insert([aluno]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar aluno:', err.message);
+      return null;
+    }
+  },
+
 
 
 

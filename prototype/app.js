@@ -426,6 +426,8 @@ const PROFILES = {
       { id: 'produtos', icon: '🥕', label: 'Produtos', badge: null },
       { id: 'cardapios', icon: '🍽️', label: 'Cardápios (Viewer, PDF, Romaneio)', badge: null },
       { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
+      { id: 'estoquesual', icon: '📦', label: 'Estoque SUAL (Consolidado)', badge: null },
+      { id: 'guiasentrega', icon: '🚚', label: 'Guias de Entrega & Distr.', badge: null },
       { id: 'escolas', icon: '🏫', label: 'Escolas', badge: null },
       { id: 'consumo', icon: '📈', label: 'Consumo', badge: null },
       { id: 'desperdicios', icon: '🗑️', label: 'Desperdícios', badge: null },
@@ -4084,7 +4086,10 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
           <div style="font-weight:600">Planejador de Cardápios</div>
           <div style="font-size:0.82rem;color:var(--text-secondary)">Cardápios publicados aqui aparecem imediatamente nas ${totalSchools} escolas da rede e no painel do Gestor</div>
         </div>
-        <button class="btn btn-primary" onclick="showMenuPlanner()">+ Abrir Planejador Semanal</button>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-secondary" onclick="window.abrirRelatorioMensal4Paginas()">📄 Relatório Mensal (4 Páginas/Mês)</button>
+          <button class="btn btn-primary" onclick="showMenuPlanner()">+ Abrir Planejador Semanal</button>
+        </div>
       </div>
     </div>` : `
     <div class="card mb-24" style="border-left:4px solid var(--primary)">
@@ -5765,6 +5770,318 @@ window.excluirAlunoEspecial = (id) => {
   showToast('✅ Aluno removido com sucesso!');
   const container = document.getElementById('page-content');
   if (container) PAGE_RENDERERS.nutricionista_restricoes(container);
+};
+
+// ============================================================
+// REQUISITOS PDF: ESTOQUE SUAL READ-ONLY PARA NUTRIÇÃO
+// ============================================================
+PAGE_RENDERERS.nutricionista_estoquesual = (el) => {
+  const products = DATA.products || [];
+  const zerados = products.filter(p => (p.stock || 0) === 0);
+  const emRisco = products.filter(p => (p.daysLeft || 0) > 0 && (p.daysLeft || 0) <= 5);
+  const afItens = products.filter(p => p.familyFarm);
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">📦 Estoque Consolidado SUAL (Modo Leitura — Nutrição)</div>
+      <div class="page-subtitle">Acompanhamento dos níveis de estoque central, risco de desabastecimento e itens zerados sem movimentação física</div>
+    </div>
+
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${products.length}</div><div class="kpi-label">Itens no Catálogo SUAL</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🚫</div><div class="kpi-value">${zerados.length}</div><div class="kpi-label">Itens Zerados</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${emRisco.length}</div><div class="kpi-label">Em Risco (< 5 dias)</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">🌽</div><div class="kpi-value">${afItens.length}</div><div class="kpi-label">Agricultura Familiar</div></div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">🔍 Consulta de Insumos da Central SUAL</div>
+        <div style="font-size:0.82rem;color:var(--text-secondary);background:#f1f5f9;padding:4px 12px;border-radius:20px">
+          🔒 Perfil Nutricionista: Visualização em tempo real (Sem permissão de baixa)
+        </div>
+      </div>
+      <div class="card-body" style="padding:0">
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Produto / Insumo</th>
+                <th>Categoria</th>
+                <th>Origem</th>
+                <th>Estoque Atual</th>
+                <th>Consumo Médio/Dia</th>
+                <th>Autonomia Estimada</th>
+                <th>Status SUAL</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${products.map(p => {
+                const isZero = (p.stock || 0) === 0;
+                const isLow = (p.daysLeft || 0) <= 5 && !isZero;
+                const statusBadge = isZero
+                  ? '<span class="status-badge status-danger">Zerado</span>'
+                  : isLow
+                  ? '<span class="status-badge status-warning">Risco (< 5 dias)</span>'
+                  : '<span class="status-badge status-ok">OK</span>';
+
+                return `
+                  <tr style="${isZero ? 'background:#fef2f2' : isLow ? 'background:#fffbe6' : ''}">
+                    <td><strong>${p.name}</strong></td>
+                    <td><span class="tag tag-blue">${p.category}</span></td>
+                    <td>${p.familyFarm ? '<span style="color:#2E7D32;font-weight:700">🌽 Agric. Familiar</span>' : 'Pregão Central'}</td>
+                    <td style="font-family:var(--font-mono);font-weight:700">${(p.stock || 0).toLocaleString('pt-BR')} ${p.unit}</td>
+                    <td style="font-family:var(--font-mono)">${p.avgConsume || 0} ${p.unit}/dia</td>
+                    <td style="font-family:var(--font-mono);font-weight:700;color:${isZero ? 'var(--danger)' : isLow ? '#c2410c' : '#1565C0'}">
+                      ${isZero ? '0 dias (Esgotado)' : `${p.daysLeft} dias`}
+                    </td>
+                    <td>${statusBadge}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// ============================================================
+// REQUISITOS PDF: GUIAS DE ENTREGA, FRACIONAMENTO E SAZONALIDADE
+// ============================================================
+PAGE_RENDERERS.nutricionista_guiasentrega = (el) => {
+  const schools = (DATA && DATA.schools && DATA.schools.length) ? DATA.schools : (window._PILOT_SCHOOLS || [{ id: 1, name: 'EMEF Prof. Arlene Marques', students: 540, region: 'Birbiriuçu' }]);
+  const menus = SharedState.getCardapios();
+  const cardapioAtivo = menus.find(m => m.statusAprovacao === 'aprovado_nutri') || menus[0];
+
+  const trocasSazionais = SharedState._data.trocasSazionais || [];
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">🚚 Guias de Entrega & Distribuição Parcelada</div>
+      <div class="page-subtitle">Emissão de ordens de fornecimento fracionadas por per capita, frequências e trocas por sazonalidade</div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="card-title">📋 Emissão de Guia por Unidade Escolar</div>
+          <div style="font-size:0.82rem;color:var(--text-secondary)">Selecione a rota/escola para gerar o cálculo automático de remessa</div>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center">
+          <select id="guia-filtro-rota" class="btn btn-outline" style="padding:6px 12px;font-size:0.85rem" onchange="window.filtrarEscolasPorRotaGuia(this.value)">
+            <option value="todas">📍 Todas as Rotas</option>
+            <option value="Birbiriuçu">📍 Rota 1 - Birbiriuçu (Rural)</option>
+            <option value="Anhanduí">📍 Rota 2 - Anhanduí (Distrito)</option>
+            <option value="Urbana Leste">📍 Rota 3 - Urbana Leste</option>
+            <option value="Urbana Oeste">📍 Rota 4 - Urbana Oeste</option>
+          </select>
+          <select id="guia-escola-select" class="btn btn-outline" style="padding:6px 12px;font-size:0.85rem" onchange="window.renderizarGuiaEscola(this.value)">
+            ${schools.map(s => `<option value="${s.id}">${s.name} (${s.students} alunos)</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="card-body">
+        <div id="guia-detalhes-container"></div>
+      </div>
+    </div>
+  `;
+
+  setTimeout(() => {
+    if (schools.length) window.renderizarGuiaEscola(schools[0].id);
+  }, 50);
+};
+
+window.filtrarEscolasPorRotaGuia = (rota) => {
+  const sel = document.getElementById('guia-escola-select');
+  if (!sel) return;
+  const schools = DATA.schools || [];
+  const filtradas = rota === 'todas' ? schools : schools.filter(s => (s.region || '').includes(rota) || (s.name || '').includes(rota));
+  sel.innerHTML = filtradas.map(s => `<option value="${s.id}">${s.name} (${s.students} alunos)</option>`).join('');
+  if (filtradas.length) window.renderizarGuiaEscola(filtradas[0].id);
+};
+
+window.renderizarGuiaEscola = (escolaId) => {
+  const container = document.getElementById('guia-detalhes-container');
+  if (!container) return;
+
+  const school = (DATA.schools || []).find(s => String(s.id) === String(escolaId)) || DATA.schools[0];
+  const qtdAlunos = school.students || 400;
+  const trocas = SharedState._data.trocasSazionais || {};
+
+  const itensGuia = [
+    { id: 'g1', nome: 'Banana Nanica', categoria: 'Hortifrúti', perCapita: 100, uni: 'g', freq: 'Semanal (4x/mês)', af: true },
+    { id: 'g2', nome: 'Tomate Fresco', categoria: 'Hortifrúti', perCapita: 40, uni: 'g', freq: 'Semanal (4x/mês)', af: true },
+    { id: 'g3', nome: 'Alface Crespa', categoria: 'Hortifrúti', perCapita: 30, uni: 'g', freq: 'Semanal (4x/mês)', af: true },
+    { id: 'g4', nome: 'Ovos de Galinha', categoria: 'Proteína Perecível', perCapita: 1, uni: 'unid', freq: 'Quinzenal (2x/mês)', af: true },
+    { id: 'g5', nome: 'Pão Francês / Bisnaguinha', categoria: 'Panificação', perCapita: 50, uni: 'g', freq: 'Quinzenal (2x/mês)', af: false },
+    { id: 'g6', nome: 'Arroz Tipo 1', categoria: 'Estoque Seco', perCapita: 60, uni: 'g', freq: 'Mensal (1x/mês)', af: false },
+    { id: 'g7', nome: 'Feijão Carioca', categoria: 'Estoque Seco', perCapita: 40, uni: 'g', freq: 'Mensal (1x/mês)', af: false },
+  ];
+
+  container.innerHTML = `
+    <div style="background:#f8fafc;padding:16px;border-radius:10px;border:1px solid var(--border);margin-bottom:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div>
+          <h3 style="margin:0;font-size:1.05rem;color:var(--primary-dark)">🏫 ${school.name}</h3>
+          <div style="font-size:0.83rem;color:var(--text-secondary);margin-top:2px">
+            Rota: <strong>${school.region || 'Urbana'}</strong> · Total de Alunos Matriculados: <strong>${qtdAlunos}</strong>
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="window.printGuiaEscola('${school.name}')">🖨️ Imprimir Guia de Entrega Físico</button>
+      </div>
+    </div>
+
+    <div style="overflow-x:auto">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Gênero Alimentício</th>
+            <th>Origem</th>
+            <th>Per Capita Técnico</th>
+            <th>Cálculo p/ Remessa (${qtdAlunos} alunos)</th>
+            <th>Frequência de Entrega</th>
+            <th>Substituição por Sazonalidade</th>
+            <th>Ação</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itensGuia.map(item => {
+            const trocaKey = `${school.id}_${item.id}`;
+            const trocaObj = trocas[trocaKey];
+            const nomeExibido = trocaObj ? trocaObj.substituto : item.nome;
+
+            let qtdCalculada = item.uni === 'unid'
+              ? Math.round(item.perCapita * qtdAlunos) + ' unid'
+              : ((item.perCapita * qtdAlunos) / 1000).toFixed(1) + ' kg';
+
+            return `
+              <tr style="${trocaObj ? 'background:#fffbe6' : ''}">
+                <td>
+                  <strong>${nomeExibido}</strong>
+                  ${trocaObj ? `<div style="font-size:0.75rem;color:#b45309">⚠️ Substituído: de ${item.nome} (${trocaObj.justificativa})</div>` : ''}
+                </td>
+                <td>${item.af ? '<span style="color:#2E7D32;font-weight:700">🌽 Agric. Familiar</span>' : 'Pregão'}</td>
+                <td style="font-family:var(--font-mono)">${item.perCapita} ${item.uni}</td>
+                <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${qtdCalculada}</td>
+                <td><span class="tag tag-blue">${item.freq}</span></td>
+                <td style="font-size:0.8rem">
+                  ${trocaObj ? `<span class="status-badge status-warning">Alterado: ${trocaObj.substituto}</span>` : '<span style="color:var(--text-secondary)">Sem troca</span>'}
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#b45309" onclick="window.abrirModalSubstituicaoSazonal('${school.id}', '${item.id}', '${item.nome}')">
+                    🔄 Substituir
+                  </button>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+};
+
+window.abrirModalSubstituicaoSazonal = (escolaId, itemId, itemOriginal) => {
+  const content = `
+    <form onsubmit="window.salvarSubstituicaoSazonal(event, '${escolaId}', '${itemId}')">
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Item Original Programado</label>
+        <input type="text" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${itemOriginal}" readonly>
+      </div>
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Produto Substituto de Hortifrúti (Sazonalidade)</label>
+        <select id="subst-produto" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          <option value="Pepino Japonês">Pepino Japonês</option>
+          <option value="Mamão Formosa">Mamão Formosa</option>
+          <option value="Abobrinha Menina">Abobrinha Menina</option>
+          <option value="Repolho Verde">Repolho Verde</option>
+          <option value="Chuchu">Chuchu</option>
+          <option value="Laranja Pera">Laranja Pera</option>
+        </select>
+      </div>
+      <div class="form-group mb-18">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Campo Obrigatório de Observação / Justificativa na Guia</label>
+        <textarea id="subst-justificativa" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;height:80px" placeholder="Ex: Substituição autorizada devido à indisponibilidade de colheita provocada pelas chuvas na região." required></textarea>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💾 Registrar Substituição na Guia</button>
+      </div>
+    </form>
+  `;
+  window.showModal('🔄 Substituição por Sazonalidade (Requisito PDF nº 4)', content, '550px');
+};
+
+window.salvarSubstituicaoSazonal = (e, escolaId, itemId) => {
+  e.preventDefault();
+  const substituto = document.getElementById('subst-produto').value;
+  const justificativa = document.getElementById('subst-justificativa').value;
+
+  SharedState._data.trocasSazionais = SharedState._data.trocasSazionais || {};
+  SharedState._data.trocasSazionais[`${escolaId}_${itemId}`] = { substituto, justificativa, data: new Date().toISOString() };
+  SharedState._persist();
+
+  showToast(`✅ Substituição para ${substituto} registrada com sucesso na guia!`);
+  closeModal();
+  window.renderizarGuiaEscola(escolaId);
+};
+
+window.printGuiaEscola = (escolaNome) => {
+  window.print();
+};
+
+// Helper de Relatório Mensal 4 Páginas por Mês (Requisito PDF nº 5)
+window.abrirRelatorioMensal4Paginas = (cardapioNome) => {
+  const content = `
+    <div id="print-4-pages-container" style="font-family:Inter,sans-serif">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px" class="no-print">
+        <h3>📄 Relatório de Cardápio Mensal — 4 Páginas por Mês</h3>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir 4 Páginas para a Escola</button>
+      </div>
+
+      ${[1, 2, 3, 4].map(semana => `
+        <div style="background:#fff;padding:24px;border:1px solid #ccc;margin-bottom:24px;page-break-after:always">
+          <div style="border-bottom:2px solid #1565C0;padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between">
+            <div>
+              <h2 style="margin:0;color:#1565C0">PREFEITURA MUNICIPAL DE CAMPO GRANDE — SEMED</h2>
+              <div style="font-size:0.9rem;font-weight:700;color:#333">SUPERINTENDÊNCIA DE ALIMENTAÇÃO ESCOLAR (SUAL)</div>
+              <div style="font-size:0.85rem;color:#666">Cardápio Oficial — <strong>SEMANA ${semana} DE 4</strong> (${cardapioNome || 'Ensino Fundamental Regular'})</div>
+            </div>
+            <div style="text-align:right;font-size:0.8rem">
+              <div>RT: Dra. Lilian Droppa</div>
+              <div>CRN 12345/MS</div>
+            </div>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+            <thead>
+              <tr style="background:#1565C0;color:#fff">
+                <th style="padding:8px;border:1px solid #999">Dia da Semana</th>
+                <th style="padding:8px;border:1px solid #999">Desjejum (Manhã)</th>
+                <th style="padding:8px;border:1px solid #999">Almoço Principal</th>
+                <th style="padding:8px;border:1px solid #999">Lanche da Tarde</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Segunda-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite c/ Cacau + Pão c/ Manteiga 🌽</td><td style="padding:8px;border:1px solid #999">Arroz, Feijão Carioca, Coxa de Frango Assada e Salada de Alface/Tomate 🌽</td><td style="padding:8px;border:1px solid #999">Banana Nanica 🌽</td></tr>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Terça-feira</strong></td><td style="padding:8px;border:1px solid #999">Suco Natural de Laranja 🌽 + Bisnaguinha</td><td style="padding:8px;border:1px solid #999">Arroz Integral, Feijão Preto, Carne Bovina Refogada e Cenoura Ralada 🌽</td><td style="padding:8px;border:1px solid #999">Maçã Gala</td></tr>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Quarta-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite UHT + Biscoito Doce</td><td style="padding:8px;border:1px solid #999">Macarrão Espaguete ao Molho de Tomate 🌽 c/ Carne Moída e Abóbora Cabotiá 🌽</td><td style="padding:8px;border:1px solid #999">Melancia em Cubos 🌽</td></tr>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Quinta-feira</strong></td><td style="padding:8px;border:1px solid #999">Vitamina de Banana 🌽 + Pão de Milho</td><td style="padding:8px;border:1px solid #999">Arroz Branco, Feijão Carioca, Ovos Mexidos 🌽 e Salada de Beterraba 🌽</td><td style="padding:8px;border:1px solid #999">Sucos de Frutas da Safra AF 🌽</td></tr>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Sexta-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite c/ Cereais + Fruta Fresca 🌽</td><td style="padding:8px;border:1px solid #999">Polenta c/ Carne Bovina Ensopada, Mandioca Cozida 🌽 e Couve Manteiga 🌽</td><td style="padding:8px;border:1px solid #999">Bolo Caseiro de Cenoura 🌽</td></tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top:20px;display:flex;justify-content:space-between;font-size:0.78rem;border-top:1px solid #ddd;padding-top:10px">
+            <div>🌽 Alimentos advindos da Agricultura Familiar Local</div>
+            <div>Página ${semana} de 4 — Afixar no Mural da Escola</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  window.showModal('📄 Modelo de Cardápio Mensal (4 Páginas/Mês)', content, '900px');
 };
 
 window.renderAISummaryCard = (menuObj, container) => {

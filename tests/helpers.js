@@ -14,6 +14,7 @@ async function login(page, profile) {
   await page.click(`[data-profile="${profile}"]`);
   await page.click('#btn-login');
   await page.waitForSelector('#screen-app', { state: 'visible' });
+  await page.waitForSelector('.page-title', { state: 'visible', timeout: 5000 }).catch(() => {});
 }
 
 /**
@@ -32,7 +33,8 @@ async function logout(page) {
  */
 async function navigateTo(page, menuId) {
   await page.click(`[data-page="${menuId}"]`);
-  await page.waitForTimeout(600);
+  await page.waitForSelector('.page-title', { state: 'visible', timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(300);
 }
 
 /**

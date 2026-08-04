@@ -295,11 +295,76 @@ PAGE_RENDERERS.gestor_prestacaocontas = (el) => {
   <div>
     <div class="card" style="margin-bottom:16px">
       <div class="card-header">
-        <div class="card-title">📄 Notas Fiscais</div>
-        <button class="btn btn-sm btn-primary" onclick="document.getElementById('pc-form-nf').style.display='block';document.getElementById('pc-form-nf').scrollIntoView({behavior:'smooth'})">+ Lançar NF</button>
+        <div class="card-title">📄 Notas Fiscais Processadas</div>
+        <button class="btn btn-sm btn-primary" onclick="document.getElementById('pc-form-nf').style.display='block';document.getElementById('pc-form-nf').scrollIntoView({behavior:'smooth'})">+ Lancar NF</button>
       </div>
       <div class="card-body" style="padding:0;overflow-x:auto">
         ${_tableNFs(nfs, empenhos)}
+      </div>
+    </div>
+
+    <!-- REQUISITO PDF Nº 6: CONFERÊNCIA FÍSICA E ENVIO PARA A GESTORA NAARA -->
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div class="card-title">📝 Conferência Física de Entregas & Protocolos Assinados (Fluxo Admin)</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary)">Conferência das guias físicas com assinaturas das escolas, cálculo do valor entregue e envio final para a gestora Naara</div>
+        </div>
+        <span class="status-badge status-info">Requisito PDF nº 6</span>
+      </div>
+      <div class="card-body" style="padding:0;overflow-x:auto">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Guia / Protocolo</th>
+              <th>Fornecedor</th>
+              <th>Escola Destino</th>
+              <th>Data Entrega</th>
+              <th>Valor Entregue</th>
+              <th>Status do Protocolo</th>
+              <th>Ações de Controle</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${[
+              { id: 'GUI-2026/041', fornecedor: 'COOPAGRAN (AF)', escola: 'EM Arlindo Lima', data: '28/07/2026', valor: 14850.00, status: 'Conferido pelo Apoio Admin' },
+              { id: 'GUI-2026/042', fornecedor: 'COOPERSUL (AF)', escola: 'EMEF Bernardo Franco', data: '29/07/2026', valor: 9200.00, status: 'Aguardando Protocolo Assinado' },
+              { id: 'GUI-2026/043', fornecedor: 'Distribuidora Aliança', escola: 'EMEI Pingo de Gente', data: '30/07/2026', valor: 22400.00, status: 'Autorizado Emissão de NF' },
+              { id: 'GUI-2026/044', fornecedor: 'COOPAGRAN (AF)', escola: 'EMEF Rurais Anhanduí', data: '01/08/2026', valor: 18100.00, status: 'Enviado para Pagamento (Gestora Naara)' },
+            ].map(item => `
+              <tr>
+                <td><strong>${item.id}</strong></td>
+                <td>${item.fornecedor}</td>
+                <td>${item.escola}</td>
+                <td>${item.data}</td>
+                <td style="font-family:var(--font-mono);font-weight:700">${cur(item.valor)}</td>
+                <td>
+                  <span class="_pill" style="${
+                    item.status.includes('Naara') ? 'background:#e8f5e9;color:#2E7D32' :
+                    item.status.includes('Autorizado') ? 'background:#e3f2fd;color:#1565C0' :
+                    item.status.includes('Conferido') ? 'background:#fffbe6;color:#b45309' :
+                    'background:#f1f5f9;color:#475569'
+                  }">
+                    ${item.status}
+                  </span>
+                </td>
+                <td>
+                  <div style="display:flex;gap:6px">
+                    ${item.status === 'Aguardando Protocolo Assinado' ? `
+                      <button class="btn btn-sm btn-outline" onclick="showToast('✅ Protocolo assinado registrado com sucesso!','success')">📋 Registrar Protocolo</button>
+                    ` : item.status === 'Conferido pelo Apoio Admin' ? `
+                      <button class="btn btn-sm btn-primary" onclick="showToast('✅ Emissão de Nota Fiscal autorizada para o fornecedor!','success')">✅ Autorizar NF</button>
+                    ` : item.status === 'Autorizado Emissão de NF' ? `
+                      <button class="btn btn-sm" style="background:#2E7D32;color:#fff" onclick="showToast('🚀 Lote enviado para pagamento final com a gestora Naara!','success')">🚀 Enviar p/ Gestora Naara</button>
+                    ` : `
+                      <span style="font-size:0.78rem;color:#2E7D32;font-weight:600">✓ Em Processamento Financeiro</span>
+                    `}
+                  </div>
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
       </div>
     </div>
 
