@@ -13,8 +13,8 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '1.9.0';
-const APP_BUILD_DATE = '2026-07-29';
+const APP_VERSION = '2.1.0';
+const APP_BUILD_DATE = '2026-08-04';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
 
@@ -410,7 +410,11 @@ const PROFILES = {
         { id: 'agricultura', icon: '🌾', label: 'Agricultura Familiar', badge: null },
       ]},
       { type: 'group', label: 'Prestação de Contas', children: [
-        { id: 'atas', icon: '📋', label: 'Atas e Contratos', badge: null },
+        { id: 'atas',         icon: '📋', label: 'Atas e Contratos',        badge: null },
+        { id: 'empenhos',     icon: '💳', label: 'Empenhos SIAFI',          badge: null },
+        { id: 'os-central',   icon: '🏭', label: 'OS Estoque Central',      badge: null },
+        { id: 'lista-compras',icon: '🛒', label: 'Lista de Compras',        badge: null },
+        { id: 'os-fornecedores', icon: '🤝', label: 'OS Fornecedores',      badge: null },
       ]},
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
       { id: 'ia', icon: '🤖', label: 'IA de Previsão', badge: null },
@@ -623,7 +627,13 @@ const SharedState = {
       incidents: [],     // ocorrências do motorista
       productions: [],   // atualizações de produção do agricultor
       stockAdjust: [],   // ajustes de estoque (audit-log de movimentações)
-      // ── LOGÍSTICA / CONTÁBIL (novas entidades) ──
+      // ── FINANCEIRO / CONTRATOS (v2.1.0) ──
+      atas2: [],            // Atas de Registro de Preços (do Supabase)
+      empenhos2: [],        // Empenhos SIAFI (do Supabase)
+      os_estoque_central: [], // OS do Almoxarifado Central
+      lista_compras: [],    // Listas de compras por escola
+      os_fornecedores: [],  // OS para cooperativas e agricultores
+      // ── LOGÍSTICA / CONTÁBIL (legacy — empenhos locais) ──
       empenhos: [
         // Seed: 2 empenhos vinculados às atas existentes em DATA.contracts
         { id: 'emp-2026-045', numero: 'EMP-2026/045', ataId: 1, ataNumero: 'ATA-2026/001', produto: 'Arroz Tipo 1',    unidade: 'kg', qtdTotal: 5000, qtdConsumida: 0, valorUnit: 6.20, status: 'Ativo', criadoEm: '2026-06-10' },
@@ -721,6 +731,12 @@ const SharedState = {
   getEmpenhosByAta(ataId) { return (this._data.empenhos || []).filter(e => e.ataId === ataId); },
   getNFs()         { return [...(this._data.nfsRecebidas || [])]; },
   getNFsByEmpenho(empenhoId) { return (this._data.nfsRecebidas || []).filter(n => n.empenhoId === empenhoId); },
+  // ── Getters v2.1.0 (dados do Supabase) ──
+  getAtas2()              { return [...(this._data.atas2 || [])]; },
+  getEmpenhos2()          { return [...(this._data.empenhos2 || [])]; },
+  getOsEstoqueCentral(tipo) { const all = this._data.os_estoque_central || []; return tipo ? all.filter(o => o.tipo === tipo) : [...all]; },
+  getListaCompras(escoId) { const all = this._data.lista_compras || []; return escoId ? all.filter(l => l.escola_id === escoId) : [...all]; },
+  getOsFornecedores(status) { const all = this._data.os_fornecedores || []; return status ? all.filter(o => o.status === status) : [...all]; },
   getSchoolStock(school) {
     const s = (this._data.schoolStocks || {})[school] || {};
     return Object.entries(s).map(([produto, info]) => ({ produto, ...info }));
@@ -10558,3 +10574,224 @@ PAGE_RENDERERS.merendeira_consumo = PAGE_RENDERERS.escola_consumo;
 PAGE_RENDERERS.merendeira_cardapios = PAGE_RENDERERS.escola_cardapios;
 PAGE_RENDERERS.merendeira_estoque = PAGE_RENDERERS.escola_estoque;
 PAGE_RENDERERS.merendeira_entregas = PAGE_RENDERERS.escola_entregas;
+
+// ──────────────────────────────────────────────────────────────────────
+// MÓDULO FINANCEIRO — v2.1.0
+// Renderers das 5 novas páginas conectadas ao Supabase
+// ──────────────────────────────────────────────────────────────────────
+
+// ─── GESTOR: ATAS (com dados do Supabase) ───────────────────────────
+PAGE_RENDERERS.gestor_atas = (el) => {
+  const atas = SharedState.getAtas2();
+  const fmt = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL', maximumFractionDigits:0 }).format(v) : 'R$ 0';
+  const badge = (s) => {
+    const map = { Vigente:'tag-green', Encerrada:'tag-gray', Suspensa:'tag-red', 'Em Renovação':'tag-orange' };
+    return `<span class="tag ${map[s]||'tag-blue'}">${s}</span>`;
+  };
+  const rows = atas.length ? atas.map(a => {
+    const saldo = (a.valor_global || 0) - (a.valor_executado || 0);
+    const pct   = a.valor_global > 0 ? Math.round(a.valor_executado / a.valor_global * 100) : 0;
+    return `<tr>
+      <td><strong>${a.numero}</strong><br><small class="text-secondary">${a.ano} · ${a.modalidade||''}</small></td>
+      <td>${a.tipo === 'AF' ? '🌾 Agricultura Familiar' : '🏢 Convencional'}</td>
+      <td>${a.fornecedor}</td>
+      <td>${fmt(a.valor_global)}</td>
+      <td>
+        ${fmt(a.valor_executado)}
+        <div class="progress-bar" style="margin-top:4px"><div class="progress-fill ${pct>80?'red':pct>50?'orange':'green'}" style="width:${pct}%"></div></div>
+        <small class="text-secondary">${pct}% executado</small>
+      </td>
+      <td>${fmt(saldo)}</td>
+      <td>${a.data_inicio ? a.data_inicio.slice(0,10) : ''} → ${a.data_fim ? a.data_fim.slice(0,10) : ''}</td>
+      <td>${badge(a.status)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" style="text-align:center;color:#94A3B8">Nenhuma ATA carregada. Execute supabase_schema_v3.sql no Supabase.</td></tr>';
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">📋 Atas de Registro de Preços</div>
+      <div class="page-subtitle">Gestão de ATAs · Chamada Pública e Pregão Eletrônico</div></div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${atas.length}</div><div class="kpi-label">Total de ATAs</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${atas.filter(a=>a.status==='Vigente').length}</div><div class="kpi-label">ATAs Vigentes</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">💰</div><div class="kpi-value">${fmt(atas.reduce((s,a)=>s+(a.valor_global||0),0))}</div><div class="kpi-label">Valor Global Total</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${fmt(atas.reduce((s,a)=>s+(a.valor_executado||0),0))}</div><div class="kpi-label">Total Executado</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Atas Cadastradas</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Número/Ano</th><th>Tipo</th><th>Fornecedor</th><th>Valor Global</th><th>Executado</th><th>Saldo</th><th>Vigência</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── GESTOR: EMPENHOS (com dados do Supabase) ───────────────────────
+PAGE_RENDERERS.gestor_empenhos = (el) => {
+  const empenhos = SharedState.getEmpenhos2();
+  const fmt = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v) : 'R$ 0,00';
+  const badge = (s) => {
+    const map = { Emitido:'tag-blue', Liquidado:'tag-green', Pago:'tag-green', Cancelado:'tag-red', 'Em Análise':'tag-orange' };
+    return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
+  };
+  const rows = empenhos.length ? empenhos.map(e => `<tr>
+    <td><strong>${e.numero_empenho}</strong></td>
+    <td>${e.ata_numero||'—'}</td>
+    <td>${e.tipo === 'AF' ? '🌾 AF' : '🏢 Conv.'}</td>
+    <td>${e.fornecedor}</td>
+    <td>${e.escola_name||'<em>SEMED Global</em>'}</td>
+    <td>${fmt(e.valor_empenhado)}</td>
+    <td>${fmt(e.valor_liquidado)}</td>
+    <td>${fmt(e.valor_pago)}</td>
+    <td>${e.data_empenho||''}</td>
+    <td>${badge(e.status)}</td>
+  </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:#94A3B8">Nenhum empenho carregado.</td></tr>';
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">💳 Empenhos SIAFI</div>
+      <div class="page-subtitle">Controle de empenhos, liquidações e pagamentos</div></div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">📄</div><div class="kpi-value">${empenhos.length}</div><div class="kpi-label">Total de Empenhos</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">💰</div><div class="kpi-value">${fmt(empenhos.reduce((s,e)=>s+(e.valor_empenhado||0),0))}</div><div class="kpi-label">Total Empenhado</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${fmt(empenhos.reduce((s,e)=>s+(e.valor_pago||0),0))}</div><div class="kpi-label">Total Pago</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⏳</div><div class="kpi-value">${empenhos.filter(e=>e.status==='Emitido'||e.status==='Em Análise').length}</div><div class="kpi-label">Pendentes</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Empenhos SIAFI</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Número</th><th>ATA</th><th>Tipo</th><th>Fornecedor</th><th>Escola</th><th>Empenhado</th><th>Liquidado</th><th>Pago</th><th>Data</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── GESTOR: OS ESTOQUE CENTRAL ──────────────────────────────────────
+PAGE_RENDERERS['gestor_os-central'] = (el) => {
+  const os = SharedState.getOsEstoqueCentral();
+  const badge = (s) => {
+    const map = { Pendente:'tag-orange', 'Em Separação':'tag-blue', Expedido:'tag-blue', Recebido:'tag-green', Cancelado:'tag-red' };
+    return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
+  };
+  const tipoIcon = (t) => ({ Entrada:'📥', 'Saída':'📤', Transferência:'🔀', Ajuste:'⚖️' }[t] || '📋');
+  const rows = os.length ? os.map(o => `<tr>
+    <td><strong>${o.numero_os}</strong></td>
+    <td>${tipoIcon(o.tipo)} ${o.tipo}</td>
+    <td>${o.produto}</td>
+    <td>${o.quantidade} ${o.unidade}</td>
+    <td>${o.fornecedor || o.escola_destino || '—'}</td>
+    <td>${o.lote||'—'}</td>
+    <td>${o.validade||'—'}</td>
+    <td>${o.responsavel||'—'}</td>
+    <td>${o.data_programada||''}</td>
+    <td>${badge(o.status)}</td>
+  </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:#94A3B8">Nenhuma OS carregada.</td></tr>';
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">🏭 Ordens de Serviço — Estoque Central</div>
+      <div class="page-subtitle">Entradas, saídas, transferências e ajustes do almoxarifado</div></div>
+    </div>
+    <div class="kpi-grid">
+      ${['Entrada','Saída','Transferência','Ajuste'].map(t => `<div class="kpi-card blue"><div class="kpi-icon">${tipoIcon(t)}</div><div class="kpi-value">${os.filter(o=>o.tipo===t).length}</div><div class="kpi-label">${t}s</div></div>`).join('')}
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Ordens de Serviço</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Número OS</th><th>Tipo</th><th>Produto</th><th>Qtd</th><th>Origem/Destino</th><th>Lote</th><th>Validade</th><th>Responsável</th><th>Data</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── GESTOR: LISTA DE COMPRAS ────────────────────────────────────────
+PAGE_RENDERERS['gestor_lista-compras'] = (el) => {
+  const listas = SharedState.getListaCompras();
+  const fmt = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v) : '—';
+  const badge = (s) => {
+    const map = { Rascunho:'tag-gray', Enviada:'tag-blue', 'Em Análise':'tag-orange', Aprovada:'tag-green', Cancelada:'tag-red' };
+    return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
+  };
+  const rows = listas.length ? listas.map(l => {
+    const itens = Array.isArray(l.itens) ? l.itens : [];
+    return `<tr>
+      <td><strong>${l.titulo}</strong><br><small class="text-secondary">${l.referencia||''} · ${l.tipo}</small></td>
+      <td>${l.escola_name || '<em>SEMED (Consolidada)</em>'}</td>
+      <td>${itens.length} itens</td>
+      <td>${fmt(l.valor_estimado)}</td>
+      <td>${fmt(l.valor_aprovado)}</td>
+      <td>${l.data_necessidade||'—'}</td>
+      <td>${l.criado_por||'—'}</td>
+      <td>${badge(l.status)}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" style="text-align:center;color:#94A3B8">Nenhuma lista carregada.</td></tr>';
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">🛒 Listas de Compras</div>
+      <div class="page-subtitle">Solicitações de compra por escola e consolidadas SEMED</div></div>
+    </div>
+    <div class="kpi-grid">
+      ${['Aprovada','Em Análise','Enviada','Rascunho'].map(s => `<div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${listas.filter(l=>l.status===s).length}</div><div class="kpi-label">${s}</div></div>`).join('')}
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Listas de Compras</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Título</th><th>Escola</th><th>Itens</th><th>Valor Est.</th><th>Valor Apr.</th><th>Necessidade</th><th>Criado por</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── GESTOR: OS FORNECEDORES ─────────────────────────────────────────
+PAGE_RENDERERS['gestor_os-fornecedores'] = (el) => {
+  const os = SharedState.getOsFornecedores();
+  const fmt = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v) : '—';
+  const badge = (s) => {
+    const map = {
+      Emitida:'tag-blue', 'Confirmada pelo Fornecedor':'tag-blue',
+      'Em Preparação':'tag-orange', 'Em Rota':'tag-orange',
+      'Entregue Parcialmente':'tag-orange', Entregue:'tag-green',
+      Cancelada:'tag-red', 'Com Pendência':'tag-red'
+    };
+    return `<span class="tag ${map[s]||'tag-gray'}" style="font-size:0.7rem">${s}</span>`;
+  };
+  const rows = os.length ? os.map(o => `<tr>
+    <td><strong>${o.numero_os}</strong></td>
+    <td>${o.tipo_fornecedor === 'Cooperativa' ? '🤝' : '🌾'} ${o.tipo_fornecedor}</td>
+    <td>${o.cooperativa || o.agricultor || '—'}</td>
+    <td>${o.ata_numero||'—'}</td>
+    <td>${o.escola_destino || '<em>Almox. Central</em>'}</td>
+    <td>${fmt(o.valor_total)}</td>
+    <td>${o.data_entrega_prevista||'—'}</td>
+    <td>${o.data_entrega_real||'—'}</td>
+    <td>${o.guia_protocolo||'—'}</td>
+    <td>${badge(o.status)}</td>
+  </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:#94A3B8">Nenhuma OS de fornecedor carregada.</td></tr>';
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">🤝 OS Fornecedores</div>
+      <div class="page-subtitle">Ordens de serviço para cooperativas e agricultores familiares</div></div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${os.length}</div><div class="kpi-label">Total de OS</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${os.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⏳</div><div class="kpi-value">${os.filter(o=>['Emitida','Confirmada pelo Fornecedor','Em Preparação','Em Rota'].includes(o.status)).length}</div><div class="kpi-label">Em Andamento</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">💰</div><div class="kpi-value">${fmt(os.reduce((s,o)=>s+(o.valor_total||0),0))}</div><div class="kpi-label">Valor Total</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Ordens de Serviço para Fornecedores</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Número OS</th><th>Tipo</th><th>Fornecedor</th><th>ATA</th><th>Destino</th><th>Valor</th><th>Prev. Entrega</th><th>Entregue em</th><th>Guia</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
