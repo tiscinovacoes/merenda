@@ -1,16 +1,27 @@
+# Dependências
 node_modules/
-playwright-report/
-test-results/
-.claude/
-~$*
-*.tmp
+
+# Build
+dist/
+.parcel-cache/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
 .DS_Store
 Thumbs.db
-*.pdf
-*.xlsx
-*.txt
-*.pptx
-.agents/
+
+# IDE
 .vscode/
-screenshots/
-figma-screens/
+.idea/
+
+# Temporários
+*.tmp
+*.bak
+~$*
+
+# Playwright
+playwright-report/
+test-results/

@@ -13,8 +13,8 @@
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
 // ============================
-const APP_VERSION = '2.1.0';
-const APP_BUILD_DATE = '2026-08-04';
+const APP_VERSION = '2.4.1';
+const APP_BUILD_DATE = '2026-08-17';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
 
@@ -394,6 +394,7 @@ const DATA = {
 // ============================
 const PROFILES = {
   gestor: {
+    userId: 'ID-xxx',
     name: 'Dr. Marcos Silva',
     role: 'Gestor SEMED',
     initials: 'MS',
@@ -417,7 +418,7 @@ const PROFILES = {
         { id: 'expedicao-os',          icon: '📦', label: 'Expedição (OS Escolas)',   badge: null },
         { id: 'ordens-entrega',        icon: '🚛', label: 'Ordens de Entrega',        badge: null },
         { id: 'rastreabilidade-lotes', icon: '🔍', label: 'Rastreabilidade 5-Way',   badge: null },
-        { id: 'lista-compras',         icon: '🛒', label: 'Lista de Compras',        badge: null },
+        { id: 'listacompras',         icon: '🛒', label: 'Lista de Compras',        badge: null },
         { id: 'os-fornecedores',       icon: '🤝', label: 'OS Fornecedores',         badge: null },
       ]},
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
@@ -425,6 +426,7 @@ const PROFILES = {
     ]
   },
   nutricionista: {
+    userId: 'ID-002',
     name: 'Dra. Lilian Droppa',
     role: 'Nutricionista SEMED',
     initials: 'LD',
@@ -445,6 +447,7 @@ const PROFILES = {
     ]
   },
   escola: {
+    userId: 'ID-003',
     name: 'Maria Santos',
     role: 'EM ADV. DEMOSTHENES MARTINS',
     initials: 'MS',
@@ -461,6 +464,7 @@ const PROFILES = {
     ]
   },
   cooperativa: {
+    userId: 'ID-004',
     name: 'Carlos Mendes',
     role: 'COOPAGRAN',
     initials: 'CM',
@@ -480,6 +484,7 @@ const PROFILES = {
     ]
   },
   agricultor: {
+    userId: 'ID-005',
     name: 'José Maria Rodrigues',
     role: 'Agricultor Familiar',
     initials: 'JR',
@@ -496,6 +501,7 @@ const PROFILES = {
     ]
   },
   estoque: {
+    userId: 'ID-006',
     name: 'Roberto Lima',
     role: 'Central de Distribuição (Estoque)',
     initials: 'RL',
@@ -510,12 +516,14 @@ const PROFILES = {
     ]
   },
   diretor: {
+    userId: 'ID-007',
     get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
     get name() { const sc = this._sc; return sc && sc.diretor ? sc.diretor.name : 'Diretor(a)'; },
     get role() { const sc = this._sc; return sc ? sc.name : 'Direção Escolar'; },
     get initials() { const sc = this._sc; return sc && sc.diretor ? sc.diretor.initials : 'DE'; },
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Painel da Escola', badge: null },
+      { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
       { id: 'estoque', icon: '📦', label: 'Estoque da Escola', badge: null },
       { id: 'pedidos', icon: '🛒', label: 'Solicitar Reposição', badge: null },
       { id: 'entregas', icon: '🚚', label: 'Acompanhar Entregas', badge: null },
@@ -527,6 +535,7 @@ const PROFILES = {
     ]
   },
   resp_estoque: {
+    userId: 'ID-008',
     get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
     get name() { const sc = this._sc; return sc && sc.respEstoque ? sc.respEstoque.name : 'Resp. Estoque'; },
     get role() { const sc = this._sc; return sc ? 'Estoque · ' + (sc.sigla||'') + ' ' + sc.name.split(' ').slice(-2).join(' ') : 'Responsável de Estoque'; },
@@ -542,6 +551,7 @@ const PROFILES = {
     ]
   },
   merendeira: {
+    userId: 'ID-009',
     get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
     get name() { const sc = this._sc; return sc && sc.merendeira ? sc.merendeira.name : 'Merendeira Escolar'; },
     get role() { const sc = this._sc; return sc ? 'Cozinha · ' + (sc.sigla||'') + ' ' + sc.name.split(' ').slice(-2).join(' ') : 'Cozinha'; },
@@ -555,6 +565,7 @@ const PROFILES = {
     ]
   },
   motorista: {
+    userId: 'ID-010',
     name: 'José Souza',
     role: 'Motorista de Entrega',
     initials: 'JS',
@@ -725,9 +736,40 @@ const SharedState = {
   getMenus()       { return [...(this._data.menus || [])]; },
   getWeeklyMenus() { return [...(this._data.weeklyMenus || [])]; },
   getFichas()      { return [...(this._data.fichas || [])]; },
-  getOrders()      { return [...(this._data.orders || [])]; },
-  getDeliveries()  { return [...(this._data.deliveries || [])]; },
-  getIncidents()   { return [...(this._data.incidents || [])]; },
+  getOrders()      { 
+    const ords = this._data.orders || [];
+    ords.forEach(o => { 
+      if (!o.school && o.escola) o.school = o.escola; 
+      if (!o.schoolId && o.school && typeof DATA !== 'undefined' && DATA.schools) {
+        const sc = DATA.schools.find(s => s.name === o.school);
+        if (sc) o.schoolId = sc.id;
+      }
+      if (!o.criadoPorUserId) o.criadoPorUserId = o.solicitante === 'Gestor SEMED' ? 'USR-GESTOR-001' : 'USR-ESCOLA-001';
+    });
+    return [...ords]; 
+  },
+  getDeliveries()  { 
+    const dels = this._data.deliveries || [];
+    dels.forEach(d => {
+      if (!d.schoolId && d.school && typeof DATA !== 'undefined' && DATA.schools) {
+        const sc = DATA.schools.find(s => s.name === d.school);
+        if (sc) d.schoolId = sc.id;
+      }
+      if (!d.criadoPorUserId) d.criadoPorUserId = 'USR-MOTORISTA-001'; // Maioria gerida/confirmada pelo motorista ou sistema
+    });
+    return [...dels]; 
+  },
+  getIncidents()   { 
+    const incs = this._data.incidents || [];
+    incs.forEach(i => {
+      if (!i.schoolId && (i.escola || i.school) && typeof DATA !== 'undefined' && DATA.schools) {
+        const sc = DATA.schools.find(s => s.name === (i.escola || i.school));
+        if (sc) i.schoolId = sc.id;
+      }
+      if (!i.criadoPorUserId) i.criadoPorUserId = i.motorista ? 'USR-MOTORISTA-001' : 'USR-ESCOLA-001';
+    });
+    return [...incs]; 
+  },
   getProductions() { return [...(this._data.productions || [])]; },
   getStockAdjust() { return [...(this._data.stockAdjust || [])]; },
   getEmpenhos()    { return [...(this._data.empenhos || [])]; },
@@ -775,7 +817,7 @@ const SharedState = {
   },
   addAta2(ata) {
     const a = {
-      id: 'ata-' + Date.now(),
+      id: 'ata-' + crypto.randomUUID(),
       data_inicio: new Date().toISOString().slice(0,10),
       data_fim: new Date(Date.now() + 365*24*60*60*1000).toISOString().slice(0,10),
       valor_executado: 0,
@@ -788,7 +830,7 @@ const SharedState = {
   },
   addEmpenho2(empenho) {
     const e = {
-      id: 'emp-' + Date.now(),
+      id: 'emp-' + crypto.randomUUID(),
       data_empenho: new Date().toISOString().slice(0,10),
       valor_liquidado: 0,
       valor_pago: 0,
@@ -801,7 +843,7 @@ const SharedState = {
   },
   addOsEstoqueCentral(os) {
     const o = {
-      id: 'os-cent-' + Date.now(),
+      id: 'os-cent-' + crypto.randomUUID(),
       numero_os: 'OS-CENT-' + String(Math.floor(100 + Math.random() * 900)),
       data_programada: new Date().toISOString().slice(0, 10),
       status: 'Pendente',
@@ -813,7 +855,7 @@ const SharedState = {
   },
   addOsFornecedores(os) {
     const o = {
-      id: 'os-forn-' + Date.now(),
+      id: 'os-forn-' + crypto.randomUUID(),
       numero_os: 'OS-FORN-' + String(Math.floor(100 + Math.random() * 900)),
       data_emissao: new Date().toISOString().slice(0, 10),
       status: 'Emitida',
@@ -826,7 +868,7 @@ const SharedState = {
   getOsEstoqueCentral(tipo) { const all = this._data.os_estoque_central || []; return tipo ? all.filter(o => o.tipo === tipo) : [...all]; },
   registrarLogAuditoria(log) {
     const entry = {
-      id: 'audit-' + Date.now(),
+      id: 'audit-' + crypto.randomUUID(),
       timestamp: new Date().toISOString(),
       usuario: log.usuario || 'Gestor SEMED',
       acao: log.acao || 'Movimentação',
@@ -870,7 +912,7 @@ const SharedState = {
     return escolaName ? all.filter(a => a.escola === escolaName || a.escola.toLowerCase().includes(escolaName.toLowerCase())) : [...all];
   },
   addAlunoEspecial(aluno) {
-    const a = { id: 'aluno-' + Date.now(), registradoEm: new Date().toISOString().slice(0, 10), ...aluno };
+    const a = { id: 'aluno-' + crypto.randomUUID(), registradoEm: new Date().toISOString().slice(0, 10), ...aluno };
     (this._data.alunosEspeciais = this._data.alunosEspeciais || []).unshift(a);
     this._persist(); this._emit('aluno:add'); return a;
   },
@@ -880,7 +922,8 @@ const SharedState = {
   },
 
   addRestricao(restricao) {
-    const r = { id: 'restr-' + Date.now(), criadoEm: new Date().toISOString(), status: 'ativo', notificado: false, ...restricao };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const r = { id: 'restr-' + crypto.randomUUID(), criadoEm: new Date().toISOString(), status: 'ativo', notificado: false, criadoPorUserId: usr, ...restricao };
     (this._data.restricoes = this._data.restricoes || []).unshift(r);
     this._persist(); this._emit('restricao:add');
     if (window.DB && typeof window.DB.saveRestricao === 'function') {
@@ -913,51 +956,65 @@ const SharedState = {
 
   // Escritores — cada ação notifica os assinantes e persiste
   addMenu(menu) {
-    const m = { id: 'menu-' + Date.now(), status: 'Publicado', criadoEm: new Date().toISOString().slice(0,10), ...menu };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const m = { id: 'menu-' + crypto.randomUUID(), status: 'Publicado', criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...menu };
     this._data.menus.unshift(m);
     this._persist(); this._emit('menu:add');
     return m;
   },
   addWeeklyMenu(weekly) {
-    const w = { id: 'wk-' + Date.now(), publicadoEm: new Date().toISOString(), ...weekly };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const w = { id: 'wk-' + crypto.randomUUID(), publicadoEm: new Date().toISOString(), criadoPorUserId: usr, ...weekly };
     this._data.weeklyMenus.unshift(w);
     this._persist(); this._emit('weeklyMenu:add');
     return w;
   },
   addFicha(ficha) {
-    const f = { id: 'ficha-' + Date.now(), criadoEm: new Date().toISOString().slice(0,10), ...ficha };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const f = { id: 'ficha-' + crypto.randomUUID(), criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...ficha };
     this._data.fichas.unshift(f);
     this._persist(); this._emit('ficha:add');
     return f;
   },
   addProduction(prod) {
-    const p = { id: 'prod-' + Date.now(), criadoEm: new Date().toISOString(), status: 'Ativo', ...prod };
-    (this._data.productions = this._data.productions || []).unshift(p);
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const p = { id: 'prod-' + crypto.randomUUID(), criadoEm: new Date().toISOString(), status: 'Ativo', criadoPorUserId: usr, ...prod };
+    this._data.productions = this._data.productions || [];
+    this._data.productions.unshift(p);
     this._persist(); this._emit('production:add');
     return p;
   },
   addOrder(order) {
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
     const nextNum = ((this._data.orders[0]?.numero) || 100) + 1;
+    let finalSchool = order.school || order.escola;
+    let finalCoop = order.cooperative || order.coop || 'COOPAGRAN';
+    let finalItens = order.itens || order.items || [];
+    let finalId = order.schoolId || (typeof DATA !== 'undefined' && DATA.schools ? (DATA.schools.find(s => s.name === finalSchool)?.id || null) : null);
     const o = {
-      id: 'ord-' + Date.now(),
+      id: 'ord-' + crypto.randomUUID(),
       numero: nextNum,
       date: new Date().toISOString().slice(0,10),
       status: 'Pendente',
-      value: 0,
-      itens: [],
+      value: order.value || 0,
+      itens: finalItens,
+      cooperative: finalCoop,
+      criadoPorUserId: usr,
       ...order,
+      school: finalSchool,
+      schoolId: finalId,
     };
     this._data.orders.unshift(o);
     // Cria automaticamente um registro de entrega vinculado para acompanhamento
     this._data.deliveries.unshift({
-      id: 'del-' + Date.now(),
+      id: 'del-' + crypto.randomUUID(),
       orderId: o.id,
       orderNumero: o.numero,
       school: o.school,
-      cooperative: o.cooperative,
-      status: 'Aguardando Cooperativa',
-      criadoEm: new Date().toISOString(),
-      timeline: [{ at: new Date().toISOString(), evento: 'Pedido enviado pela escola' }],
+      schoolId: o.schoolId,
+      date: o.date,
+      status: 'Pendente',
+      criadoEm: new Date().toISOString()
     });
     this._persist(); this._emit('order:add');
     return o;
@@ -1031,34 +1088,9 @@ const SharedState = {
         )
       );
 
-      // Fallback: verifica empenhos legado (modo offline)
-      const legacyMatch = !ataMatch && legacyAtas.find(e =>
-        (e.produto || '').toLowerCase().includes(nomeProd.split(' ')[0]) && e.status === 'Ativo'
-      );
-
-      if (ataMatch || legacyMatch) {
-        const ataRef = ataMatch ? { numero: ataMatch.numero, id: ataMatch.id } : { numero: 'ATA-LOCAL', id: 'legacy' };
-
-        // Verifica se já existe empenho ativo para essa ATA + produto
-        const empMatch = empenhos.find(e =>
-          (e.ata_numero === ataRef.numero || e.ataId === ataRef.id) &&
-          (e.produto || '').toLowerCase().includes(nomeProd.split(' ')[0]) &&
-          e.status !== 'Cancelado'
-        ) || legacyMatch;
-
-        if (empMatch) {
-          ataItems.push({
-            ...item,
-            ataNumero: ataRef.numero,
-            empenhoNumero: empMatch.numero_empenho || empMatch.numero || 'EMP-LOCAL',
-            empenhoId: empMatch.id,
-            resultado: 'Vinculado à Ata/Empenho',
-          });
-        } else {
-          // Cria empenho automaticamente
-          const novoEmp = {
-            id: 'emp-auto-' + Date.now(),
-            numero_empenho: 'EMP-AUTO-' + String(Date.now()).slice(-5),
+      // F          const novoEmp = {
+            id: 'emp-auto-' + crypto.randomUUID(),
+            numero_empenho: 'EMP-AUTO-' + crypto.randomUUID().slice(0,8).toUpperCase(),
             ata_numero: ataRef.numero,
             ataId: ataRef.id,
             produto: item.produto,
@@ -1097,9 +1129,35 @@ const SharedState = {
     // 1. Gera Ordem de Serviço de separação (vai para Estoque Central)
     if (itensComOS.length > 0) {
       const os = {
-        id: 'os-auto-' + Date.now(),
-        numero_os: 'OS-AUTO-' + String(Date.now()).slice(-5),
+        id: 'os-auto-' + crypto.randomUUID(),
+        numero_os: 'OS-AUTO-' + crypto.randomUUID().slice(0,8).toUpperCase(),
         tipo: 'Saída',
+        origem: 'Pedido Escola #' + String(order.numero).padStart(3, '0'),
+        pedidoId: order.id,
+        escola_destino: order.school,
+        status: 'Pendente',
+        responsavel: 'Gestor SEMED',
+        data_programada: new Date().toISOString().slice(0, 10),
+        itens: itensComOS.map(i => ({
+          produto: i.produto,
+          quantidade: i.qtd,
+          unidade: i.unidade,
+          ataNumero: i.ataNumero,
+          empenhoNumero: i.empenhoNumero,
+        })),
+        // Para compatibilidade com a tabela de separação existente (campo produto/unidade/quantidade)
+        produto: itensComOS.map(i => i.produto).join(', '),
+        quantidade: itensComOS.reduce((s, i) => s + (i.qtd || 0), 0),
+        unidade: itensComOS[0]?.unidade || 'kg',
+        criadoEm: now,
+      };
+      (this._data.os_estoque_central = this._data.os_estoque_central || []).unshift(os);
+    }
+
+    // 2. Envia itens sem ATA para Lista de Compras
+    if (semAtaItems.length > 0) {
+      const lc = {
+        id: 'lc-auto-' + crypto.randomUUID(),      tipo: 'Saída',
         origem: 'Pedido Escola #' + String(order.numero).padStart(3, '0'),
         pedidoId: order.id,
         escola_destino: order.school,
@@ -1189,19 +1247,24 @@ const SharedState = {
     return d;
   },
   addIncident(inc) {
-    const i = { id: 'inc-' + Date.now(), criadoEm: new Date().toISOString(), status: 'Aberta', ...inc };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    let finalSchool = inc.escola || inc.school;
+    let finalId = inc.schoolId || (typeof DATA !== 'undefined' && DATA.schools ? (DATA.schools.find(s => s.name === finalSchool)?.id || null) : null);
+    const i = { id: 'inc-' + Date.now(), criadoEm: new Date().toISOString(), status: 'Aberta', criadoPorUserId: usr, ...inc, escola: finalSchool, schoolId: finalId };
     this._data.incidents.unshift(i);
     this._persist(); this._emit('incident:add');
     return i;
   },
   addProduction(prod) {
-    const p = { id: 'prod-' + Date.now(), criadoEm: new Date().toISOString(), ...prod };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const p = { id: 'prod-' + Date.now(), criadoEm: new Date().toISOString(), criadoPorUserId: usr, ...prod };
     this._data.productions.unshift(p);
     this._persist(); this._emit('production:add');
     return p;
   },
   addStockAdjust(adj) {
-    const a = { id: 'adj-' + Date.now(), criadoEm: new Date().toISOString(), ...adj };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const a = { id: 'adj-' + Date.now(), criadoEm: new Date().toISOString(), criadoPorUserId: usr, ...adj };
     this._data.stockAdjust.unshift(a);
     this._persist(); this._emit('stock:adjust');
     return a;
@@ -1272,9 +1335,10 @@ const SharedState = {
     return true;
   },
 
-  // ── Consumo escolar (decrementa estoque da escola) ──
+  // ── Consumo escolar (decrementa estoque da escola via FEFO) ──
   addConsumo(reg) {
-    const c = { id: 'cons-' + Date.now(), criadoEm: new Date().toISOString(), ...reg };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const c = { id: 'cons-' + crypto.randomUUID(), criadoEm: new Date().toISOString(), criadoPorUserId: usr, ...reg };
     (this._data.consumo = this._data.consumo || []).unshift(c);
     // Decrementa estoque local da escola
     this._data.schoolStocks = this._data.schoolStocks || {};
@@ -1282,10 +1346,21 @@ const SharedState = {
     const item = this._data.schoolStocks[c.escola][c.produto];
     if (item) {
       item.qtd = Math.max(0, (item.qtd || 0) - (c.qtd || 0));
+      // FEFO: abate do lote mais antigo primeiro
+      if (item.lotes && item.lotes.length) {
+        item.lotes.sort((a,b) => new Date(a.validade) - new Date(b.validade));
+        let restante = c.qtd || 0;
+        item.lotes = item.lotes.filter(l => {
+          if (restante <= 0) return true;
+          if (l.qtd <= restante) { restante -= l.qtd; return false; }
+          l.qtd -= restante; restante = 0; return true;
+        });
+      }
       const adj = {
-        id: 'adj-' + Date.now() + '-' + Math.random().toString(36).slice(2,6),
+        id: 'adj-' + crypto.randomUUID(),
         escola: c.escola, produto: c.produto, delta: -(c.qtd || 0), unidade: c.unidade,
         motivo: 'Consumo — ' + (c.refeicao || 'refeição'), criadoEm: new Date().toISOString(),
+        criadoPorUserId: usr
       };
       (this._data.stockAdjust = this._data.stockAdjust || []).unshift(adj);
       if (window.DB && typeof window.DB.saveStockAdjust === 'function') {
@@ -1473,7 +1548,8 @@ function renderSidebar() {
   const prof = PROFILES[state.currentProfile];
   $('#sidebar-avatar').textContent = prof.initials;
   $('#sidebar-user-name').textContent = prof.name;
-  $('#sidebar-user-role').textContent = prof.role;
+  $('#sidebar-user-role > span').textContent = prof.role;
+  if ($('#sidebar-user-id')) $('#sidebar-user-id').textContent = prof.userId;
   const nav = $('#sidebar-nav');
   if (!state._groupState) state._groupState = {};
   nav.innerHTML = prof.menu.map(item => {
@@ -1515,7 +1591,8 @@ function renderHeader() {
   const prof = PROFILES[state.currentProfile];
   $('#header-avatar').textContent = prof.initials;
   $('#header-user-name').textContent = prof.name;
-  $('#header-user-role').textContent = prof.role;
+  $('#header-user-role > span').textContent = prof.role;
+  if ($('#header-user-id')) $('#header-user-id').textContent = prof.userId;
   const flat = prof.menu.flatMap(m => m.type === 'group' ? (m.children || []) : [m]);
   const menuItem = flat.find(m => m.id === state.currentPage);
   const label = menuItem ? menuItem.label : 'Dashboard';
@@ -10803,7 +10880,7 @@ window.respConfirmarAjuste = (produto, unidade, atual) => {
   const sc = getCurrentSchool();
   const delta = nova - atual;
   if (delta !== 0) {
-    SharedState._data.stockAdjust.push({ id: Date.now(), escola: sc.name, produto, delta: Math.round(delta), unidade, motivo, criadoEm: new Date().toISOString() });
+    SharedState.addStockAdjust({ escola: sc.name, produto, delta: Math.round(delta), unidade, motivo });
     if (!SharedState._data.schoolStocks[sc.name]) SharedState._data.schoolStocks[sc.name] = {};
     if (!SharedState._data.schoolStocks[sc.name][produto]) SharedState._data.schoolStocks[sc.name][produto] = { qtd: nova, unidade };
     else SharedState._data.schoolStocks[sc.name][produto].qtd = nova;
@@ -11056,9 +11133,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+window.AUTH_ENABLED = false;
+window.authenticateUser = (user, pass, profile) => {
+  if (!window.AUTH_ENABLED) return { success: true };
+  if (!user || !pass) return { success: false, error: 'Informe o CPF/usuário e a senha de acesso.' };
+  return { success: true };
+};
+
   // Login form
   $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const userInput = $('#login-user')?.value || '';
+    const passInput = $('#login-pass')?.value || '';
+
+    const authRes = window.authenticateUser(userInput, passInput);
+    if (!authRes.success) {
+      showToast('⚠️ ' + authRes.error, 'warning');
+      return;
+    }
+
     const activeProfile = $('.profile-btn.active');
     const topProfile = activeProfile ? activeProfile.dataset.profile : 'gestor';
 
@@ -11070,12 +11163,36 @@ document.addEventListener('DOMContentLoaded', () => {
       profile = activeSub ? activeSub.dataset.subrole : 'diretor';
       const sel = $('#school-picker-select');
       if (sel && sel.value) schoolId = parseInt(sel.value, 10);
+      else if (window.AUTH_ENABLED) {
+        showToast('⚠️ Selecione a unidade escolar para prosseguir.', 'warning');
+        return;
+      }
     } else if (topProfile === 'colaboradores') {
       const activeColab = $('.colab-subrole-btn.active');
       profile = activeColab ? activeColab.dataset.subrole : 'cooperativa';
     }
 
     await login(profile, schoolId);
+  });
+
+  // Header & login link handlers (M4)
+  document.getElementById('link-forgot')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showToast('ℹ️ Para redefinir sua senha, entre em contato com a SEMED pelo suporte TI.');
+  });
+
+  document.getElementById('link-support')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showToast('📞 Suporte TI SEMED: (67) 3314-3800 / suporte.sual@semed.ms.gov.br');
+  });
+
+  document.getElementById('global-search')?.addEventListener('input', (e) => {
+    const q = (e.target.value || '').trim().toLowerCase();
+    if (q.length < 3) return;
+    const schools = (DATA.schools || []).filter(s => s.name.toLowerCase().includes(q));
+    const products = (DATA.products || []).filter(p => p.name.toLowerCase().includes(q));
+    const orders = (SharedState.getOrders() || []).filter(o => (o.school||'').toLowerCase().includes(q) || String(o.numero).includes(q));
+    showToast(`🔍 Busca "${q}": ${schools.length} escolas, ${products.length} produtos, ${orders.length} pedidos encontrados.`, 'info');
   });
 
   // Logout

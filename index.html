@@ -99,7 +99,7 @@
 
         <!-- Seletor de escola — aparece para perfil Escola -->
         <div id="school-picker-row" style="display:none;margin-bottom:12px">
-          <label for="school-picker-select" style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">Unidade Escolar</label>
+          <label id="school-picker-label" for="school-picker-select" style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">Unidade Escolar</label>
           <select id="school-picker-select" class="form-control" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.88rem;background:var(--bg);color:var(--text)">
             <option value="">— Selecione a unidade escolar —</option>
             <option value="1">EM ADV. DEMOSTHENES MARTINS (Segredo · 454 alunos)</option>
@@ -201,7 +201,10 @@
       <div class="user-avatar" id="sidebar-avatar">GS</div>
       <div class="user-info">
         <div class="user-name" id="sidebar-user-name">Dr. Marcos Silva</div>
-        <div class="user-role-tag" id="sidebar-user-role">Gestor SEMED</div>
+        <div class="user-role-tag" id="sidebar-user-role" style="display:flex;align-items:center;gap:4px;">
+          <span>Gestor SEMED</span>
+          <span id="sidebar-user-id" style="font-size:0.65rem; background:rgba(0,0,0,0.1); padding:2px 4px; border-radius:4px;">ID-001</span>
+        </div>
       </div>
     </div>
     <nav id="sidebar-nav" class="sidebar-nav" aria-label="Navegação lateral"></nav>
@@ -245,7 +248,10 @@
             <div class="header-avatar" id="header-avatar">GS</div>
             <div class="header-user-meta">
               <span class="header-user-name" id="header-user-name">Dr. Marcos Silva</span>
-              <span class="header-user-role" id="header-user-role">Gestor SEMED</span>
+              <span class="header-user-role" id="header-user-role" style="display:flex;align-items:center;gap:4px;">
+                <span>Gestor SEMED</span>
+                <span id="header-user-id" style="font-size:0.65rem; background:rgba(0,0,0,0.05); padding:2px 4px; border-radius:4px;">ID-001</span>
+              </span>
             </div>
           </div>
         </div>
@@ -268,10 +274,10 @@
   <div class="notif-overlay" id="notif-overlay" hidden></div>
 </div>
 
-<script src="alimentos.js?v=2.3.0"></script>
-<script src="db.js?v=2.3.0"></script>
-<script src="ai_cardapio_engine.js?v=2.3.0"></script>
-<script src="app.js?v=2.3.0_20260805_1526"></script>
-<script src="sprint_abc.js?v=2.3.0"></script>
+  <script src="alimentos.js?v=2.4.1"></script>
+  <script src="db.js?v=2.4.1"></script>
+  <script src="ai_cardapio_engine.js?v=2.4.1"></script>
+  <script src="app.js?v=2.4.1"></script>
+  <script src="sprint_abc.js?v=2.4.1"></script>
 </body>
 </html>

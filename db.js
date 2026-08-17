@@ -7,13 +7,9 @@
 const SUPABASE_URL = 'https://xszqqqyvdzoyxokkuqix.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_qwKVO7DURZT5jY0FlJs03Q_EYNKoH4L';
 
-// Projeto principal (alimentos PNAE)
+// Projeto único (xszqqqyvdzoyxokkuqix)
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// Projeto SUALE (escolas, fichas, pedidos)
-const SUALE_URL = 'https://oxanubfolkoulklrhrpr.supabase.co';
-const SUALE_KEY = 'sb_publishable_sJaB4lV-Rc-g7gaK_7279Q_G8od5Erh';
-const _sb2 = supabase.createClient(SUALE_URL, SUALE_KEY);
+const _sb2 = _sb;
 
 // ============================
 // STATUS DA CONEXÃO
@@ -134,6 +130,8 @@ function mapOrder(r) {
   return {
     id: r.id,
     school: r.school,
+    schoolId: r.school_id || null,
+    criadoPorUserId: r.criado_por_user_id || null,
     date: r.date,
     status: r.status,
     coop: r.cooperative,
@@ -148,7 +146,7 @@ window.DB = {
 
   async fetchSchools() {
     try {
-      const { data, error } = await _sb2.from('schools').select('*').order('name');
+      const { data, error } = await _sb.from('schools').select('*').order('name');
       if (error || !data || data.length === 0) throw new Error('empty');
       console.log(`[DB] ${data.length} escolas carregadas do Supabase`);
       const validNames = [
@@ -507,9 +505,232 @@ window.DB = {
     }
   },
 
+  // -------------------------
+  // MÓDULOS NOVOS (PILOTO 8 ESCOLAS)
+  // -------------------------
 
+  async fetchPlanejamento(schoolId) {
+    try {
+      let q = _sb.from('planejamento_alimentar').select('*').order('date', { ascending: false });
+      if (schoolId) q = q.eq('school_id', schoolId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] Erro ao buscar planejamento_alimentar:', err.message);
+      return [];
+    }
+  },
 
+  async savePlanejamento(planejamento) {
+    try {
+      const { data, error } = await _sb.from('planejamento_alimentar').insert([planejamento]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar planejamento_alimentar:', err.message);
+      return null;
+    }
+  },
 
+  async fetchEstoqueEscolas(schoolId) {
+    try {
+      let q = _sb.from('estoque_escolas').select('*').order('product_name');
+      if (schoolId) q = q.eq('school_id', schoolId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] Erro ao buscar estoque_escolas:', err.message);
+      return [];
+    }
+  },
+
+  async saveEstoqueEscola(item) {
+    try {
+      const { data, error } = await _sb.from('estoque_escolas').insert([item]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar estoque_escolas:', err.message);
+      return null;
+    }
+  },
+
+  async fetchCardapios() {
+    try {
+      const { data, error } = await _sb.from('cardapios').select('*').order('period_start', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] Erro ao buscar cardapios:', err.message);
+      return [];
+    }
+  },
+
+  async saveCardapio(cardapio) {
+    try {
+      const { data, error } = await _sb.from('cardapios').insert([cardapio]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar cardapio:', err.message);
+      return null;
+    }
+  },
+
+  async fetchAlunos(schoolId) {
+    try {
+      let q = _sb.from('alunos').select('*').order('student_name');
+      if (schoolId) q = q.eq('school_id', schoolId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] Erro ao buscar alunos:', err.message);
+      return [];
+    }
+  },
+
+  async saveAluno(aluno) {
+    try {
+      const { data, error } = await _sb.from('alunos').insert([aluno]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro ao salvar aluno:', err.message);
+      return null;
+    }
+  },
+
+  // -------------------------
+  // MÓDULO FINANCEIRO & CONTRATOS (v2.1.0)
+  // -------------------------
+
+  async fetchAtas2() {
+    try {
+      const { data, error } = await _sb.from('atas').select('*').order('data_inicio', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] atas:', err.message);
+      return [];
+    }
+  },
+
+  async saveAta(ata) {
+    try {
+      const { data, error } = await _sb.from('atas').insert([ata]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveAta:', err.message);
+      return null;
+    }
+  },
+
+  async fetchEmpenhos2() {
+    try {
+      const { data, error } = await _sb.from('empenhos').select('*').order('data_empenho', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] empenhos:', err.message);
+      return [];
+    }
+  },
+
+  async saveEmpenho2(empenho) {
+    try {
+      const { data, error } = await _sb.from('empenhos').insert([empenho]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveEmpenho2:', err.message);
+      return null;
+    }
+  },
+
+  async fetchOsEstoqueCentral() {
+    try {
+      const { data, error } = await _sb.from('os_estoque_central').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] os_estoque_central:', err.message);
+      return [];
+    }
+  },
+
+  async saveOsEstoqueCentral(os) {
+    try {
+      const { data, error } = await _sb.from('os_estoque_central').insert([os]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveOsEstoqueCentral:', err.message);
+      return null;
+    }
+  },
+
+  async fetchListaCompras(escolaId) {
+    try {
+      let q = _sb.from('lista_compras').select('*').order('created_at', { ascending: false });
+      if (escolaId) q = q.eq('escola_id', escolaId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] lista_compras:', err.message);
+      return [];
+    }
+  },
+
+  async saveListaCompras(lista) {
+    try {
+      const { data, error } = await _sb.from('lista_compras').insert([lista]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveListaCompras:', err.message);
+      return null;
+    }
+  },
+
+  async fetchOsFornecedores(status) {
+    try {
+      let q = _sb.from('os_fornecedores').select('*').order('data_emissao', { ascending: false });
+      if (status) q = q.eq('status', status);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
+    } catch (err) {
+      console.warn('[DB] os_fornecedores:', err.message);
+      return [];
+    }
+  },
+
+  async saveOsFornecedor(os) {
+    try {
+      const { data, error } = await _sb.from('os_fornecedores').insert([os]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] saveOsFornecedor:', err.message);
+      return null;
+    }
+  },
+
+  async updateOsFornecedor(id, payload) {
+    try {
+      const { error } = await _sb.from('os_fornecedores').update(payload).eq('id', id);
+      if (error) throw error;
+      return true;
+    } catch (err) {
+      console.warn('[DB] updateOsFornecedor:', err.message);
+      return false;
+    }
+  },
 
   // Busca alimentos por termo (local ou Supabase)
   async searchAlimentos(term) {

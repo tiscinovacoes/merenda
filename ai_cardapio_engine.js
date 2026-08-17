@@ -671,9 +671,73 @@
       }
 
       return resultadoDemanda;
+    },
+
+    /**
+     * RN-002 & RF-004: Motor de Substituição por Faixa Etária e Restrição Clínica
+     */
+    determinarSubstitutoRestricao: function(restricaoTipo, dataNascOuIdade) {
+      const tipo = (restricaoTipo || '').toLowerCase();
+      let idadeAnos = typeof dataNascOuIdade === 'number' ? dataNascOuIdade : 7;
+      
+      if (typeof dataNascOuIdade === 'string' && dataNascOuIdade.includes('-')) {
+        const anoNasc = parseInt(dataNascOuIdade.split('-')[0], 10);
+        if (!isNaN(anoNasc)) {
+          idadeAnos = new Date().getFullYear() - anoNasc;
+        }
+      }
+
+      if (tipo.includes('lactose') || tipo.includes('aplv') || tipo.includes('leite')) {
+        if (idadeAnos < 2) {
+          return {
+            substituto: 'Fórmula Infantil Especial Zero Lactose (Lata 400g)',
+            regraEtaria: 'Creche (< 2 anos)',
+            perCapitaGramos: 120,
+            unidade: 'Lata 400g',
+            observacao: 'Fórmula infantil sem lactose recomendada para berçário'
+          };
+        } else {
+          return {
+            substituto: 'Leite UHT Zero Lactose (Caixa 1L)',
+            regraEtaria: 'Fundamental (≥ 2 anos)',
+            perCapitaGramos: 200,
+            unidade: 'Caixa 1L',
+            observacao: 'Leite fluído sem lactose para Ensino Fundamental'
+          };
+        }
+      }
+
+      if (tipo.includes('celíac') || tipo.includes('celiac') || tipo.includes('glúten') || tipo.includes('gluten')) {
+        return {
+          substituto: 'Biscoito & Pão Especial Sem Glúten (Pacote 300g)',
+          regraEtaria: 'Todas as Idades (Dieta Celíaca)',
+          perCapitaGramos: 50,
+          unidade: 'Pacote 300g',
+          observacao: 'Insumo isento de trigo, aveia, cevada e centeio'
+        };
+      }
+
+      if (tipo.includes('diabet') || tipo.includes('glicemia')) {
+        return {
+          substituto: 'Alimentos Diet / Sem Açúcar Adicionado',
+          regraEtaria: 'Todas as Idades (Dieta Diabética)',
+          perCapitaGramos: 60,
+          unidade: 'Unidade',
+          observacao: 'Controle de carga glicêmica PNAE'
+        };
+      }
+
+      return {
+        substituto: 'Alimento In Natura Adaptado AF 🌾',
+        regraEtaria: 'Geral',
+        perCapitaGramos: 100,
+        unidade: 'Kg',
+        observacao: 'Substituição por fruta/hortaliça in natura da agricultura familiar'
+      };
     }
   };
 
   window.AICardapioEngine = AICardapioEngine;
 
 })(window);
+
