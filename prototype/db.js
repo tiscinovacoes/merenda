@@ -134,6 +134,8 @@ function mapOrder(r) {
   return {
     id: r.id,
     school: r.school,
+    schoolId: r.school_id || null,
+    criadoPorUserId: r.criado_por_user_id || null,
     date: r.date,
     status: r.status,
     coop: r.cooperative,

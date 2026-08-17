@@ -394,6 +394,7 @@ const DATA = {
 // ============================
 const PROFILES = {
   gestor: {
+    userId: 'ID-xxx',
     name: 'Dr. Marcos Silva',
     role: 'Gestor SEMED',
     initials: 'MS',
@@ -425,6 +426,7 @@ const PROFILES = {
     ]
   },
   nutricionista: {
+    userId: 'ID-002',
     name: 'Dra. Lilian Droppa',
     role: 'Nutricionista SEMED',
     initials: 'LD',
@@ -445,6 +447,7 @@ const PROFILES = {
     ]
   },
   escola: {
+    userId: 'ID-003',
     name: 'Maria Santos',
     role: 'EM ADV. DEMOSTHENES MARTINS',
     initials: 'MS',
@@ -461,6 +464,7 @@ const PROFILES = {
     ]
   },
   cooperativa: {
+    userId: 'ID-004',
     name: 'Carlos Mendes',
     role: 'COOPAGRAN',
     initials: 'CM',
@@ -480,6 +484,7 @@ const PROFILES = {
     ]
   },
   agricultor: {
+    userId: 'ID-005',
     name: 'José Maria Rodrigues',
     role: 'Agricultor Familiar',
     initials: 'JR',
@@ -496,6 +501,7 @@ const PROFILES = {
     ]
   },
   estoque: {
+    userId: 'ID-006',
     name: 'Roberto Lima',
     role: 'Central de Distribuição (Estoque)',
     initials: 'RL',
@@ -510,6 +516,7 @@ const PROFILES = {
     ]
   },
   diretor: {
+    userId: 'ID-007',
     get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
     get name() { const sc = this._sc; return sc && sc.diretor ? sc.diretor.name : 'Diretor(a)'; },
     get role() { const sc = this._sc; return sc ? sc.name : 'Direção Escolar'; },
@@ -527,6 +534,7 @@ const PROFILES = {
     ]
   },
   resp_estoque: {
+    userId: 'ID-008',
     get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
     get name() { const sc = this._sc; return sc && sc.respEstoque ? sc.respEstoque.name : 'Resp. Estoque'; },
     get role() { const sc = this._sc; return sc ? 'Estoque · ' + (sc.sigla||'') + ' ' + sc.name.split(' ').slice(-2).join(' ') : 'Responsável de Estoque'; },
@@ -542,6 +550,7 @@ const PROFILES = {
     ]
   },
   merendeira: {
+    userId: 'ID-009',
     get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
     get name() { const sc = this._sc; return sc && sc.merendeira ? sc.merendeira.name : 'Merendeira Escolar'; },
     get role() { const sc = this._sc; return sc ? 'Cozinha · ' + (sc.sigla||'') + ' ' + sc.name.split(' ').slice(-2).join(' ') : 'Cozinha'; },
@@ -555,6 +564,7 @@ const PROFILES = {
     ]
   },
   motorista: {
+    userId: 'ID-010',
     name: 'José Souza',
     role: 'Motorista de Entrega',
     initials: 'JS',
@@ -725,9 +735,40 @@ const SharedState = {
   getMenus()       { return [...(this._data.menus || [])]; },
   getWeeklyMenus() { return [...(this._data.weeklyMenus || [])]; },
   getFichas()      { return [...(this._data.fichas || [])]; },
-  getOrders()      { return [...(this._data.orders || [])]; },
-  getDeliveries()  { return [...(this._data.deliveries || [])]; },
-  getIncidents()   { return [...(this._data.incidents || [])]; },
+  getOrders()      { 
+    const ords = this._data.orders || [];
+    ords.forEach(o => { 
+      if (!o.school && o.escola) o.school = o.escola; 
+      if (!o.schoolId && o.school && typeof DATA !== 'undefined' && DATA.schools) {
+        const sc = DATA.schools.find(s => s.name === o.school);
+        if (sc) o.schoolId = sc.id;
+      }
+      if (!o.criadoPorUserId) o.criadoPorUserId = o.solicitante === 'Gestor SEMED' ? 'USR-GESTOR-001' : 'USR-ESCOLA-001';
+    });
+    return [...ords]; 
+  },
+  getDeliveries()  { 
+    const dels = this._data.deliveries || [];
+    dels.forEach(d => {
+      if (!d.schoolId && d.school && typeof DATA !== 'undefined' && DATA.schools) {
+        const sc = DATA.schools.find(s => s.name === d.school);
+        if (sc) d.schoolId = sc.id;
+      }
+      if (!d.criadoPorUserId) d.criadoPorUserId = 'USR-MOTORISTA-001'; // Maioria gerida/confirmada pelo motorista ou sistema
+    });
+    return [...dels]; 
+  },
+  getIncidents()   { 
+    const incs = this._data.incidents || [];
+    incs.forEach(i => {
+      if (!i.schoolId && (i.escola || i.school) && typeof DATA !== 'undefined' && DATA.schools) {
+        const sc = DATA.schools.find(s => s.name === (i.escola || i.school));
+        if (sc) i.schoolId = sc.id;
+      }
+      if (!i.criadoPorUserId) i.criadoPorUserId = i.motorista ? 'USR-MOTORISTA-001' : 'USR-ESCOLA-001';
+    });
+    return [...incs]; 
+  },
   getProductions() { return [...(this._data.productions || [])]; },
   getStockAdjust() { return [...(this._data.stockAdjust || [])]; },
   getEmpenhos()    { return [...(this._data.empenhos || [])]; },
@@ -880,7 +921,8 @@ const SharedState = {
   },
 
   addRestricao(restricao) {
-    const r = { id: 'restr-' + Date.now(), criadoEm: new Date().toISOString(), status: 'ativo', notificado: false, ...restricao };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const r = { id: 'restr-' + Date.now(), criadoEm: new Date().toISOString(), status: 'ativo', notificado: false, criadoPorUserId: usr, ...restricao };
     (this._data.restricoes = this._data.restricoes || []).unshift(r);
     this._persist(); this._emit('restricao:add');
     if (window.DB && typeof window.DB.saveRestricao === 'function') {
@@ -913,19 +955,22 @@ const SharedState = {
 
   // Escritores — cada ação notifica os assinantes e persiste
   addMenu(menu) {
-    const m = { id: 'menu-' + Date.now(), status: 'Publicado', criadoEm: new Date().toISOString().slice(0,10), ...menu };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const m = { id: 'menu-' + Date.now(), status: 'Publicado', criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...menu };
     this._data.menus.unshift(m);
     this._persist(); this._emit('menu:add');
     return m;
   },
   addWeeklyMenu(weekly) {
-    const w = { id: 'wk-' + Date.now(), publicadoEm: new Date().toISOString(), ...weekly };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const w = { id: 'wk-' + Date.now(), publicadoEm: new Date().toISOString(), criadoPorUserId: usr, ...weekly };
     this._data.weeklyMenus.unshift(w);
     this._persist(); this._emit('weeklyMenu:add');
     return w;
   },
   addFicha(ficha) {
-    const f = { id: 'ficha-' + Date.now(), criadoEm: new Date().toISOString().slice(0,10), ...ficha };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const f = { id: 'ficha-' + Date.now(), criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...ficha };
     this._data.fichas.unshift(f);
     this._persist(); this._emit('ficha:add');
     return f;
@@ -937,7 +982,10 @@ const SharedState = {
     return p;
   },
   addOrder(order) {
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
     const nextNum = ((this._data.orders[0]?.numero) || 100) + 1;
+    let finalSchool = order.school || order.escola;
+    let finalId = order.schoolId || (typeof DATA !== 'undefined' && DATA.schools ? (DATA.schools.find(s => s.name === finalSchool)?.id || null) : null);
     const o = {
       id: 'ord-' + Date.now(),
       numero: nextNum,
@@ -945,7 +993,10 @@ const SharedState = {
       status: 'Pendente',
       value: 0,
       itens: [],
+      criadoPorUserId: usr,
       ...order,
+      school: finalSchool,
+      schoolId: finalId,
     };
     this._data.orders.unshift(o);
     // Cria automaticamente um registro de entrega vinculado para acompanhamento
@@ -954,10 +1005,10 @@ const SharedState = {
       orderId: o.id,
       orderNumero: o.numero,
       school: o.school,
-      cooperative: o.cooperative,
-      status: 'Aguardando Cooperativa',
-      criadoEm: new Date().toISOString(),
-      timeline: [{ at: new Date().toISOString(), evento: 'Pedido enviado pela escola' }],
+      schoolId: o.schoolId,
+      date: o.date,
+      status: 'Pendente',
+      criadoEm: new Date().toISOString()
     });
     this._persist(); this._emit('order:add');
     return o;
@@ -1189,19 +1240,24 @@ const SharedState = {
     return d;
   },
   addIncident(inc) {
-    const i = { id: 'inc-' + Date.now(), criadoEm: new Date().toISOString(), status: 'Aberta', ...inc };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    let finalSchool = inc.escola || inc.school;
+    let finalId = inc.schoolId || (typeof DATA !== 'undefined' && DATA.schools ? (DATA.schools.find(s => s.name === finalSchool)?.id || null) : null);
+    const i = { id: 'inc-' + Date.now(), criadoEm: new Date().toISOString(), status: 'Aberta', criadoPorUserId: usr, ...inc, escola: finalSchool, schoolId: finalId };
     this._data.incidents.unshift(i);
     this._persist(); this._emit('incident:add');
     return i;
   },
   addProduction(prod) {
-    const p = { id: 'prod-' + Date.now(), criadoEm: new Date().toISOString(), ...prod };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const p = { id: 'prod-' + Date.now(), criadoEm: new Date().toISOString(), criadoPorUserId: usr, ...prod };
     this._data.productions.unshift(p);
     this._persist(); this._emit('production:add');
     return p;
   },
   addStockAdjust(adj) {
-    const a = { id: 'adj-' + Date.now(), criadoEm: new Date().toISOString(), ...adj };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
+    const a = { id: 'adj-' + Date.now(), criadoEm: new Date().toISOString(), criadoPorUserId: usr, ...adj };
     this._data.stockAdjust.unshift(a);
     this._persist(); this._emit('stock:adjust');
     return a;
@@ -1473,7 +1529,8 @@ function renderSidebar() {
   const prof = PROFILES[state.currentProfile];
   $('#sidebar-avatar').textContent = prof.initials;
   $('#sidebar-user-name').textContent = prof.name;
-  $('#sidebar-user-role').textContent = prof.role;
+  $('#sidebar-user-role > span').textContent = prof.role;
+  if ($('#sidebar-user-id')) $('#sidebar-user-id').textContent = prof.userId;
   const nav = $('#sidebar-nav');
   if (!state._groupState) state._groupState = {};
   nav.innerHTML = prof.menu.map(item => {
@@ -1515,7 +1572,8 @@ function renderHeader() {
   const prof = PROFILES[state.currentProfile];
   $('#header-avatar').textContent = prof.initials;
   $('#header-user-name').textContent = prof.name;
-  $('#header-user-role').textContent = prof.role;
+  $('#header-user-role > span').textContent = prof.role;
+  if ($('#header-user-id')) $('#header-user-id').textContent = prof.userId;
   const flat = prof.menu.flatMap(m => m.type === 'group' ? (m.children || []) : [m]);
   const menuItem = flat.find(m => m.id === state.currentPage);
   const label = menuItem ? menuItem.label : 'Dashboard';
