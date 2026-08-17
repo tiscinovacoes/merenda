@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
   <title>SUALE – Sistema de Gestão da Alimentação Escolar | SEMED Campo Grande</title>
   <meta name="description" content="Plataforma integrada de gestão da alimentação escolar da Secretaria Municipal de Educação de Campo Grande - MS">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -66,32 +67,32 @@
           <h2>Acesso ao Sistema</h2>
           <p>Selecione o perfil e entre com suas credenciais institucionais</p>
         </div>
-        <div class="profile-selector" role="group" aria-label="Selecionar perfil">
+        <div class="profile-selector" role="radiogroup" aria-label="Selecionar perfil">
           <!-- SEMED -->
-          <button class="profile-btn active" data-profile="gestor" id="btn-profile-gestor" type="button">
+          <button class="profile-btn active" data-profile="gestor" id="btn-profile-gestor" type="button" role="radio" aria-checked="true">
             <div class="profile-icon">🏛️</div>
             <span>Gestor SEMED</span>
           </button>
-          <button class="profile-btn" data-profile="nutricionista" id="btn-profile-nutricionista" type="button">
+          <button class="profile-btn" data-profile="nutricionista" id="btn-profile-nutricionista" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">🥗</div>
             <span>Nutricionista</span>
           </button>
           <!-- ESCOLA (perfil unificado) -->
-          <button class="profile-btn" data-profile="escola" id="btn-profile-escola" type="button">
+          <button class="profile-btn" data-profile="escola" id="btn-profile-escola" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">🏫</div>
             <span>Escola</span>
           </button>
           <!-- FORNECEDORES (perfil unificado) -->
-          <button class="profile-btn" data-profile="colaboradores" id="btn-profile-colaboradores" type="button">
+          <button class="profile-btn" data-profile="colaboradores" id="btn-profile-colaboradores" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">🤝</div>
             <span>Colaboradores</span>
           </button>
           <!-- LOGÍSTICA -->
-          <button class="profile-btn" data-profile="estoque" id="btn-profile-estoque" type="button">
+          <button class="profile-btn" data-profile="estoque" id="btn-profile-estoque" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">📦</div>
             <span>Estoque Central</span>
           </button>
-          <button class="profile-btn" data-profile="motorista" id="btn-profile-motorista" type="button">
+          <button class="profile-btn" data-profile="motorista" id="btn-profile-motorista" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">🚚</div>
             <span>Motorista</span>
           </button>
@@ -100,7 +101,7 @@
         <!-- Seletor de escola — aparece para perfil Escola -->
         <div id="school-picker-row" style="display:none;margin-bottom:12px">
           <label id="school-picker-label" for="school-picker-select" style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:6px;color:var(--text-secondary)">Unidade Escolar</label>
-          <select id="school-picker-select" class="form-control" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.88rem;background:var(--bg);color:var(--text)">
+          <select id="school-picker-select" class="form-control">
             <option value="">— Selecione a unidade escolar —</option>
             <option value="1">EM ADV. DEMOSTHENES MARTINS (Segredo · 454 alunos)</option>
             <option value="2">EM PROF. ANTÔNIO LOPES LINS (Lagoa · 1.698 alunos)</option>
@@ -115,27 +116,27 @@
         <!-- Seletor de função — aparece junto com o school picker -->
         <div id="subrole-picker-row" style="display:none;margin-bottom:16px">
           <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--text-secondary)">Função na escola</label>
-          <div style="display:flex;gap:8px">
-            <button class="subrole-btn active" data-subrole="diretor" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--primary,#1565C0);border-radius:8px;background:var(--primary-light,#E3F2FD);color:var(--primary,#1565C0);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
-              <span style="font-size:1.2rem">🎓</span>Diretor(a)
+          <div style="display:flex;gap:8px" role="radiogroup" aria-label="Função na escola">
+            <button class="subrole-btn active" data-subrole="diretor" type="button" role="radio" aria-checked="true">
+              <span class="subrole-icon">🎓</span>Diretor(a)
             </button>
-            <button class="subrole-btn" data-subrole="merendeira" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--border);border-radius:8px;background:none;color:var(--text-secondary);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
-              <span style="font-size:1.2rem">👩‍🍳</span>Merendeira
+            <button class="subrole-btn" data-subrole="merendeira" type="button" role="radio" aria-checked="false">
+              <span class="subrole-icon">👩‍🍳</span>Merendeira
             </button>
-            <button class="subrole-btn" data-subrole="resp_estoque" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--border);border-radius:8px;background:none;color:var(--text-secondary);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
-              <span style="font-size:1.2rem">📋</span>Resp. Estoque
+            <button class="subrole-btn" data-subrole="resp_estoque" type="button" role="radio" aria-checked="false">
+              <span class="subrole-icon">📋</span>Resp. Estoque
             </button>
           </div>
         </div>
         <!-- Seletor de função — aparece para perfil Colaboradores -->
         <div id="colab-subrole-picker-row" style="display:none;margin-bottom:16px">
           <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--text-secondary)">Tipo de colaborador</label>
-          <div style="display:flex;gap:8px">
-            <button class="colab-subrole-btn active" data-subrole="cooperativa" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--primary,#1565C0);border-radius:8px;background:var(--primary-light,#E3F2FD);color:var(--primary,#1565C0);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
-              <span style="font-size:1.2rem">🤝</span>Cooperativa
+          <div style="display:flex;gap:8px" role="radiogroup" aria-label="Tipo de colaborador">
+            <button class="colab-subrole-btn active" data-subrole="cooperativa" type="button" role="radio" aria-checked="true">
+              <span class="subrole-icon">🤝</span>Cooperativa
             </button>
-            <button class="colab-subrole-btn" data-subrole="agricultor" type="button" style="flex:1;padding:8px 6px;border:1.5px solid var(--border);border-radius:8px;background:none;color:var(--text-secondary);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px">
-              <span style="font-size:1.2rem">🌾</span>Agricultor
+            <button class="colab-subrole-btn" data-subrole="agricultor" type="button" role="radio" aria-checked="false">
+              <span class="subrole-icon">🌾</span>Agricultor
             </button>
           </div>
         </div>
