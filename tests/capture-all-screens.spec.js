@@ -16,7 +16,7 @@ const PROFILES = {
   },
   nutricionista: {
     pages: ['dashboard', 'fichas', 'produtos', 'cardapios', 'planejamento',
-            'escolas', 'consumo', 'desperdicios', 'simulacoes', 'ia'],
+            'escolas', 'consumo', 'desperdicios', 'restricoes', 'relatorios'],
   },
   escola: {
     pages: ['dashboard', 'planejamento', 'cardapios', 'estoque', 'consumo',
@@ -31,7 +31,7 @@ const PROFILES = {
             'calendario', 'relatorios', 'perfil'],
   },
   almoxarifado: {
-    pages: ['dashboard', 'separacao', 'carregamento', 'estoque'],
+    pages: ['dashboard', 'inventario', 'entradas', 'separacao', 'carregamento', 'lotes', 'escolas'],
   },
   motorista: {
     pages: ['dashboard', 'entregas', 'ocorrencias', 'historico'],

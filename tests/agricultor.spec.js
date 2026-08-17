@@ -44,7 +44,7 @@ test.describe('Agricultor Familiar', () => {
   test('Calendário — Agenda de entregas', async ({ page }) => {
     await navigateTo(page, 'calendario');
     const content = await page.locator('#page-content').textContent();
-    expect(content).toMatch(/calendário|agenda|junho|julho/i);
+    expect(content).toMatch(/planejamento|calendário|agenda|cardápio/i);
   });
 
   test('Relatórios — Relatórios financeiros', async ({ page }) => {

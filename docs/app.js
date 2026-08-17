@@ -667,7 +667,6 @@ const SharedState = {
         { id: 'restr-105', schoolId: 3, schoolName: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', tipo: 'Doença celíaca', quantidade: 14, observacao: 'Dieta celíaca PNAE', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-25' },
         { id: 'restr-106', schoolId: 3, schoolName: 'EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO', tipo: 'Intolerância à lactose', quantidade: 28, observacao: 'Zero lactose', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-06-26' },
         { id: 'restr-107', schoolId: 4, schoolName: 'EMTI PROFª IRACEMA MARIA VICENTE', tipo: 'Doença celíaca', quantidade: 30, observacao: 'Alunos tempo integral', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-07-01' },
-        { id: 'restr-107', schoolId: 4, schoolName: 'EMTI PROFª IRACEMA MARIA VICENTE', tipo: 'Doença celíaca', quantidade: 30, observacao: 'Alunos tempo integral', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-07-01' },
         { id: 'restr-108', schoolId: 4, schoolName: 'EMTI PROFª IRACEMA MARIA VICENTE', tipo: 'Intolerância à lactose', quantidade: 72, observacao: 'Demanda de leite vegetal/zero lactose', status: 'ativo', registradoPor: 'Dra. Lilian Droppa', criadoEm: '2026-07-02' },
       ],
       alunosEspeciais: [
@@ -741,15 +740,46 @@ const SharedState = {
     const ords = this._data.orders || [];
     ords.forEach(o => { 
       if (!o.school && o.escola) o.school = o.escola; 
+      if (!o.escola && o.school) o.escola = o.school;
+      if (!o.escola_name) o.escola_name = o.school || o.escola;
+      if (!o.cooperative && o.cooperativa) o.cooperative = o.cooperativa;
+      if (!o.cooperativa && o.cooperative) o.cooperativa = o.cooperative;
       if (!o.schoolId && o.school && typeof DATA !== 'undefined' && DATA.schools) {
         const sc = DATA.schools.find(s => s.name === o.school);
         if (sc) o.schoolId = sc.id;
       }
       if (!o.criadoPorUserId) o.criadoPorUserId = o.solicitante === 'Gestor SEMED' ? 'USR-GESTOR-001' : 'USR-ESCOLA-001';
+
+      // Normalização de Itens Internos (Fix C3/A5 & NOVO 1)
+      const rawItens = o.itens || o.items || [];
+      o.itens = rawItens.map(i => {
+        const prod = i.produto || i.name || i.descricao || 'Gênero Alimentício';
+        const un = i.unidade || i.unit || 'kg';
+        const qtd = parseFloat(i.quantidade || i.qtd || i.quantity || 0);
+        const pUnit = parseFloat(i.valorUnit || i.unitPrice || i.preco_unitario || 0);
+        const pTot = parseFloat(i.valorTotal || i.subtotal || 0) || (qtd * pUnit);
+        return {
+          id: i.id || 'item-' + (i.productId || crypto.randomUUID()),
+          produto: prod,
+          name: prod,
+          descricao: prod,
+          unidade: un,
+          unit: un,
+          quantidade: qtd,
+          qtd: qtd,
+          valorUnit: pUnit,
+          unitPrice: pUnit,
+          valorTotal: pTot
+        };
+      });
+      o.items = o.itens;
     });
     return [...ords]; 
   },
   getDeliveries()  { 
+    if ((!this._data.deliveries || this._data.deliveries.length === 0) && typeof DATA !== 'undefined' && DATA.deliveries) {
+      this._data.deliveries = [...DATA.deliveries];
+    }
     const dels = this._data.deliveries || [];
     dels.forEach(d => {
       if (!d.schoolId && d.school && typeof DATA !== 'undefined' && DATA.schools) {
@@ -898,6 +928,9 @@ const SharedState = {
     return ((this._data.schoolStocks || {})[school] || {})[produto] || null;
   },
   getCentralStock() {
+    if ((!this._data.centralStock || Object.keys(this._data.centralStock).length === 0) && typeof DATA !== 'undefined' && DATA.centralStock) {
+      this._data.centralStock = { ...DATA.centralStock };
+    }
     return Object.entries(this._data.centralStock || {}).map(([produto, info]) => ({ produto, ...info }));
   },
   getConsumo(escola) {
@@ -1272,13 +1305,6 @@ const SharedState = {
     this._data.incidents.unshift(i);
     this._persist(); this._emit('incident:add');
     return i;
-  },
-  addProduction(prod) {
-    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
-    const p = { id: 'prod-' + Date.now(), criadoEm: new Date().toISOString(), criadoPorUserId: usr, ...prod };
-    this._data.productions.unshift(p);
-    this._persist(); this._emit('production:add');
-    return p;
   },
   addStockAdjust(adj) {
     const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
@@ -8448,9 +8474,20 @@ PAGE_RENDERERS.escola_pedidos = (el) => {
     // Tenta gravar também no Supabase (best-effort)
     try {
       if (typeof _sb !== 'undefined') {
-        await _sb.from('orders').insert([{ school: sc.name, date: newOrder.date, status: 'Pendente', cooperative: coopSel, value }]);
+        const { error } = await _sb.from('orders').insert([{
+          school_name: sc.name,
+          school_id: sc.id,
+          items: itens,
+          status: 'Pendente',
+          cooperative: coopSel,
+          total_value: value,
+          date: newOrder.date
+        }]);
+        if (error) console.warn('Supabase insert orders notice:', error.message);
       }
-    } catch(e) { /* silencia — SharedState garante persistência local */ }
+    } catch(err) { 
+      console.warn('Supabase insert orders exception:', err);
+    }
 
     fb.style.display='block';
     fb.innerHTML = `<span style="color:var(--success)">✅ Pedido <strong>#${String(newOrder.numero).padStart(3,'0')}</strong> enviado! Já visível para <strong>${coopSel}</strong>, Almoxarifado e Gestor.</span>`;
@@ -8830,8 +8867,14 @@ window.acceptOrder = (id) => {
   renderPage();
 };
 window.dispatchOrder = (id) => {
+  const o = SharedState.getOrders().find(x => x.id === id);
+  if (o) {
+    o.driver = o.driver || 'Carlos Silva (Placa ABC-1234)';
+    o.driver_id = o.driver_id || 'USR-MOTORISTA-001';
+    o.placa = o.placa || 'ABC-1234';
+  }
   SharedState.updateOrderStatus(id, 'Em transporte');
-  showToast('🚚 Pedido despachado. Motorista notificado.');
+  showToast('🚚 Pedido despachado. Motorista Carlos Silva notificado!');
   renderPage();
 };
 window.confirmSchoolDelivery = (id, receiver) => {
@@ -10051,8 +10094,8 @@ PAGE_RENDERERS.motorista_ocorrencias = (el) => {
             <label>Escola Relacionada</label>
             <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="incident-school" required>
               <option value="">Selecione a escola...</option>
-              <option value="EM PROF. ANTÔNIO LOPES LINS">EM PROF. ANTÔNIO LOPES LINS</option>
-              <option value="EMTI PROFª IRACEMA MARIA VICENTE">EMTI PROFª IRACEMA MARIA VICENTE</option>
+              ${(DATA.schools || []).map(s => `<option value="${s.name}">${s.name}</option>`).join('')}
+              <option value="EM Elpídio Reis">EM Elpídio Reis</option>
               <option value="Outra">Outro incidente (Trânsito / Veículo)</option>
             </select>
           </div>
@@ -10463,6 +10506,7 @@ window.dirSubmitPedido = (schoolName) => {
 PAGE_RENDERERS.diretor_entregas = PAGE_RENDERERS.escola_entregas;
 PAGE_RENDERERS.diretor_consumo  = PAGE_RENDERERS.escola_consumo;
 PAGE_RENDERERS.diretor_cardapios = PAGE_RENDERERS.escola_cardapios;
+PAGE_RENDERERS.diretor_planejamento = PAGE_RENDERERS.escola_planejamento || PAGE_RENDERERS.gestor_planejamento;
 PAGE_RENDERERS.diretor_historico = PAGE_RENDERERS.escola_historico;
 PAGE_RENDERERS.diretor_relatorios = PAGE_RENDERERS.escola_relatorios;
 
