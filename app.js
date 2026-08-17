@@ -734,6 +734,7 @@ const SharedState = {
 
   // Leitores
   getMenus()       { return [...(this._data.menus || [])]; },
+  getCardapios()   { return this.getMenus(); },
   getWeeklyMenus() { return [...(this._data.weeklyMenus || [])]; },
   getFichas()      { return [...(this._data.fichas || [])]; },
   getOrders()      { 
@@ -1088,7 +1089,24 @@ const SharedState = {
         )
       );
 
-      // F          const novoEmp = {
+      if (ataMatch) {
+        const ataRef = { numero: ataMatch.numero || `ATA-${ataMatch.id}`, id: ataMatch.id };
+        const empMatch = empenhos.find(e =>
+          (e.ata_numero === ataRef.numero || e.ataId === ataRef.id) &&
+          (e.produto || '').toLowerCase().includes(nomeProd.split(' ')[0]) &&
+          e.status !== 'Cancelado'
+        );
+
+        if (empMatch) {
+          ataItems.push({
+            ...item,
+            ataNumero: ataRef.numero,
+            empenhoNumero: empMatch.numero_empenho || empMatch.numero || 'EMP-LOCAL',
+            empenhoId: empMatch.id,
+            resultado: 'Vinculado à Ata/Empenho',
+          });
+        } else {
+          const novoEmp = {
             id: 'emp-auto-' + crypto.randomUUID(),
             numero_empenho: 'EMP-AUTO-' + crypto.randomUUID().slice(0,8).toUpperCase(),
             ata_numero: ataRef.numero,
@@ -1455,6 +1473,7 @@ async function login(profile, schoolId) {
   $('#screen-login').hidden = true;
   const app = $('#screen-app');
   app.hidden = false;
+  app.removeAttribute('hidden');
   app.classList.add('active');
 
   // Mostra loading enquanto hidrata do Supabase
@@ -1473,9 +1492,12 @@ async function login(profile, schoolId) {
   renderSidebar();
   renderHeader();
 
-  // Hidrata DATA com dados reais do Supabase
+  // Hidrata DATA com dados reais do Supabase (com timeout de 2s para nao travar a UI)
   if (window.DB) {
-    await window.DB.hydrateData();
+    await Promise.race([
+      window.DB.hydrateData(),
+      new Promise(r => setTimeout(r, 2000))
+    ]).catch(() => {});
     updateDbStatusBadge();
   }
 
@@ -1494,6 +1516,7 @@ function logout() {
   app.hidden = true;
   const loginEl = $('#screen-login');
   loginEl.hidden = false;
+  loginEl.removeAttribute('hidden');
   loginEl.classList.add('active');
 }
 
@@ -11065,19 +11088,8 @@ function renderCrudScreen(title, subtitle, headers, rows) {
   `;
 }
 
-function renderGenericPage(el) {
-  const menuItem = PROFILES[state.currentProfile].menu.find(m => m.id === state.currentPage);
-  const label = menuItem ? menuItem.label : state.currentPage;
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">${label}</div><div class="page-subtitle">Conteúdo em desenvolvimento</div></div>
-    <div class="card"><div class="card-body"><div class="empty-state"><div class="empty-icon">🚧</div><div class="empty-text">Esta tela está em construção</div></div></div></div>
-  `;
-}
-
 // ============================
-// EVENT LISTENERS
-// ============================
-document.addEventListener('DOMContentLoaded', () => {
+function initAppEvents() {
   const SCHOOL_SUBROLES = ['diretor', 'resp_estoque', 'merendeira'];
   const COLAB_SUBROLES = ['cooperativa', 'agricultor'];
 
@@ -11133,15 +11145,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-window.AUTH_ENABLED = false;
-window.authenticateUser = (user, pass, profile) => {
-  if (!window.AUTH_ENABLED) return { success: true };
-  if (!user || !pass) return { success: false, error: 'Informe o CPF/usuário e a senha de acesso.' };
-  return { success: true };
-};
+  window.AUTH_ENABLED = false;
+  window.authenticateUser = (user, pass, profile) => {
+    if (!window.AUTH_ENABLED) return { success: true };
+    if (!user || !pass) return { success: false, error: 'Informe o CPF/usuário e a senha de acesso.' };
+    return { success: true };
+  };
 
   // Login form
-  $('#login-form').addEventListener('submit', async (e) => {
+  $('#login-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const userInput = $('#login-user')?.value || '';
     const passInput = $('#login-pass')?.value || '';
@@ -11196,7 +11208,7 @@ window.authenticateUser = (user, pass, profile) => {
   });
 
   // Logout
-  $('#btn-logout').addEventListener('click', logout);
+  $('#btn-logout')?.addEventListener('click', logout);
 
   // Sidebar collapse
   $('#sidebar-collapse-btn')?.addEventListener('click', () => {
@@ -11235,7 +11247,13 @@ window.authenticateUser = (user, pass, profile) => {
   };
   $('#close-notif-drawer')?.addEventListener('click', closeNotifs);
   $('#notif-overlay')?.addEventListener('click', closeNotifs);
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAppEvents);
+} else {
+  initAppEvents();
+}
 
 
 // MERENDEIRA ALIASES
