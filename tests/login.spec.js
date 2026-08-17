@@ -11,7 +11,7 @@ test.describe('Login e Autenticação', () => {
     await expect(page.locator('.login-system-name')).toHaveText('SUALE');
     await expect(page.locator('.login-system-subtitle')).toContainText('Alimentação Escolar');
     const profileBtns = page.locator('.profile-btn');
-    await expect(profileBtns).toHaveCount(7);
+    await expect(profileBtns).toHaveCount(6);
     await expect(page.locator('.login-stats')).toBeVisible();
     await expect(page.locator('#btn-login')).toBeVisible();
   });
