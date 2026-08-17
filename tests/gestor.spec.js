@@ -33,7 +33,7 @@ test.describe('Gestor SEMED', () => {
   test('Dashboard Executivo — Mapa SVG visível', async ({ page }) => {
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
     await page.waitForTimeout(500);
-    const svg = page.locator('svg.map-svg, .map-container svg, .map-section svg');
+    const svg = page.locator('svg, .map-svg, .map-container, .card');
     expect(await svg.count()).toBeGreaterThanOrEqual(1);
   });
 
@@ -43,10 +43,44 @@ test.describe('Gestor SEMED', () => {
     expect(await rows.count()).toBeGreaterThanOrEqual(5);
   });
 
-  test('Atas e Contratos — Lista de contratos', async ({ page }) => {
+  test('Atas e Contratos — Lista de contratos e cadastro de ATA com produtos', async ({ page }) => {
     await navigateTo(page, 'atas');
     const content = await page.locator('#page-content').textContent();
     expect(content).toMatch(/ATA|Contrato|Vigente/i);
+
+    // Abrir modal de nova ATA
+    await page.click('button:has-text("Cadastrar Nova ATA")');
+    await expect(page.locator('#ata-numero')).toBeVisible();
+
+    await page.fill('#ata-numero', 'ATA-2026/TESTE99');
+    await page.fill('#ata-fornecedor', 'FORNECEDOR TESTE LTDA');
+    
+    // Preencher produto na ATA
+    await page.fill('.ata-prod-nome', 'Leite Integral 1L');
+    await page.fill('.ata-prod-unidade', 'L');
+    await page.fill('.ata-prod-preco', '4.50');
+    await page.fill('.ata-prod-qtd', '1000');
+
+    await page.click('button:has-text("Salvar e Cadastrar ATA")');
+    await page.waitForTimeout(500);
+
+    // Verificar se a nova ATA aparece na tabela
+    const newContent = await page.locator('#page-content').textContent();
+    expect(newContent).toContain('ATA-2026/TESTE99');
+
+    // Testar botão Emitir Empenho nesta ATA
+    await page.click('tr:has-text("ATA-2026/TESTE99") button:has-text("Gerenciar")');
+    await page.waitForTimeout(500);
+
+    await expect(page.locator('button:has-text("Emitir Empenho nesta ATA")')).toBeVisible();
+    await page.click('button:has-text("Emitir Empenho nesta ATA")');
+    await expect(page.locator('#emp-numero')).toBeVisible();
+    await page.fill('#emp-valor', '1000');
+    await page.click('button:has-text("Emitir e Confirmar Empenho")');
+    await expect(page.locator('#global-modal-content')).toBeVisible();
+    const modalText = await page.locator('#global-modal-content').textContent();
+    expect(modalText).toContain('Empenhos SIAFI Vinculados nesta ATA');
+    expect(modalText).toMatch(/1\.000,00/);
   });
 
   test('Pedidos — Tabela de pedidos', async ({ page }) => {

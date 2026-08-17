@@ -1414,8 +1414,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // Helper de UI: mostra um toast rápido de sucesso/erro
 function showToast(msg, kind) {
   const t = document.createElement('div');
+  t.className = 'toast';
   t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + (kind === 'error' ? '#C62828' : '#2E7D32') + ';color:white;padding:12px 18px;border-radius:8px;font-size:0.9rem;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:9999;font-weight:600;opacity:0;transition:opacity .2s';
+  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + (kind === 'error' || kind === 'warning' ? '#C62828' : '#2E7D32') + ';color:white;padding:12px 18px;border-radius:8px;font-size:0.9rem;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:9999;font-weight:600;opacity:0;transition:opacity .2s';
   document.body.appendChild(t);
   requestAnimationFrame(() => t.style.opacity = '1');
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 3200);
@@ -11369,7 +11370,12 @@ window.abrirModalDetalhesAta = (ataId) => {
       </div>
 
       <div style="margin-bottom:20px">
-        <h4 style="margin:0 0 10px 0;color:var(--text-primary)">📦 Produtos Registrados na ATA & Gestão de Saldos</h4>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h4 style="margin:0;color:var(--text-primary)">📦 Produtos Registrados na ATA & Gestão de Saldos</h4>
+          <button class="btn btn-sm btn-outline" onclick="window.abrirModalAdicionarProdutoAta('${numAta}')">
+            ➕ Adicionar Produto nesta ATA
+          </button>
+        </div>
         <div style="overflow-x:auto;max-height:280px">
           <table class="data-table" style="font-size:0.85rem">
             <thead>
@@ -11450,43 +11456,157 @@ window.abrirModalDetalhesAta = (ataId) => {
   window.showModal(`📋 Detalhamento & Saldo da ATA — ${numAta}`, content, '950px');
 };
 
+window.adicionarLinhaProdutoAta = (dados = {}) => {
+  const tbody = document.getElementById('tbody-itens-nova-ata');
+  if (!tbody) return;
+  const idRow = 'row-item-' + crypto.randomUUID();
+
+  const prodsOpts = (DATA.products || []).map(p => `<option value="${p.name}">`).join('');
+
+  const tr = document.createElement('tr');
+  tr.id = idRow;
+  tr.className = 'linha-item-ata';
+  tr.innerHTML = `
+    <td>
+      <input type="text" list="dl-prods-ata" class="btn btn-outline ata-prod-nome" style="width:100%;text-align:left;padding:4px 8px;font-size:0.85rem" placeholder="Ex: Carne Bovina Acém" value="${dados.nome||''}" required oninput="window.recalcularSubtotaisAta()">
+      <datalist id="dl-prods-ata">${prodsOpts}</datalist>
+    </td>
+    <td>
+      <input type="text" class="btn btn-outline ata-prod-unidade" style="width:100%;text-align:center;padding:4px 8px;font-size:0.85rem" placeholder="kg, L, dz" value="${dados.unidade||'kg'}" required>
+    </td>
+    <td>
+      <input type="number" step="0.01" min="0.01" class="btn btn-outline ata-prod-preco" style="width:100%;text-align:right;padding:4px 8px;font-size:0.85rem" placeholder="0.00" value="${dados.preco||''}" required oninput="window.recalcularSubtotaisAta()">
+    </td>
+    <td>
+      <input type="number" step="1" min="1" class="btn btn-outline ata-prod-qtd" style="width:100%;text-align:right;padding:4px 8px;font-size:0.85rem" placeholder="0" value="${dados.qtd||''}" required oninput="window.recalcularSubtotaisAta()">
+    </td>
+    <td style="text-align:right;font-family:var(--font-mono);font-weight:700" class="ata-prod-subtotal">
+      R$ 0,00
+    </td>
+    <td style="text-align:center">
+      <button type="button" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px" onclick="document.getElementById('${idRow}').remove(); window.recalcularSubtotaisAta();" title="Remover produto">❌</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+  window.recalcularSubtotaisAta();
+};
+
+window.recalcularSubtotaisAta = () => {
+  const tbody = document.getElementById('tbody-itens-nova-ata');
+  if (!tbody) return;
+  let totalGlobal = 0;
+  const rows = tbody.querySelectorAll('.linha-item-ata');
+  rows.forEach(tr => {
+    const preco = parseFloat(tr.querySelector('.ata-prod-preco')?.value) || 0;
+    const qtd = parseFloat(tr.querySelector('.ata-prod-qtd')?.value) || 0;
+    const sub = preco * qtd;
+    totalGlobal += sub;
+    const tdSub = tr.querySelector('.ata-prod-subtotal');
+    if (tdSub) {
+      tdSub.textContent = sub ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(sub) : 'R$ 0,00';
+    }
+  });
+
+  const inputValorGlobal = document.getElementById('ata-valor');
+  if (inputValorGlobal && (rows.length > 0 || totalGlobal > 0)) {
+    inputValorGlobal.value = totalGlobal.toFixed(2);
+  }
+};
+
 window.abrirModalNovaAta = () => {
   const content = `
     <form onsubmit="window.salvarNovaAta(event)">
-      <div class="form-group mb-12">
-        <label style="font-weight:600;display:block;margin-bottom:4px">Número/Ano da ATA</label>
-        <input type="text" id="ata-numero" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: ATA-2026/050" required>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Número/Ano da ATA</label>
+          <input type="text" id="ata-numero" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: ATA-2026/050" required>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Modalidade / Tipo</label>
+          <select id="ata-tipo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+            <option value="Chamada Pública (AF)">🌾 Chamada Pública (Agricultura Familiar)</option>
+            <option value="Pregão Eletrônico">🏢 Pregão Eletrônico</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group mb-12">
-        <label style="font-weight:600;display:block;margin-bottom:4px">Modalidade / Tipo</label>
-        <select id="ata-tipo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
-          <option value="Chamada Pública (AF)">🌾 Chamada Pública (Agricultura Familiar)</option>
-          <option value="Pregão Eletrônico">🏢 Pregão Eletrônico</option>
-        </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Razão Social do Fornecedor / Cooperativa</label>
+          <input type="text" id="ata-fornecedor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: COOPAGRAN ou Nutri Alimentos Ltda" required>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Valor Global Registrado (R$)</label>
+          <input type="number" step="0.01" id="ata-valor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: 1500000.00" required>
+        </div>
       </div>
-      <div class="form-group mb-12">
-        <label style="font-weight:600;display:block;margin-bottom:4px">Razão Social do Fornecedor / Cooperativa</label>
-        <input type="text" id="ata-fornecedor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: COOPAGRAN ou Nutri Alimentos Ltda" required>
+
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <label style="font-weight:700;font-size:0.95rem;color:var(--primary-dark)">📦 Produtos Registrados na ATA</label>
+          <button type="button" class="btn btn-sm btn-outline" onclick="window.adicionarLinhaProdutoAta()">
+            ➕ Adicionar Produto
+          </button>
+        </div>
+        <div style="overflow-x:auto;max-height:220px">
+          <table class="data-table" style="font-size:0.85rem;margin:0" id="tabela-itens-nova-ata">
+            <thead>
+              <tr>
+                <th>Produto / Descrição</th>
+                <th style="width:90px">Unidade</th>
+                <th style="width:110px">Preço Unit. (R$)</th>
+                <th style="width:110px">Qtd Registrada</th>
+                <th style="width:120px">Subtotal (R$)</th>
+                <th style="width:40px">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-itens-nova-ata">
+              <!-- Linhas dinamicas -->
+            </tbody>
+          </table>
+        </div>
       </div>
-      <div class="form-group mb-12">
-        <label style="font-weight:600;display:block;margin-bottom:4px">Valor Global Registrado (R$)</label>
-        <input type="number" step="0.01" id="ata-valor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: 1500000.00" required>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
         <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
         <button type="submit" class="btn btn-primary">💾 Salvar e Cadastrar ATA</button>
       </div>
     </form>
   `;
-  window.showModal('📋 Cadastrar Nova ATA de Registro de Preços', content, '550px');
+  window.showModal('📋 Cadastrar Nova ATA de Registro de Preços', content, '750px');
+  // Abre com 1 linha pronta por padrao
+  window.adicionarLinhaProdutoAta();
 };
 
 window.salvarNovaAta = (e) => {
   e.preventDefault();
-  const numero = document.getElementById('ata-numero').value;
+  const numero = document.getElementById('ata-numero').value.trim();
   const tipo = document.getElementById('ata-tipo').value;
-  const fornecedor = document.getElementById('ata-fornecedor').value;
+  const fornecedor = document.getElementById('ata-fornecedor').value.trim();
   const valor = parseFloat(document.getElementById('ata-valor').value) || 0;
+
+  const itens = [];
+  const rows = document.querySelectorAll('#tbody-itens-nova-ata .linha-item-ata');
+  rows.forEach(tr => {
+    const nome = tr.querySelector('.ata-prod-nome')?.value.trim();
+    const unidade = tr.querySelector('.ata-prod-unidade')?.value.trim() || 'un';
+    const preco = parseFloat(tr.querySelector('.ata-prod-preco')?.value) || 0;
+    const qtd = parseFloat(tr.querySelector('.ata-prod-qtd')?.value) || 0;
+    if (nome && qtd > 0) {
+      itens.push({
+        id: 'item-' + crypto.randomUUID(),
+        name: nome,
+        produto: nome,
+        descricao: nome,
+        unidade: unidade,
+        unitPrice: preco,
+        preco_unitario: preco,
+        maxQtd: qtd,
+        quantidade_registrada: qtd,
+        globalValue: preco * qtd,
+        executedValue: 0
+      });
+    }
+  });
 
   SharedState.addAta2({
     numero: numero,
@@ -11495,13 +11615,265 @@ window.salvarNovaAta = (e) => {
     fornecedor: fornecedor,
     valor_global: valor,
     valor_executado: 0,
-    status: 'Vigente'
+    status: 'Vigente',
+    itens: itens
   });
 
-  showToast(`✅ ATA ${numero} cadastrada com sucesso!`);
+  showToast(`✅ ATA ${numero} cadastrada com sucesso com ${itens.length} produto(s)!`, 'success');
   closeModal();
   const container = document.getElementById('page-content');
   if (container) PAGE_RENDERERS.gestor_atas(container);
+};
+
+window.abrirModalAdicionarProdutoAta = (numAta) => {
+  const prodsOpts = (DATA.products || []).map(p => `<option value="${p.name}">`).join('');
+  const content = `
+    <form onsubmit="window.salvarProdutoAtaExistente('${numAta}', event)">
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Produto / Item</label>
+        <input type="text" list="dl-prods-add-ata" id="add-prod-nome" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Batata Doce Rosada" required>
+        <datalist id="dl-prods-add-ata">${prodsOpts}</datalist>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Unidade</label>
+          <input type="text" id="add-prod-unidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="kg" required>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Preço Unitário (R$)</label>
+          <input type="number" step="0.01" min="0.01" id="add-prod-preco" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: 4.50" required>
+        </div>
+      </div>
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Quantidade Registrada na ATA</label>
+        <input type="number" step="1" min="1" id="add-prod-qtd" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: 5000" required>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+        <button type="button" class="btn btn-outline" onclick="window.abrirModalDetalhesAta('${numAta}')">Voltar</button>
+        <button type="submit" class="btn btn-primary">➕ Salvar Produto na ATA</button>
+      </div>
+    </form>
+  `;
+  window.showModal(`📦 Adicionar Produto na ATA — ${numAta}`, content, '500px');
+};
+
+window.salvarProdutoAtaExistente = (numAta, e) => {
+  e.preventDefault();
+  const nome = document.getElementById('add-prod-nome').value.trim();
+  const unidade = document.getElementById('add-prod-unidade').value.trim() || 'kg';
+  const preco = parseFloat(document.getElementById('add-prod-preco').value) || 0;
+  const qtd = parseFloat(document.getElementById('add-prod-qtd').value) || 0;
+
+  const atas = SharedState.getAtas2();
+  const ata = atas.find(a => a.numero === numAta || a.numero_ata === numAta || String(a.id) === String(numAta));
+  if (ata) {
+    ata.itens = ata.itens || [];
+    const novoItem = {
+      id: 'item-' + crypto.randomUUID(),
+      name: nome,
+      produto: nome,
+      descricao: nome,
+      unidade: unidade,
+      unitPrice: preco,
+      preco_unitario: preco,
+      maxQtd: qtd,
+      quantidade_registrada: qtd,
+      globalValue: preco * qtd,
+      executedValue: 0
+    };
+    ata.itens.push(novoItem);
+    ata.valor_global = (ata.valor_global || 0) + (preco * qtd);
+    SharedState._persist();
+    SharedState._emit('ata:update');
+    showToast(`✅ Produto "${nome}" adicionado à ATA ${numAta}!`, 'success');
+    window.abrirModalDetalhesAta(numAta);
+  }
+};
+
+window.openNewEmpenhoModal = (numAtaTarget) => {
+  const atas = SharedState.getAtas2();
+  if (!atas || atas.length === 0) {
+    showToast('⚠️ Nenhuma ATA cadastrada para emitir empenho.', 'warning');
+    return;
+  }
+
+  const ataSelecionada = atas.find(a => a.numero === numAtaTarget || a.numero_ata === numAtaTarget || String(a.id) === String(numAtaTarget)) || atas[0];
+  const ataNumeroSel = ataSelecionada ? (ataSelecionada.numero || ataSelecionada.numero_ata) : '';
+
+  const numSiafiAuto = '2026NE' + String(Math.floor(100000 + Math.random() * 900000));
+
+  const atasOptions = atas.map(a => {
+    const num = a.numero || a.numero_ata;
+    const isSel = num === ataNumeroSel ? 'selected' : '';
+    const valGlobal = a.valor_global || 0;
+    const valExec = a.valor_executado || 0;
+    const saldo = Math.max(0, valGlobal - valExec);
+    const fmt = (v) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
+    return `<option value="${num}" ${isSel} data-fornecedor="${a.fornecedor||''}" data-tipo="${a.tipo||''}" data-saldo="${saldo}">📋 ${num} — ${a.fornecedor} (Saldo: ${fmt(saldo)})</option>`;
+  }).join('');
+
+  const escOpts = `<option value="SEMED Global (Rede)">🏫 SEMED Global (Toda a Rede)</option>` +
+    (DATA.schools || []).map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+
+  const content = `
+    <form onsubmit="window.salvarNovoEmpenho(event, '${numAtaTarget||''}')">
+      <div style="background:#f1f5f9;padding:12px;border-radius:8px;margin-bottom:14px;font-size:0.85rem;color:#475569">
+        💡 <strong>Empenho SIAFI (Nota de Empenho)</strong>: Reserva de dotação orçamentária vinculada a uma ATA de Registro de Preços vigente para liquidação e emissão de Ordens de Serviço.
+      </div>
+      
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Nº da Nota de Empenho (SIAFI)</label>
+        <input type="text" id="emp-numero" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;font-weight:700;letter-spacing:1px" value="${numSiafiAuto}" required>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">ATA de Registro de Preços Vinculada</label>
+        <select id="emp-ata-select" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required onchange="window.atualizarFormEmpenhoPorAta(this.value)">
+          ${atasOptions}
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Fornecedor / Detentor</label>
+          <input type="text" id="emp-fornecedor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;background:#f8fafc" value="${ataSelecionada ? ataSelecionada.fornecedor : ''}" readonly>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Tipo / Modalidade</label>
+          <input type="text" id="emp-tipo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;background:#f8fafc" value="${ataSelecionada && (ataSelecionada.tipo||'').includes('AF') ? 'AF (Agricultura Familiar)' : 'CONV (Pregão Eletrônico)'}" readonly>
+        </div>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Unidade Escolar / Destino da Reserva</label>
+        <select id="emp-escola" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          ${escOpts}
+        </select>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Produto / Item Principal da ATA</label>
+        <select id="emp-produto" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          <!-- Preenchido via JS -->
+        </select>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Valor a Empenhar (R$)</label>
+        <input type="number" step="0.01" min="1" id="emp-valor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;font-weight:700" placeholder="Ex: 50000.00" required>
+        <div id="emp-saldo-info" style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px"></div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💳 Emitir e Confirmar Empenho</button>
+      </div>
+    </form>
+  `;
+
+  window.showModal('💳 Emitir Empenho SIAFI', content, '600px');
+  window.atualizarFormEmpenhoPorAta(ataNumeroSel);
+};
+
+window.atualizarFormEmpenhoPorAta = (numAta) => {
+  const selAta = document.getElementById('emp-ata-select');
+  if (!selAta) return;
+  const opt = selAta.options[selAta.selectedIndex];
+  if (!opt) return;
+
+  const fornecedor = opt.dataset.fornecedor || '';
+  const tipo = opt.dataset.tipo || '';
+  const saldo = parseFloat(opt.dataset.saldo) || 0;
+
+  const inpForn = document.getElementById('emp-fornecedor');
+  if (inpForn) inpForn.value = fornecedor;
+
+  const inpTipo = document.getElementById('emp-tipo');
+  if (inpTipo) inpTipo.value = tipo.includes('AF') ? 'AF (Agricultura Familiar)' : 'CONV (Pregão Eletrônico)';
+
+  const divSaldo = document.getElementById('emp-saldo-info');
+  const fmt = (v) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
+  if (divSaldo) divSaldo.innerHTML = `Saldo disponível nesta ATA: <strong style="color:var(--success)">${fmt(saldo)}</strong>`;
+
+  const atas = SharedState.getAtas2();
+  const ata = atas.find(a => a.numero === numAta || a.numero_ata === numAta || String(a.id) === String(numAta));
+  const prods = (ata && ata.itens && ata.itens.length > 0)
+    ? ata.itens
+    : (DATA.ataProducts || []).filter(ap => ap.ataNumero === numAta || String(ap.ataId) === String(numAta));
+
+  const selProd = document.getElementById('emp-produto');
+  if (selProd) {
+    if (prods.length > 0) {
+      selProd.innerHTML = prods.map(p => {
+        const nome = p.name || p.descricao || p.produto || 'Produto';
+        const pUnit = p.unitPrice || p.preco_unitario || 0;
+        return `<option value="${nome}">${nome} ${pUnit > 0 ? '(R$ ' + pUnit.toFixed(2) + ')' : ''}</option>`;
+      }).join('');
+    } else {
+      selProd.innerHTML = '<option value="Gêneros Alimentícios Diversos">Gêneros Alimentícios Diversos (Lote)</option>';
+    }
+  }
+};
+
+window.salvarNovoEmpenho = (e, numAtaTarget) => {
+  e.preventDefault();
+  const numEmpenho = document.getElementById('emp-numero').value.trim();
+  const numAta = document.getElementById('emp-ata-select').value;
+  const fornecedor = document.getElementById('emp-fornecedor').value;
+  const escolaName = document.getElementById('emp-escola').value;
+  const produto = document.getElementById('emp-produto').value;
+  const valorEmpenhado = parseFloat(document.getElementById('emp-valor').value) || 0;
+
+  if (!numEmpenho || !numAta || valorEmpenhado <= 0) {
+    showToast('⚠️ Preencha todos os campos corretamente.', 'warning');
+    return;
+  }
+
+  const atas = SharedState.getAtas2();
+  const ata = atas.find(a => a.numero === numAta || a.numero_ata === numAta || String(a.id) === String(numAta));
+  if (ata) {
+    const valGlobal = ata.valor_global || 0;
+    const valExec = ata.valor_executado || 0;
+    const saldo = Math.max(0, valGlobal - valExec);
+
+    if (valorEmpenhado > saldo && saldo > 0) {
+      showToast(`⚠️ O valor do empenho (R$ ${valorEmpenhado.toFixed(2)}) excede o saldo disponível na ATA (R$ ${saldo.toFixed(2)}).`, 'warning');
+      return;
+    }
+
+    ata.valor_executado = valExec + valorEmpenhado;
+  }
+
+  const tipoCode = (document.getElementById('emp-tipo').value || '').includes('AF') ? 'AF' : 'Conv.';
+
+  const novoEmpenho = {
+    id: 'emp-' + crypto.randomUUID(),
+    numero_empenho: numEmpenho,
+    ata_numero: numAta,
+    ataId: ata ? ata.id : null,
+    tipo: tipoCode,
+    fornecedor: fornecedor,
+    escola_name: escolaName,
+    produto: produto,
+    valor_empenhado: valorEmpenhado,
+    valor_liquidado: 0,
+    valor_pago: 0,
+    data_empenho: new Date().toISOString().slice(0,10),
+    status: 'Emitido'
+  };
+
+  SharedState.addEmpenho2(novoEmpenho);
+  showToast(`✅ Empenho ${numEmpenho} de ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(valorEmpenhado)} emitido com sucesso!`, 'success');
+  closeModal();
+
+  const container = document.getElementById('page-content');
+  if (numAtaTarget) {
+    window.abrirModalDetalhesAta(numAtaTarget);
+  } else if (container && state.currentPage === 'atas') {
+    PAGE_RENDERERS.gestor_atas(container);
+  } else if (container && state.currentPage === 'empenhos') {
+    PAGE_RENDERERS.gestor_empenhos(container);
+  }
 };
 
 // ─── GESTOR: EMPENHOS (com dados do Supabase) ───────────────────────
@@ -11665,119 +12037,7 @@ window.abrirModalDetalhesEmpenho = (numeroEmpenho) => {
   window.showModal(`💳 Detalhamento do Empenho SIAFI — ${emp.numero_empenho}`, content, '850px');
 };
 
-window.salvarNovoEmpenho = (e) => {
-  e.preventDefault();
-  const numero = document.getElementById('emp-numero').value;
-  const ataSelect = document.getElementById('emp-ata');
-  const ataNumero = ataSelect.value;
-  const opt = ataSelect.options[ataSelect.selectedIndex];
-  const fornecedor = document.getElementById('emp-fornecedor').value;
-  const escolaName = document.getElementById('emp-escola').value;
-  const valorTotal = parseFloat(document.getElementById('emp-valor-total').value) || 0;
-  const tipoStr = (opt && opt.getAttribute('data-tipo') || '').includes('AF') ? 'AF' : 'Conv.';
-
-  const chks = document.querySelectorAll('.emp-item-chk:checked');
-  if (chks.length === 0 || valorTotal <= 0) {
-    alert('⚠️ Selecione pelo menos 1 produto e informe a quantidade a empenhar.');
-    return;
-  }
-
-  const itensEmpenho = [];
-  chks.forEach(chk => {
-    const idx = chk.getAttribute('data-idx');
-    const unitPrice = parseFloat(chk.getAttribute('data-unitprice')) || 0;
-    const prodName = chk.getAttribute('data-prodname');
-    const unit = chk.getAttribute('data-unit');
-    const prodId = chk.getAttribute('data-prodid');
-    const qtdInput = document.querySelector(`.emp-item-qtd[data-idx="${idx}"]`);
-    const qtd = parseFloat(qtdInput.value) || 0;
-
-    if (qtd > 0) {
-      itensEmpenho.push({
-        productId: prodId,
-        produto: prodName,
-        unidade: unit,
-        valorUnit: unitPrice,
-        qtd: qtd,
-        valorTotal: qtd * unitPrice
-      });
-    }
-  });
-
-  const novoEmp = SharedState.addEmpenho2({
-    numero_empenho: numero,
-    ata_numero: ataNumero,
-    tipo: tipoStr,
-    fornecedor: fornecedor,
-    escola_name: escolaName,
-    valor_empenhado: valorTotal,
-    valor_liquidado: 0,
-    valor_pago: 0,
-    status: 'Emitido',
-    itens: itensEmpenho
-  });
-
-  // Atualiza o valor_executado da ATA no SharedState
-  const atas = SharedState.getAtas2();
-  const ata = atas.find(a => (a.numero || a.numero_ata) === ataNumero);
-  if (ata) {
-    ata.valor_executado = (ata.valor_executado || 0) + valorTotal;
-
-    // Atualiza o valor_executado dos itens da ATA
-    if (Array.isArray(ata.itens)) {
-      itensEmpenho.forEach(ie => {
-        const itemAta = ata.itens.find(ai => (ai.name || ai.descricao || ai.produto) === ie.produto);
-        if (itemAta) {
-          itemAta.executedValue = (itemAta.executedValue || 0) + ie.valorTotal;
-        }
-      });
-    }
-    SharedState._persist();
-  }
-
-  // Geração & Roteamento Inteligente de Ordem de Serviço (OS)
-  const isAF = tipoStr === 'AF' || (fornecedor || '').toLowerCase().includes('coop') || (fornecedor || '').toLowerCase().includes('agri');
-
-  if (isAF) {
-    itensEmpenho.forEach(item => {
-      SharedState.addOsFornecedores({
-        numero_empenho: numero,
-        ata_numero: ataNumero,
-        fornecedor: fornecedor,
-        cooperativa: fornecedor,
-        produto: item.produto,
-        quantidade: item.qtd,
-        unidade: item.unidade,
-        valor_total: item.valorTotal,
-        escola_destino: escolaName,
-        tipo_os: 'Ordem de Fornecimento AF',
-        status: 'Enviada à Cooperativa'
-      });
-    });
-    showToast(`🌾 Ordem de Fornecimento enviada para a Cooperativa / Agricultor ${fornecedor}!`);
-  } else {
-    itensEmpenho.forEach(item => {
-      SharedState.addOsEstoqueCentral({
-        numero_empenho: numero,
-        tipo: 'Entrada',
-        produto: item.produto,
-        quantidade: item.qtd,
-        unidade: item.unidade,
-        fornecedor: fornecedor,
-        escola_destino: escolaName,
-        lote: 'LOTE-' + new Date().getFullYear() + '-' + String(Math.floor(100 + Math.random() * 900)),
-        validade: new Date(Date.now() + 180*24*60*60*1000).toISOString().slice(0, 10),
-        responsavel: 'Gestor SEMED',
-        status: 'Em Separação'
-      });
-    });
-    showToast(`🏭 Ordem de Serviço criada para o Estoque Central!`);
-  }
-
-  closeModal();
-  const container = document.getElementById('page-content');
-  if (container) PAGE_RENDERERS.gestor_empenhos(container);
-};
+// (salvarNovoEmpenho is handled globally by window.salvarNovoEmpenho)
 
 
 // ─── GESTOR: OS ESTOQUE CENTRAL ──────────────────────────────────────
