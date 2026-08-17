@@ -6365,9 +6365,6 @@ PAGE_RENDERERS.nutricionista_restricoes = (el) => {
 
 PAGE_RENDERERS.escola_restricoes = PAGE_RENDERERS.nutricionista_restricoes;
 PAGE_RENDERERS.gestor_restricoes = PAGE_RENDERERS.nutricionista_restricoes;
-PAGE_RENDERERS.nutricionista_alunos = PAGE_RENDERERS.nutricionista_restricoes;
-PAGE_RENDERERS.escola_alunos = PAGE_RENDERERS.nutricionista_restricoes;
-PAGE_RENDERERS.diretor_alunos = PAGE_RENDERERS.nutricionista_restricoes;
 
 window.abrirModalNovoAlunoEspecial = () => {
   const schools = DATA.schools || [];
@@ -10494,6 +10491,158 @@ PAGE_RENDERERS.diretor_planejamento = PAGE_RENDERERS.escola_planejamento || PAGE
 PAGE_RENDERERS.diretor_historico = PAGE_RENDERERS.escola_historico;
 PAGE_RENDERERS.diretor_relatorios = PAGE_RENDERERS.escola_relatorios;
 
+// RESTRIÇÕES ALIMENTARES — Nutricionista (view global) e Diretor (view da escola)
+PAGE_RENDERERS.nutricionista_restricoes = (el) => {
+  const restricoes = SharedState.getRestricoes();
+  const schools = DATA.schools || [];
+  const ativos = restricoes.filter(r => r.status === 'ativo');
+  const resolvidos = restricoes.filter(r => r.status === 'resolvido');
+  const tipos = {};
+  ativos.forEach(r => { tipos[r.tipo] = (tipos[r.tipo]||0) + 1; });
+  el.innerHTML = `
+    <div class="page-header">
+      <div class="page-title">Restrições Alimentares</div>
+      <div class="page-subtitle">Visão consolidada da rede — ${restricoes.length} registros</div>
+    </div>
+    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+      <div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value">${ativos.length}</div><div class="kpi-label">Ativas</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${resolvidos.length}</div><div class="kpi-label">Resolvidas</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${new Set(ativos.map(r => r.schoolId)).size}</div><div class="kpi-label">Escolas Afetadas</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🔍</div><div class="kpi-value">${Object.keys(tipos).length}</div><div class="kpi-label">Tipos Distintos</div></div>
+    </div>
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header">
+        <div class="card-title">Registrar Nova Restrição</div>
+      </div>
+      <div class="card-body">
+        <form id="form-nova-restricao" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end">
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Escola</label>
+            <select id="restr-school" class="form-control" required>
+              <option value="">Selecione</option>
+              ${schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Tipo</label>
+            <select id="restr-tipo" class="form-control" required>
+              <option value="Alergia alimentar">Alergia alimentar</option>
+              <option value="Intolerância à lactose">Intolerância à lactose</option>
+              <option value="Doença celíaca">Doença celíaca</option>
+              <option value="Diabetes">Diabetes</option>
+              <option value="Restrição religiosa">Restrição religiosa</option>
+              <option value="Vegetariano/Vegano">Vegetariano/Vegano</option>
+              <option value="Outra">Outra</option>
+            </select>
+          </div>
+          <div>
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Qtd. alunos</label>
+            <input type="number" id="restr-qtd" class="form-control" min="1" value="1" required>
+          </div>
+          <button type="submit" class="btn btn-primary" style="height:38px">Registrar</button>
+        </form>
+        <div style="margin-top:8px">
+          <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Observação</label>
+          <input type="text" id="restr-obs" class="form-control" placeholder="Ex: laudo médico apresentado em 10/07">
+        </div>
+      </div>
+    </div>
+    <!-- PAINEL DE ESCOLAS AFETADAS -->
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-header"><div class="card-title">🏫 Escolas da Rede com Restrições Alimentares</div></div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Unidade Escolar</th>
+                <th>Região</th>
+                <th>Total de Alunos c/ Restrição</th>
+                <th>Tipos Registrados</th>
+                <th>Status de Alerta</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${schools.map(sc => {
+                const restrSc = ativos.filter(r => r.schoolId === sc.id || (r.schoolName || '').toLowerCase() === sc.name.toLowerCase());
+                if (restrSc.length === 0) return '';
+                const totalQtd = restrSc.reduce((a,b) => a + (b.quantidade||1), 0);
+                const badges = restrSc.map(r => `<span class="tag tag-orange" style="margin-right:4px">${r.tipo}: ${r.quantidade||1}</span>`).join('');
+                return `
+                  <tr>
+                    <td><strong>${sc.name}</strong></td>
+                    <td><span class="status-badge" style="background:#f1f5f9;color:#334155">${sc.region}</span></td>
+                    <td style="font-family:var(--font-mono);font-weight:700;color:#c2410c">${totalQtd} Aluno(s)</td>
+                    <td>${badges}</td>
+                    <td><span class="status-badge warning">⚠️ Alerta Ativo</span></td>
+                  </tr>
+                `;
+              }).filter(Boolean).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">Nenhuma escola com restrição ativa</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">Registros Individuais Ativos (${ativos.length})</div></div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Escola</th><th>Tipo</th><th>Qtd</th><th>Observação</th><th>Registrado por</th><th>Data</th><th>Ação</th></tr></thead>
+            <tbody>
+              ${ativos.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary)">Nenhuma restrição ativa</td></tr>' :
+                ativos.map(r => `
+                  <tr>
+                    <td><strong>${r.schoolName || 'Escola #' + r.schoolId}</strong></td>
+                    <td><span class="tag tag-orange">${r.tipo}</span></td>
+                    <td style="font-family:var(--font-mono)">${r.quantidade || 1}</td>
+                    <td style="font-size:0.82rem">${r.observacao || '—'}</td>
+                    <td style="font-size:0.82rem">${r.registradoPor || '—'}</td>
+                    <td style="font-size:0.82rem">${r.criadoEm ? new Date(r.criadoEm).toLocaleDateString('pt-BR') : '—'}</td>
+                    <td><button class="table-action" onclick="window._resolverRestricao('${r.id}')">Resolver</button></td>
+                  </tr>
+                `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    ${resolvidos.length > 0 ? `
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><div class="card-title">Resolvidas (${resolvidos.length})</div></div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead><tr><th>Escola</th><th>Tipo</th><th>Qtd</th><th>Resolvido em</th></tr></thead>
+            <tbody>
+              ${resolvidos.map(r => `
+                <tr style="opacity:0.6">
+                  <td>${r.schoolName || 'Escola #' + r.schoolId}</td>
+                  <td>${r.tipo}</td>
+                  <td>${r.quantidade || 1}</td>
+                  <td>${r.resolvidoEm ? new Date(r.resolvidoEm).toLocaleDateString('pt-BR') : '—'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>` : ''}
+  `;
+  document.getElementById('form-nova-restricao')?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const schoolId = parseInt(document.getElementById('restr-school').value, 10);
+    const school = schools.find(s => s.id === schoolId);
+    SharedState.addRestricao({
+      schoolId, schoolName: school ? school.name : 'Escola #' + schoolId,
+      tipo: document.getElementById('restr-tipo').value,
+      quantidade: parseInt(document.getElementById('restr-qtd').value, 10) || 1,
+      observacao: document.getElementById('restr-obs').value,
+      registradoPor: PROFILES.nutricionista.name,
+    });
+    PAGE_RENDERERS.nutricionista_restricoes(el);
+  });
+};
 
 window._resolverRestricao = (id) => {
   if (confirm('Marcar esta restrição como resolvida?')) {
