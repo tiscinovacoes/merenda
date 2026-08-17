@@ -98,13 +98,13 @@ SharedState.addLicitacao = (li) => {
   const pcGroup = menu.find(m => m.type === 'group' && m.label === 'Prestação de Contas');
   if (pcGroup) {
     newItems.forEach(item => {
-      if (!pcGroup.children.find(c => c.id === item.id)) pcGroup.children.push(item);
+      if (!pcGroup.children.find(c => c.id === item.id || c.label === item.label)) pcGroup.children.push(item);
     });
   } else {
     const atasIdx = menu.findIndex(m => m.id === 'atas');
     let insertAt = atasIdx >= 0 ? atasIdx + 1 : menu.length;
     newItems.forEach(item => {
-      if (!menu.find(m => m.id === item.id)) { menu.splice(insertAt, 0, item); insertAt++; }
+      if (!menu.find(m => m.id === item.id || m.label === item.label)) { menu.splice(insertAt, 0, item); insertAt++; }
     });
   }
 })();

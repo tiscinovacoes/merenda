@@ -7,13 +7,9 @@
 const SUPABASE_URL = 'https://xszqqqyvdzoyxokkuqix.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_qwKVO7DURZT5jY0FlJs03Q_EYNKoH4L';
 
-// Projeto principal (alimentos PNAE)
+// Projeto único (xszqqqyvdzoyxokkuqix)
 const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// Projeto SUALE (escolas, fichas, pedidos)
-const SUALE_URL = 'https://oxanubfolkoulklrhrpr.supabase.co';
-const SUALE_KEY = 'sb_publishable_sJaB4lV-Rc-g7gaK_7279Q_G8od5Erh';
-const _sb2 = supabase.createClient(SUALE_URL, SUALE_KEY);
+const _sb2 = _sb;
 
 // ============================
 // STATUS DA CONEXÃO
@@ -32,9 +28,12 @@ async function _fetch(table, options = {}) {
     let query = _sb.from(table).select(options.select || '*');
     if (options.order) query = query.order(options.order, { ascending: options.asc !== false });
     if (options.limit) query = query.limit(options.limit);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data || [];
+    const res = await Promise.race([
+      query,
+      new Promise((_, r) => setTimeout(() => r(new Error('Timeout DB')), 800))
+    ]);
+    if (res.error) throw res.error;
+    return res.data || [];
   } catch (err) {
     console.warn(`[DB] Erro ao buscar "${table}":`, err.message);
     return null; // null = usar fallback
@@ -134,6 +133,8 @@ function mapOrder(r) {
   return {
     id: r.id,
     school: r.school,
+    schoolId: r.school_id || null,
+    criadoPorUserId: r.criado_por_user_id || null,
     date: r.date,
     status: r.status,
     coop: r.cooperative,
@@ -148,8 +149,8 @@ window.DB = {
 
   async fetchSchools() {
     try {
-      const { data, error } = await _sb2.from('schools').select('*').order('name');
-      if (error || !data || data.length === 0) throw new Error('empty');
+      const data = await _fetch('schools', { order: 'name' });
+      if (!data || data.length === 0) throw new Error('empty');
       console.log(`[DB] ${data.length} escolas carregadas do Supabase`);
       const validNames = [
         'EM ADV. DEMOSTHENES MARTINS',
@@ -170,11 +171,7 @@ window.DB = {
 
   async fetchEscolaUsuarios() {
     try {
-      const { data, error } = await _sb2
-        .from('escola_usuarios')
-        .select('school_id,perfil,nome,matricula,cpf,email,telefone,initials')
-        .eq('ativo', true);
-      if (error) throw error;
+      const data = await _fetch('escola_usuarios', { select: 'school_id,perfil,nome,matricula,cpf,email,telefone,initials' });
       return data || [];
     } catch (err) {
       console.warn('[DB] escola_usuarios:', err.message);
@@ -748,24 +745,10 @@ window.DB = {
   // ============================
   
   async fetchProductions() {
-    try {
-      const { data, error } = await _sb.from('productions').select('*');
-      if (error) throw error;
-      return data || [];
-    } catch(e) {
-      console.warn('[DB] productions:', e.message || e);
-      return [];
-    }
+    return (await _fetch('productions')) || [];
   },
   async fetchStockAdjusts() {
-    try {
-      const { data, error } = await _sb.from('stock_adjusts').select('*');
-      if (error) throw error;
-      return data || [];
-    } catch(e) {
-      console.warn('[DB] stock_adjusts:', e.message || e);
-      return [];
-    }
+    return (await _fetch('stock_adjusts')) || [];
   },
 
   async hydrateData() {
