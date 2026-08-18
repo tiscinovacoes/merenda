@@ -1035,6 +1035,16 @@ const SharedState = {
     }
     this._persist(); this._emit('weeklyMenu:delete');
   },
+  updateMenu(id, patch) {
+    const m = (this._data.menus || []).find(x => x.id === id);
+    if (m) { Object.assign(m, patch); this._persist(); this._emit('menu:update'); }
+    return m || null;
+  },
+  updateWeeklyMenu(id, patch) {
+    const w = (this._data.weeklyMenus || []).find(x => x.id === id);
+    if (w) { Object.assign(w, patch); this._persist(); this._emit('weeklyMenu:update'); }
+    return w || null;
+  },
   addFicha(ficha) {
     const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
     const f = { id: 'ficha-' + crypto.randomUUID(), criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...ficha };
@@ -4737,7 +4747,7 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
   const publicados    = allCardapios.filter(c => c.status === 'Publicado');
 
   // Helper para linha da tabela principal
-  const _row = (c, i, allowEdit) => {
+  const _row = (c, i, allowEdit, allowPublish) => {
     const periodoStr = c.periodo || `${(c.data_inicio||'').split('-').reverse().join('/')} a ${(c.data_fim||'').split('-').reverse().join('/')}`;
     return `
       <tr>
@@ -4746,9 +4756,10 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
         <td style="font-family:var(--font-mono)">${c.escolas || '—'}</td>
         <td style="font-size:0.82rem">${c.autor || '—'}</td>
         <td>
-          <div style="display:flex;gap:4px">
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(c.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
             ${allowEdit ? `<button class="table-action" onclick="editarCardapio('${c.id || i}')">✏️ Editar</button>` : ''}
+            ${allowPublish && !readOnly ? `<button class="table-action" style="color:#16a34a;font-weight:700;border:1px solid #16a34a;border-radius:4px;padding:2px 8px" onclick="window.publicarCardapio('${c.id || i}')">🚀 Publicar</button>` : ''}
             ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${c.id || i}')">🗑️ Excluir</button>` : ''}
           </div>
         </td>
@@ -4796,7 +4807,7 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
       <div class="card-body" style="padding:0">
         <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Autor</th><th>Ações</th></tr></thead><tbody>
           ${emElaboracao.length > 0
-            ? emElaboracao.map((c, i) => _row(c, i, true)).join('')
+            ? emElaboracao.map((c, i) => _row(c, i, true, true)).join('')
             : _emptyRow(5, 'Nenhum cardápio em elaboração no momento')}
         </tbody></table>
       </div>
@@ -4811,7 +4822,7 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
       <div class="card-body" style="padding:0">
         <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Autor</th><th>Ações</th></tr></thead><tbody>
           ${publicados.length > 0
-            ? publicados.map((c, i) => _row(c, i, false)).join('')
+            ? publicados.map((c, i) => _row(c, i, false, false)).join('')
             : _emptyRow(5, 'Nenhum cardápio publicado ainda')}
         </tbody></table>
       </div>
@@ -4874,6 +4885,50 @@ window.excluirCardapio = (idOrIdx) => {
   }
 
   if (typeof showToast === 'function') showToast('✅ Cardápio excluído com sucesso!');
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.nutricionista_cardapios(container);
+};
+
+// ─── Publicar Cardápio em Elaboração ────────────────────────────────────────
+window.publicarCardapio = (id) => {
+  if (!confirm('Publicar este cardápio? Ele ficará visível para as escolas e serão geradas as Ordens de Serviço automáticas.')) return;
+
+  const sid = String(id);
+  let menuPublicado = null;
+
+  // Atualiza status no SharedState (menu normal ou semanal)
+  if (sid.startsWith('menu-') || (!sid.startsWith('legacy-') && !sid.startsWith('wk-'))) {
+    menuPublicado = window.SharedState?.updateMenu(sid, {
+      status: 'Publicado',
+      publicadoEm: new Date().toISOString(),
+    });
+  } else if (sid.startsWith('wk-')) {
+    menuPublicado = window.SharedState?.updateWeeklyMenu(sid, {
+      status: 'Publicado',
+      publicadoEm: new Date().toISOString(),
+    });
+  } else if (sid.startsWith('legacy-')) {
+    // Cardápios legados: atualiza no localStorage
+    const idx = parseInt(sid.replace('legacy-', ''), 10);
+    const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+    if (!isNaN(idx) && legacy[idx]) {
+      legacy[idx].status = 'Publicado';
+      legacy[idx].publicadoEm = new Date().toISOString();
+      localStorage.setItem('cardapios_publicados', JSON.stringify(legacy));
+    }
+  }
+
+  // Dispara fluxo de Ordens de Serviço para escolas + cooperativas/agricultores
+  const activeMenu = menuPublicado || window.currentActiveIAMenu || window.tempIAMenuPreview;
+  if (typeof window.gerarOrdensDeServicoPorEscola === 'function') {
+    window.gerarOrdensDeServicoPorEscola(activeMenu);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('🚀 Cardápio publicado! Ordens de Serviço enviadas para escolas e cooperativas.');
+  }
+
+  // Re-renderiza a tela de gestão
   const container = document.getElementById('page-content');
   if (container) PAGE_RENDERERS.nutricionista_cardapios(container);
 };
