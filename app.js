@@ -508,10 +508,13 @@ const PROFILES = {
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard Operacional', badge: null },
       { id: 'inventario', icon: '🏢', label: 'Posição de Estoque', badge: null },
-      { id: 'entradas', icon: '📥', label: 'Entradas (NF)', badge: '2' },
-      { id: 'separacao', icon: '📦', label: 'Ordens de Separação', badge: '3' },
-      { id: 'carregamento', icon: '🚚', label: 'Carregamento (Bipagem)', badge: null },
-      { id: 'lotes', icon: '📋', label: 'Controle de Lotes', badge: null },
+      { type: 'group', label: 'Gerenciamento Estoque', children: [
+        { id: 'os-central',            icon: '🏭', label: 'OS Estoque Central',      badge: null },
+        { id: 'recebimentos-pendentes',icon: '🚚', label: 'Recebimentos Pendentes', badge: 'NEW' },
+        { id: 'expedicao-os',          icon: '📦', label: 'Expedição (OS Escolas)',   badge: null },
+        { id: 'ordens-entrega',        icon: '🚛', label: 'Ordens de Entrega',        badge: null },
+      ]},
+      { id: 'lotes', icon: '📋', label: 'Controle de Lotes & Rastreabilidade', badge: null },
       { id: 'escolas', icon: '🏫', label: 'Escolas Atendidas', badge: null },
     ]
   },
@@ -13512,8 +13515,7 @@ window.concluirSeparacaoFEFO = (osId) => {
 
   showToast(`✅ Separação FEFO concluída para a escola ${os.escolaNome}! Status alterado para Separado.`);
   closeModal();
-  const container = document.getElementById('page-content');
-  if (container && PAGE_RENDERERS['gestor_expedicao-os']) PAGE_RENDERERS['gestor_expedicao-os'](container);
+  renderPage();
 };
 
 // MODAL 4: CRIAR ORDEM DE ENTREGA (RN08/RN09)
@@ -13587,8 +13589,7 @@ window.salvarNovaOrdemEntrega = (e, osId) => {
 
   showToast(`🚛 Ordem de Entrega ${novaOe.numeroOe} gerada para a escola ${os.escolaNome}!`);
   closeModal();
-  const container = document.getElementById('page-content');
-  if (container && PAGE_RENDERERS['gestor_ordens-entrega']) PAGE_RENDERERS['gestor_ordens-entrega'](container);
+  renderPage();
 };
 
 // MODAL 5: ASSINATURA DIGITAL E FINALIZAÇÃO DE ENTREGA (RN10)
@@ -13692,6 +13693,5 @@ window.salvarAssinaturaEntrega = (e, oeId) => {
   SharedState._persist();
   showToast(`🎉 Entrega ${oe.numeroOe} atestada com sucesso na escola ${oe.escolaNome}!`);
   closeModal();
-  const container = document.getElementById('page-content');
-  if (container && PAGE_RENDERERS['gestor_ordens-entrega']) PAGE_RENDERERS['gestor_ordens-entrega'](container);
+  renderPage();
 };
