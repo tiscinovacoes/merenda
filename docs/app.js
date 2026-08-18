@@ -1008,7 +1008,7 @@ const SharedState = {
   // Escritores — cada ação notifica os assinantes e persiste
   addMenu(menu) {
     const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
-    const m = { id: 'menu-' + crypto.randomUUID(), status: 'Publicado', criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...menu };
+    const m = { id: 'menu-' + crypto.randomUUID(), status: 'Em Elaboração', criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...menu };
     this._data.menus.unshift(m);
     this._persist(); this._emit('menu:add');
     return m;
@@ -5422,7 +5422,7 @@ window.executarGeracaoCardapioIA = (evt) => {
       }
     }
 
-    // 4. Grava no SharedState
+    // 4. Grava no SharedState — status Em Elaboracao até aprovação explícita
     if (window.SharedState) {
       const d1 = startDate ? startDate.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR');
       const d2 = endDate ? endDate.split('-').reverse().join('/') : new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
@@ -5431,20 +5431,12 @@ window.executarGeracaoCardapioIA = (evt) => {
         periodo: `${d1} a ${d2}`,
         escolas: selectedSchoolNames.length,
         escolasVinculadas: selectedSchoolNames,
-        status: 'Publicado',
+        status: 'Em Elaboração',
         tipo: 'Semanal',
-        autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
+        autor: 'Dra. Lilian Droppa (CRN 12345/MS)',
+        refeicoes: resultadoIA.refeicoes || [],
       });
-      SharedState.addWeeklyMenu({
-        nome: `Cardápio Semanal IA PNAE (${selectedSchoolNames.length} Escolas)`,
-        periodo: `${d1} a ${d2}`,
-        semana: `${d1} a ${d2}`,
-        escola: `${selectedSchoolNames.length} escola(s) vinculada(s)`,
-        escolasVinculadas: selectedSchoolNames,
-        refeicoes: (resultadoIA.refeicoes||[]).map(r => ({ dia: r.dia, desjejum: 'Pão c/ Manteiga e Leite', almoco: r.nomePrato, lanche: r.fruta, kcal: r.kcal })),
-        kcalMedia: resultadoIA.metricasSemanais?.mediaKcal || 700,
-        autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
-      });
+      // addWeeklyMenu é chamado apenas ao Publicar via botão Publicar
     }
 
     // 5. Abre o modal de pré-visualização interativa
@@ -7069,7 +7061,7 @@ window.saveWeeklyMenu = () => {
   const d2 = end.split('-').reverse().join('/');
   const name = `Cardápio Personalizado — ${d1} a ${d2}`;
 
-  // Calcula média nutricional a partir dos selects preenchidos
+  // Calcula média nutricional
   const selects = document.querySelectorAll('.planner-select-kcal');
   let total = 0;
   selects.forEach(s => total += parseInt(s.value) || 0);
@@ -7099,40 +7091,27 @@ window.saveWeeklyMenu = () => {
       let tipo = 'Almoço';
       if (id.includes('bkf') || id.includes('breakfast')) tipo = 'Café da Manhã';
       else if (id.includes('snk') || id.includes('snack')) tipo = 'Lanche';
-      else if (id.includes('lun') || id.includes('lunch')) tipo = 'Almoço';
       const itemText = sel.options[sel.selectedIndex]?.text || '';
       const kcal = parseInt(sel.value) || 0;
       if (itemText && !itemText.startsWith('Selecione')) refeicoes.push({ dia, tipo, item: itemText, kcal });
     });
   });
 
-  // Grava no SharedState (visível em todos os perfis)
+  // Salva como Em Elaboração — só vai para Publicados após clicar em Publicar
   SharedState.addMenu({
     nome: name,
     periodo: `${d1} a ${d2}`,
     escolas: escolasVinculadas.length,
     escolasVinculadas,
-    status: 'Publicado',
+    status: 'Em Elaboração',
     tipo: 'Semanal',
     autor: prof.name || 'Dra. Lilian Droppa',
-  });
-  SharedState.addWeeklyMenu({
-    nome: name,
-    periodo: `${d1} a ${d2}`,
-    semana: `${d1} a ${d2}`,
-    escola: escolaLabel,
-    escolasVinculadas,
     refeicoes,
     kcalMedia,
-    autor: prof.name || 'Dra. Lilian Droppa',
   });
+  // Não grava no localStorage legado como Publicado
 
-  // Mantém compatibilidade com localStorage legado
-  const novosCardapios = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
-  novosCardapios.unshift({ nome: name, periodo: `${d1} a ${d2}`, status: 'Publicado', escolas: escolaLabel, statusCls: 'status-ok' });
-  localStorage.setItem('cardapios_publicados', JSON.stringify(novosCardapios));
-
-  showToast('✅ Cardápio publicado! Já visível para ' + escolaLabel + ' e para o Gestor.');
+  showToast('📝 Cardápio salvo em Elaboração! Use o botão "🚀 Publicar" para enviar às escolas.');
   const container = document.getElementById('page-content');
   PAGE_RENDERERS.nutricionista_cardapios(container);
 };
