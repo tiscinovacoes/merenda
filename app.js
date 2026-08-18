@@ -1007,8 +1007,17 @@ const SharedState = {
 
   // Escritores — cada ação notifica os assinantes e persiste
   addMenu(menu) {
-    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
-    const m = { id: 'menu-' + crypto.randomUUID(), status: 'Em Elaboração', criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...menu };
+    const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : 'ID-002';
+    const seq = String(Math.floor(100 + Math.random() * 900));
+    const cod = menu.codigoCardapio || `CARD-2026/08-${seq}`;
+    const m = {
+      id: 'menu-' + crypto.randomUUID(),
+      codigoCardapio: cod,
+      status: 'Em Elaboração',
+      criadoEm: new Date().toISOString().slice(0,10),
+      criadoPorUserId: usr,
+      ...menu
+    };
     this._data.menus.unshift(m);
     this._persist(); this._emit('menu:add');
     return m;
@@ -4751,10 +4760,13 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
     const periodoStr = c.periodo || `${(c.data_inicio||'').split('-').reverse().join('/')} a ${(c.data_fim||'').split('-').reverse().join('/')}`;
     return `
       <tr>
-        <td><strong>${c.nome}</strong></td>
+        <td>
+          <span class="tag tag-blue" style="font-size:0.75rem; font-family:var(--font-mono); margin-right:4px;">${c.codigoCardapio || 'CARD-2026/08-101'}</span>
+          <strong>${c.nome}</strong>
+        </td>
         <td>${periodoStr}</td>
         <td style="font-family:var(--font-mono)">${c.escolas || '—'}</td>
-        <td style="font-size:0.82rem">${c.autor || '—'}</td>
+        <td style="font-size:0.82rem">${c.autor || '—'} <span style="font-size:0.7rem; color:#64748b;">(${c.criadoPorUserId || 'ID-002'})</span></td>
         <td>
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(c.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
@@ -5652,6 +5664,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
     return alert('Nenhum cardápio ativo para fracionamento de Ordem de Serviço.');
   }
 
+  const cardapioCod = menuObj.codigoCardapio || menuObj.id || 'CARD-2026/08-101';
   const allSchools = (DATA.schools && DATA.schools.length > 0) ? DATA.schools : [];
   const escVinculadas = menuObj.escolasVinculadas || [];
   
@@ -5665,13 +5678,17 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
   // 1. Gera Ordens de Serviço por escola aplicando a regra de embalagens inteiras não-fracionadas
   const ordensPorEscola = schoolsToUse.map(sc => {
     const demandaInsumos = window.AICardapioEngine.calcularDemandaPorEscola(menuObj, sc);
+    const escCodigo = sc.codigo || `ESC-${String(sc.id).padStart(3, '0')}`;
     
     // Registra pedido e entrega no SharedState para a escola
     if (window.SharedState) {
       const orderItens = demandaInsumos.map(i => ({ produto: i.nome, qtd: i.qtdEnviadaKg, unidade: 'kg', regra: i.detalheRegra }));
       const order = {
         escolaId: sc.id,
+        escolaCodigo: escCodigo,
         escola: sc.name,
+        cardapioCodigo: cardapioCod,
+        cardapioId: menuObj.id,
         tipo: 'Ordem de Serviço PNAE (IA)',
         status: 'Pendente',
         itens: orderItens,
@@ -5682,6 +5699,8 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
       if (typeof SharedState.addOsEstoqueCentral === 'function') {
         SharedState.addOsEstoqueCentral({
           numero_os: `OS-2026/${sc.id}08`,
+          cardapioCodigo: cardapioCod,
+          escolaCodigo: escCodigo,
           tipo: 'Distribuição Escolar',
           escola: sc.name,
           escolaId: sc.id,
@@ -5693,6 +5712,8 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
 
     return {
       escola: sc,
+      escolaCodigo: escCodigo,
+      cardapioCodigo: cardapioCod,
       demanda: demandaInsumos
     };
   });
@@ -5785,11 +5806,12 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
             <div class="os-school-block" data-school-id="${o.escola.id}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:14px;">
               <div style="border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                 <div>
-                  <strong style="font-size:0.98rem; color:#0f172a;">🏫 ${o.escola.name}</strong>
+                  <strong style="font-size:0.98rem; color:#0f172a;">🏫 ${o.escola.name} <span class="tag tag-blue" style="font-size:0.72rem;">ID: ${o.escolaCodigo}</span></strong>
                   <span style="font-size:0.8rem; color:#64748b; margin-left:8px;">· Região: ${o.escola.region || 'Urbana'} · População: <strong>${o.escola.students} Alunos</strong></span>
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
                   <span class="status-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem;">OS nº OS-2026/${o.escola.id}08</span>
+                  <span class="status-badge" style="background:#fef3c7; color:#b45309; font-weight:700; font-size:0.78rem;">📜 Ref. Cardápio: ${o.cardapioCodigo}</span>
                   <button class="btn btn-outline btn-sm" style="font-size:0.78rem;" onclick="window.imprimirOSIndividualEscola('${o.escola.name.replace(/'/g,"\\'")}', 'OS-2026/${o.escola.id}08')">🖨️ Imprimir Guia OS</button>
                 </div>
               </div>
@@ -9727,7 +9749,10 @@ PAGE_RENDERERS.estoque_separacao = (el) => {
             ${sharedOrders.map(o => {
               const itensStr = (o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ');
               return `<tr>
-                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
+                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">
+                  #${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span>
+                  <div style="font-size:0.72rem; color:#0369a1; font-weight:600; margin-top:2px;">📜 Ref: ${o.cardapioCodigo || 'CARD-2026/08-101'}</div>
+                </td>
                 <td><strong>${o.school}</strong></td>
                 <td style="font-size:0.82rem">${itensStr}</td>
                 <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
