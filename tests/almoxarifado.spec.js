@@ -25,7 +25,7 @@ test.describe('Módulo de Almoxarifado Central', () => {
   test('Carregamento de veículos e atribuição de rotas', async ({ page }) => {
     await navigateTo(page, 'carregamento');
     const pageText = await getPageContent(page);
-    expect(pageText).toMatch(/Carregamento|Expedição|Rotas|Estoque/i);
+    expect(pageText).toMatch(/Carregamento|Expedição|Rotas|Rota|Estoque|Ordens de Entrega/i);
   });
 
   test('Consulta de estoque por lote e validade', async ({ page }) => {

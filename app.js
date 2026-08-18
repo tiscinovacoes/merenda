@@ -11,8 +11,8 @@
 //   2. "version" no package.json da raiz
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
-const APP_VERSION = '2.4.1';
-const APP_BUILD_DATE = '2026-08-17';
+var APP_VERSION = '3.0.0-hub';
+var APP_BUILD_DATE = '2026-08-18';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
 
@@ -51,7 +51,7 @@ window.escapeHTML = (str) => {
 // Enquanto true, hydrateData() preserva essas coleções (guarda em db.js).
 // Para voltar a hidratar do banco é preciso ANTES migrar o catálogo curado
 // para lá — os 28 produtos com preço e as 6 atas — senão o grafo quebra de novo.
-const USAR_CATALOGO_LOCAL = true;
+var USAR_CATALOGO_LOCAL = window.USAR_CATALOGO_LOCAL !== undefined ? window.USAR_CATALOGO_LOCAL : true;
 window.USAR_CATALOGO_LOCAL = USAR_CATALOGO_LOCAL;
 
 // MODAL SYSTEM (Redimensionado e Responsivo)
@@ -581,6 +581,7 @@ const PROFILES = {
     ]
   }
 };
+PROFILES.diretor = PROFILES.escola;
 
 // APP STATE
 
@@ -1561,6 +1562,7 @@ function navigateTo(profile, page) {
 }
 
 async function login(profile, schoolId) {
+  window.login = login;
   state.currentProfile = profile;
   state.currentPage = 'dashboard';
   if (schoolId) {
@@ -1612,6 +1614,7 @@ async function login(profile, schoolId) {
   applyPiloto();
   renderPage();
 }
+window.login = login;
 
 function logout() {
   destroyCharts();
@@ -1640,22 +1643,24 @@ function updateDbStatusBadge() {
 // RENDER: SIDEBAR
 
 function computeDynamicBadge(profile, pageId) {
-  const orders = SharedState.getOrders();
-  const incidents = SharedState.getIncidents();
-  const productions = SharedState.getProductions();
-  if (profile === 'gestor' && pageId === 'pedidos')       return orders.filter(o => o.status === 'Pendente').length || null;
-  if (profile === 'gestor' && pageId === 'dashboard')     return incidents.filter(i => i.status === 'Aberta').length || null;
-  if (profile === 'nutricionista' && pageId === 'cardapios') {
-    const weekly = SharedState.getWeeklyMenus().length;
-    return weekly || null;
-  }
-  if (profile === 'escola' && pageId === 'cardapios')     return SharedState.getWeeklyMenus().length || null;
-  if (profile === 'escola' && pageId === 'entregas')      return orders.filter(o => o.status !== 'Entregue' && o.status !== 'Pendente').length || null;
-  if (profile === 'escola' && pageId === 'pedidos')       return orders.filter(o => o.status === 'Pendente').length || null;
-  if (profile === 'cooperativa' && pageId === 'pedidos')  return orders.filter(o => o.status === 'Pendente').length || null;
-  if (profile === 'agricultor' && pageId === 'pedidos')   return orders.filter(o => ['Pendente','Em separação'].includes(o.status)).length || null;
-  if (profile === 'almoxarifado' && pageId === 'separacao') return orders.filter(o => ['Pendente','Em separação'].includes(o.status)).length || null;
-  if (profile === 'motorista' && pageId === 'entregas')   return orders.filter(o => o.status === 'Em transporte').length || null;
+  try {
+    const orders = (SharedState.getOrders && SharedState.getOrders()) || [];
+    const incidents = (SharedState.getIncidents && SharedState.getIncidents()) || [];
+    const productions = (SharedState.getProductions && SharedState.getProductions()) || [];
+    if (profile === 'gestor' && pageId === 'pedidos')       return orders.filter(o => o.status === 'Pendente').length || null;
+    if (profile === 'gestor' && pageId === 'dashboard')     return incidents.filter(i => i.status === 'Aberta').length || null;
+    if (profile === 'nutricionista' && pageId === 'cardapios') {
+      const weekly = (SharedState.getWeeklyMenus && SharedState.getWeeklyMenus()) || [];
+      return weekly.length || null;
+    }
+    if (profile === 'escola' && pageId === 'cardapios')     return ((SharedState.getWeeklyMenus && SharedState.getWeeklyMenus()) || []).length || null;
+    if (profile === 'escola' && pageId === 'entregas')      return orders.filter(o => o.status !== 'Entregue' && o.status !== 'Pendente').length || null;
+    if (profile === 'escola' && pageId === 'pedidos')       return orders.filter(o => o.status === 'Pendente').length || null;
+    if (profile === 'cooperativa' && pageId === 'pedidos')  return orders.filter(o => o.status === 'Pendente').length || null;
+    if (profile === 'agricultor' && pageId === 'pedidos')   return orders.filter(o => ['Pendente','Em separação'].includes(o.status)).length || null;
+    if (profile === 'almoxarifado' && pageId === 'separacao') return orders.filter(o => ['Pendente','Em separação'].includes(o.status)).length || null;
+    if (profile === 'motorista' && pageId === 'entregas')   return orders.filter(o => o.status === 'Em transporte').length || null;
+  } catch(e) {}
   return null;
 }
 
@@ -1671,7 +1676,9 @@ function _renderMenuItem(item, profile) {
 }
 
 function renderSidebar() {
+  window.renderSidebar = renderSidebar;
   const prof = PROFILES[state.currentProfile];
+  console.log('[DEBUG] renderSidebar:', state.currentProfile, prof);
   $('#sidebar-avatar').textContent = prof.initials;
   $('#sidebar-user-name').textContent = prof.name;
   $('#sidebar-user-role > span').textContent = prof.role;
@@ -1713,6 +1720,7 @@ function renderSidebar() {
 // RENDER: HEADER
 
 function renderHeader() {
+  window.renderHeader = renderHeader;
   const prof = PROFILES[state.currentProfile];
   $('#header-avatar').textContent = prof.initials;
   $('#header-user-name').textContent = prof.name;
@@ -1829,7 +1837,8 @@ const CHART_DEFAULTS = {
 
 // PAGE RENDERERS
 
-const PAGE_RENDERERS = {};
+window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
+const PAGE_RENDERERS = window.PAGE_RENDERERS;
 
 // ─── GESTOR: DASHBOARD EXECUTIVO ───
 PAGE_RENDERERS.gestor_dashboard = (el) => {
@@ -11332,40 +11341,51 @@ function initAppEvents() {
     return { success: true };
   };
 
-  // Login form
-  $('#login-form')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const userInput = $('#login-user')?.value || '';
-    const passInput = $('#login-pass')?.value || '';
+  const handleLoginSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (window._isLoggingIn) return;
+    window._isLoggingIn = true;
+    try {
+      const userInput = $('#login-user')?.value || '';
+      const passInput = $('#login-pass')?.value || '';
 
-    const authRes = window.authenticateUser(userInput, passInput);
-    if (!authRes.success) {
-      showToast('⚠️ ' + authRes.error, 'warning');
-      return;
-    }
-
-    const activeProfile = $('.profile-btn.active');
-    const topProfile = activeProfile ? activeProfile.dataset.profile : 'gestor';
-
-    let profile = topProfile;
-    let schoolId = null;
-
-    if (topProfile === 'escola') {
-      const activeSub = $('.subrole-btn.active');
-      profile = activeSub ? activeSub.dataset.subrole : 'diretor';
-      const sel = $('#school-picker-select');
-      if (sel && sel.value) schoolId = parseInt(sel.value, 10);
-      else if (window.AUTH_ENABLED) {
-        showToast('⚠️ Selecione a unidade escolar para prosseguir.', 'warning');
+      const authRes = window.authenticateUser(userInput, passInput);
+      if (!authRes.success) {
+        showToast('⚠️ ' + authRes.error, 'warning');
         return;
       }
-    } else if (topProfile === 'colaboradores') {
-      const activeColab = $('.colab-subrole-btn.active');
-      profile = activeColab ? activeColab.dataset.subrole : 'cooperativa';
-    }
 
-    await login(profile, schoolId);
-  });
+      const activeProfile = $('.profile-btn.active');
+      const topProfile = activeProfile ? activeProfile.dataset.profile : 'gestor';
+
+      let profile = topProfile;
+      let schoolId = null;
+
+      if (topProfile === 'escola') {
+        const activeSub = $('.subrole-btn.active');
+        profile = activeSub ? activeSub.dataset.subrole : 'diretor';
+        const sel = $('#school-picker-select');
+        if (sel && sel.value) schoolId = parseInt(sel.value, 10);
+        else if (window.AUTH_ENABLED) {
+          showToast('⚠️ Selecione a unidade escolar para prosseguir.', 'warning');
+          return;
+        }
+      } else if (topProfile === 'colaboradores') {
+        const activeColab = $('.colab-subrole-btn.active');
+        profile = activeColab ? activeColab.dataset.subrole : 'cooperativa';
+      }
+
+      await login(profile, schoolId);
+    } finally {
+      window._isLoggingIn = false;
+    }
+  };
+
+  window.handleLoginSubmit = handleLoginSubmit;
+  window.login = login;
+
+  $('#login-form')?.addEventListener('submit', handleLoginSubmit);
+  $('#btn-login')?.addEventListener('click', handleLoginSubmit);
 
   // Header & login link handlers (M4)
   document.getElementById('link-forgot')?.addEventListener('click', (e) => {
@@ -11429,11 +11449,16 @@ function initAppEvents() {
   $('#notif-overlay')?.addEventListener('click', closeNotifs);
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initAppEvents);
-} else {
+let _appEventsInited = false;
+function safeInitAppEvents() {
+  if (_appEventsInited) return;
+  _appEventsInited = true;
   initAppEvents();
 }
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', safeInitAppEvents);
+}
+safeInitAppEvents();
 
 // MERENDEIRA ALIASES
 PAGE_RENDERERS.merendeira_dashboard = PAGE_RENDERERS.escola_dashboard;

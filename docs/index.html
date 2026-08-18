@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -155,7 +155,7 @@
               <input type="password" id="login-pass" placeholder="••••••••" maxlength="128" autocomplete="current-password">
             </div>
           </div>
-          <button type="submit" id="btn-login" class="btn btn-primary btn-full">
+          <button type="submit" id="btn-login" class="btn btn-primary btn-full" onclick="window.handleLoginSubmit && window.handleLoginSubmit(event)">
             <span>Entrar no Sistema</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
@@ -278,6 +278,13 @@
   <script src="alimentos.js?v=2.7.3"></script>
   <script src="db.js?v=2.7.3"></script>
   <script src="ai_cardapio_engine.js?v=2.7.3"></script>
+  <script src="js/core_hub.js?v=3.0.0"></script>
+  <script src="js/modules/motorista.js?v=3.0.0"></script>
+  <script src="js/modules/nutricao.js?v=3.0.0"></script>
+  <script src="js/modules/estoque.js?v=3.0.0"></script>
+  <script src="js/modules/escolas.js?v=3.0.0"></script>
+  <script src="js/modules/colaboradores.js?v=3.0.0"></script>
+  <script src="js/modules/gestor.js?v=3.0.0"></script>
   <script src="app.js?v=2.7.3"></script>
   <script src="sprint_abc.js?v=2.7.3"></script>
 </body>

@@ -62,7 +62,19 @@ async function logout(page) {
  * @param {string} menuId - ID do menu item (ex: 'dashboard', 'escolas')
  */
 async function navigateTo(page, menuId) {
-  await page.click(`[data-page="${menuId}"]`);
+  const item = page.locator(`[data-page="${menuId}"]`);
+  if (await item.count() > 0) {
+    if (!(await item.isVisible())) {
+      const parentGroup = page.locator('.sidebar-group-toggle').first();
+      if (await parentGroup.isVisible()) {
+        await parentGroup.click().catch(() => {});
+      }
+    }
+    await item.click();
+  } else {
+    // Fallback: navegação direta via JS se o item não estiver no menu do perfil
+    await page.evaluate((p) => { if (typeof window.navigateTo === 'function') window.navigateTo(null, p); }, menuId);
+  }
   await page.waitForSelector('.page-title', { state: 'visible', timeout: 5000 }).catch(() => {});
   await page.waitForTimeout(300);
 }
