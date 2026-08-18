@@ -1754,7 +1754,21 @@ function renderNotifications() {
 // RENDER: PAGE ROUTER
 
 function renderPage() {
-  const key = `${state.currentProfile}_${state.currentPage}`;
+  let key = `${state.currentProfile}_${state.currentPage}`;
+  
+  // Resolução dinâmica para telas do Estoque Central compartilhadas com o Gestor
+  if (!PAGE_RENDERERS[key] && state.currentProfile === 'estoque') {
+    const aliasMap = {
+      'entradas': 'recebimentos-pendentes',
+      'separacao': 'expedicao-os',
+      'carregamento': 'ordens-entrega'
+    };
+    const targetPage = aliasMap[state.currentPage] || state.currentPage;
+    if (PAGE_RENDERERS[`gestor_${targetPage}`]) {
+      key = `gestor_${targetPage}`;
+    }
+  }
+
   const container = $('#page-content');
   if (!container) return;
   container.innerHTML = '';
@@ -13695,3 +13709,14 @@ window.salvarAssinaturaEntrega = (e, oeId) => {
   closeModal();
   renderPage();
 };
+
+// ─── ALIASES DE RENDERIZAÇÃO: ESTOQUE CENTRAL <-> GESTOR ────────────────
+if (typeof PAGE_RENDERERS !== 'undefined') {
+  PAGE_RENDERERS['estoque_os-central'] = PAGE_RENDERERS['gestor_os-central'];
+  PAGE_RENDERERS['estoque_recebimentos-pendentes'] = PAGE_RENDERERS['gestor_recebimentos-pendentes'];
+  PAGE_RENDERERS['estoque_expedicao-os'] = PAGE_RENDERERS['gestor_expedicao-os'];
+  PAGE_RENDERERS['estoque_ordens-entrega'] = PAGE_RENDERERS['gestor_ordens-entrega'];
+  PAGE_RENDERERS['estoque_entradas'] = PAGE_RENDERERS['gestor_recebimentos-pendentes'];
+  PAGE_RENDERERS['estoque_separacao'] = PAGE_RENDERERS['gestor_expedicao-os'];
+  PAGE_RENDERERS['estoque_carregamento'] = PAGE_RENDERERS['gestor_ordens-entrega'];
+}
