@@ -1020,6 +1020,21 @@ const SharedState = {
     this._persist(); this._emit('weeklyMenu:add');
     return w;
   },
+  deleteMenu(id) {
+    this._data.menus = (this._data.menus || []).filter(m => m.id !== id);
+    this._persist(); this._emit('menu:delete');
+  },
+  deleteWeeklyMenu(id) {
+    this._data.weeklyMenus = (this._data.weeklyMenus || []).filter(w => w.id !== id);
+    // Também remove do localStorage legado
+    const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+    const idx = parseInt(String(id).replace('legacy-', ''));
+    if (!isNaN(idx) && idx >= 0 && idx < legacy.length) {
+      legacy.splice(idx, 1);
+      localStorage.setItem('cardapios_publicados', JSON.stringify(legacy));
+    }
+    this._persist(); this._emit('weeklyMenu:delete');
+  },
   addFicha(ficha) {
     const usr = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].userId : null;
     const f = { id: 'ficha-' + crypto.randomUUID(), criadoEm: new Date().toISOString().slice(0,10), criadoPorUserId: usr, ...ficha };
@@ -4794,8 +4809,8 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
               <td>
                 <div style="display:flex;gap:4px">
                   <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(w.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
-                  <button class="table-action" onclick="editarCardapio('${idx}')">✏️ Editar</button>
-                  ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${idx}')">🗑️ Excluir</button>` : ''}
+                  <button class="table-action" onclick="editarCardapio('${w.id || idx}')">✏️ Editar</button>
+                  ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${w.id || idx}')">🗑️ Excluir</button>` : ''}
                 </div>
               </td>
             </tr>
@@ -4807,17 +4822,30 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
 };
 
 window.excluirCardapio = (idOrIdx) => {
-  if (!confirm('Tem certeza que deseja excluir este cardápio? Esta ação removerá o registro do sistema.')) return;
+  if (!confirm('Tem certeza que deseja excluir este cardápio? Esta ação não poderá ser desfeita.')) return;
 
-  const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
-  const idx = parseInt(idOrIdx);
-  if (!isNaN(idx) && idx >= 0 && idx < legacy.length) {
-    legacy.splice(idx, 1);
-    localStorage.setItem('cardapios_publicados', JSON.stringify(legacy));
+  const id = String(idOrIdx);
+
+  // Caso 1: ID do tipo 'legacy-N' → remover do localStorage
+  if (id.startsWith('legacy-')) {
+    const idx = parseInt(id.replace('legacy-', ''), 10);
+    const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+    if (!isNaN(idx) && idx >= 0 && idx < legacy.length) {
+      legacy.splice(idx, 1);
+      localStorage.setItem('cardapios_publicados', JSON.stringify(legacy));
+    }
   }
-
-  if (window.SharedState && typeof window.SharedState.deleteMenu === 'function') {
-    window.SharedState.deleteMenu(idOrIdx);
+  // Caso 2: ID do tipo 'wk-*' → cardápio semanal do SharedState
+  else if (id.startsWith('wk-')) {
+    if (window.SharedState && typeof window.SharedState.deleteWeeklyMenu === 'function') {
+      window.SharedState.deleteWeeklyMenu(id);
+    }
+  }
+  // Caso 3: ID do tipo 'menu-*' ou qualquer outro → menu normal do SharedState
+  else {
+    if (window.SharedState && typeof window.SharedState.deleteMenu === 'function') {
+      window.SharedState.deleteMenu(id);
+    }
   }
 
   if (typeof showToast === 'function') showToast('✅ Cardápio excluído com sucesso!');
@@ -6109,8 +6137,28 @@ window.filtrarVisualizacaoMenuEscola = (escolaName) => {
   const container = document.getElementById('container-cardapio-escola-detalhes');
   if (!container) return;
 
+  // Ao selecionar 'TODAS', recarrega a tabela geral SEM abrir um segundo modal
   if (escolaName === 'TODAS') {
-    return window.visualizarEImprimirCardapio();
+    const _menuName = document.querySelector('#select-view-escola-menu')?.dataset?.menuName || '';
+    const menuList = SharedState.getWeeklyMenus ? SharedState.getWeeklyMenus() : [];
+    const menu = menuList.find(m => m.nome === _menuName || m.semana === _menuName) || { refeicoes: [
+      { dia: 'Segunda-feira', desjejum: 'Pão c/ Manteiga e Leite UHT', almoco: 'Arroz com Feijão, Coxa de Frango Assada e Salada Colorida', lanche: 'Laranja fatiada (100g)' },
+      { dia: 'Terça-feira', desjejum: 'Mingau de Aveia', almoco: 'Arroz Integral, Feijão Preto, Carne Moída Ensopada e Salada de Cenoura', lanche: 'Melancia em cubos (120g)' },
+      { dia: 'Quarta-feira', desjejum: 'Leite c/ Cacau e Pão', almoco: 'Galinhada Caipira com Milho e Ervilha e Salada de Pepino', lanche: 'Banana prata (1 un)' },
+      { dia: 'Quinta-feira', desjejum: 'Vitamina de Mamão AF', almoco: 'Arroz, Feijão, Omelete Assado com Legumes e Salada de Repolho Roxo', lanche: 'Maçã nacional (1 un)' },
+      { dia: 'Sexta-feira', desjejum: 'Pão c/ Queijo e Leite', almoco: 'Macarronada de Carne Moída ao Molho Caseiro de Tomate e Beterraba', lanche: 'Mamão formosa fatiado (100g)' }
+    ]};
+    container.innerHTML = `<table class="data-table" style="width:100%; font-size:0.88rem;">
+      <thead><tr style="background:#e0f2fe;">
+        <th>Dia da Semana</th><th>☕ Café da Manhã / Desjejum</th><th>🍲 Almoço Principal</th><th>🍎 Lanche da Tarde</th>
+      </tr></thead><tbody>${(menu.refeicoes||[]).map(r => `
+        <tr>
+          <td><strong>${r.dia}</strong></td>
+          <td>${r.desjejum||'Pão com Manteiga e Leite'}</td>
+          <td><strong>${r.almoco||r.item||r.nomePrato||'Arroz, Feijão e Proteína'}</strong></td>
+          <td>${r.lanche||r.fruta||'Fruta da Época AF'}</td>
+        </tr>`).join('')}</tbody></table>`;
+    return;
   }
 
   const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo' && (r.schoolName || '').toLowerCase() === escolaName.toLowerCase());
