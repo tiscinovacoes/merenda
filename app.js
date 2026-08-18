@@ -1073,12 +1073,13 @@ const SharedState = {
       date: new Date().toISOString().slice(0,10),
       status: 'Pendente',
       value: order.value || 0,
-      itens: finalItens,
       cooperative: finalCoop,
       criadoPorUserId: usr,
       ...order,
       school: finalSchool,
       schoolId: finalId,
+      itens: finalItens,
+      items: finalItens,
     };
     this._data.orders.unshift(o);
     // Cria automaticamente um registro de entrega vinculado para acompanhamento
@@ -5435,6 +5436,7 @@ window.executarGeracaoCardapioIA = (evt) => {
         tipo: 'Semanal',
         autor: 'Dra. Lilian Droppa (CRN 12345/MS)',
         refeicoes: resultadoIA.refeicoes || [],
+        insumosResumoSemanal: resultadoIA.insumosResumoSemanal || [],
       });
       // addWeeklyMenu é chamado apenas ao Publicar via botão Publicar
     }
@@ -5580,6 +5582,7 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
       tipo: 'Semanal',
       autor: 'Dra. Lilian Droppa (CRN 12345/MS)',
       refeicoes: menuObj.refeicoes || [],
+      insumosResumoSemanal: menuObj.insumosResumoSemanal || [],
     });
     // addWeeklyMenu apenas ao aprovar definitivamente
     if (aprovarDireto) {
@@ -5665,15 +5668,27 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
     
     // Registra pedido e entrega no SharedState para a escola
     if (window.SharedState) {
+      const orderItens = demandaInsumos.map(i => ({ produto: i.nome, qtd: i.qtdEnviadaKg, unidade: 'kg', regra: i.detalheRegra }));
       const order = {
         escolaId: sc.id,
         escola: sc.name,
         tipo: 'Ordem de Serviço PNAE (IA)',
         status: 'Pendente',
-        itens: demandaInsumos.map(i => ({ produto: i.nome, qtd: i.qtdEnviadaKg, unidade: 'kg', regra: i.detalheRegra })),
+        itens: orderItens,
+        items: orderItens,
         criadoEm: new Date().toISOString()
       };
       SharedState.addOrder(order);
+      if (typeof SharedState.addOsEstoqueCentral === 'function') {
+        SharedState.addOsEstoqueCentral({
+          numero_os: `OS-2026/${sc.id}08`,
+          tipo: 'Distribuição Escolar',
+          escola: sc.name,
+          escolaId: sc.id,
+          itens: orderItens,
+          status: 'Pendente'
+        });
+      }
     }
 
     return {
@@ -7108,6 +7123,9 @@ window.saveWeeklyMenu = () => {
     autor: prof.name || 'Dra. Lilian Droppa',
     refeicoes,
     kcalMedia,
+    insumosResumoSemanal: (window.currentActiveIAMenu && window.currentActiveIAMenu.insumosResumoSemanal)
+      ? window.currentActiveIAMenu.insumosResumoSemanal
+      : [],
   });
   // Não grava no localStorage legado como Publicado
 

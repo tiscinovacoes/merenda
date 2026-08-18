@@ -620,7 +620,41 @@
     calcularDemandaPorEscola: function (menuObj, escolaObj) {
       if (!menuObj || !escolaObj) return [];
       const numAlunos = escolaObj.students || 100;
-      const insumos = menuObj.insumosResumoSemanal || [];
+      let insumos = (menuObj && menuObj.insumosResumoSemanal && menuObj.insumosResumoSemanal.length > 0)
+        ? menuObj.insumosResumoSemanal
+        : [];
+
+      // Fallback Nível 2: Se não houver insumosResumoSemanal, tenta derivar das refeições
+      if (insumos.length === 0 && menuObj && menuObj.refeicoes && menuObj.refeicoes.length > 0) {
+        const tempMap = {};
+        menuObj.refeicoes.forEach(ref => {
+          if (ref.ingredientes && ref.ingredientes.length > 0) {
+            ref.ingredientes.forEach(ing => {
+              if (!tempMap[ing.nome]) {
+                tempMap[ing.nome] = { nome: ing.nome, unidade: ing.unidade || 'kg', perCapitaGramos: ing.perCapita || 80, totalSemanalKg: 0, af: ing.af || false };
+              }
+              tempMap[ing.nome].totalSemanalKg += Math.round(((ing.perCapita || 80) * numAlunos * 5) / 1000);
+            });
+          }
+        });
+        insumos = Object.values(tempMap);
+      }
+
+      // Fallback Nível 3 (Garantia Universal PNAE): Se insumos continuar vazio, gera a cesta semanal padrão PNAE por aluno
+      if (insumos.length === 0) {
+        insumos = [
+          { nome: 'Arroz Polido Tipo 1 (Saco 5kg)', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * 5) / 1000), af: false },
+          { nome: 'Feijão Carioca Novo (Pct 1kg)', unidade: 'kg', perCapitaGramos: 80, totalSemanalKg: Math.round((80 * numAlunos * 5) / 1000), af: false },
+          { nome: 'Peito de Frango Desfiado Congelado', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * 5) / 1000), af: false },
+          { nome: 'Carne Moída Bov. de 1ª', unidade: 'kg', perCapitaGramos: 90, totalSemanalKg: Math.round((90 * numAlunos * 5) / 1000), af: false },
+          { nome: 'Macarrão Espaguete com Ovos', unidade: 'kg', perCapitaGramos: 70, totalSemanalKg: Math.round((70 * numAlunos * 5) / 1000), af: false },
+          { nome: 'Leite Integral UHT (Frasco 1L)', unidade: 'L', perCapitaGramos: 150, totalSemanalKg: Math.round((150 * numAlunos * 5) / 1000), af: false },
+          { nome: 'Óleo de Soja Refinado (1L)', unidade: 'L', perCapitaGramos: 15, totalSemanalKg: Math.round((15 * numAlunos * 5) / 1000), af: false },
+          { nome: 'Melancia em cubos (Safra Local AF)', unidade: 'kg', perCapitaGramos: 120, totalSemanalKg: Math.round((120 * numAlunos * 5) / 1000), af: true },
+          { nome: 'Banana prata orgânica (Safra Local AF)', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * 5) / 1000), af: true },
+          { nome: 'Cenoura e Legumes Frescos AF', unidade: 'kg', perCapitaGramos: 60, totalSemanalKg: Math.round((60 * numAlunos * 5) / 1000), af: true }
+        ];
+      }
 
       // Dicionário de Tamanho de Embalagem Comercial Mínima (Não-Fracionáveis)
       const embalagensNaoFracionaveis = {
