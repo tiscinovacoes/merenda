@@ -392,10 +392,10 @@ const DATA = {
 
 const PROFILES = {
   gestor: {
-    userId: 'ID-xxx',
-    name: 'Dr. Marcos Silva',
+    userId: 'ID-001',
+    name: 'Luiz Raghiant',
     role: 'Gestor SEMED',
-    initials: 'MS',
+    initials: 'LR',
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard Executivo', badge: null },
       { id: 'escolas', icon: '🏫', label: 'Escolas', badge: null },
@@ -502,9 +502,9 @@ const PROFILES = {
   },
   estoque: {
     userId: 'ID-006',
-    name: 'Roberto Lima',
+    name: 'Fabricio Milano',
     role: 'Central de Distribuição (Estoque)',
-    initials: 'RL',
+    initials: 'FM',
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard Operacional', badge: null },
       { id: 'inventario', icon: '🏢', label: 'Posição de Estoque', badge: null },
