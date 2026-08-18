@@ -4732,25 +4732,31 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
   const allCardapios = [...legacy, ...sharedMenus];
   const totalSchools = (DATA.schools||[]).length || 183;
 
-  const rows = allCardapios.map((c, i) => {
+  // Separar em Elaboração x Publicados
+  const emElaboracao = allCardapios.filter(c => c.status !== 'Publicado');
+  const publicados    = allCardapios.filter(c => c.status === 'Publicado');
+
+  // Helper para linha da tabela principal
+  const _row = (c, i, allowEdit) => {
     const periodoStr = c.periodo || `${(c.data_inicio||'').split('-').reverse().join('/')} a ${(c.data_fim||'').split('-').reverse().join('/')}`;
     return `
       <tr>
         <td><strong>${c.nome}</strong></td>
         <td>${periodoStr}</td>
         <td style="font-family:var(--font-mono)">${c.escolas || '—'}</td>
-        <td><span class="status-badge status-${c.status === 'Publicado' ? 'ok' : 'info'}">${c.status}</span></td>
         <td style="font-size:0.82rem">${c.autor || '—'}</td>
         <td>
           <div style="display:flex;gap:4px">
             <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(c.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
-            <button class="table-action" onclick="editarCardapio('${c.id || i}')">✏️ Editar</button>
+            ${allowEdit ? `<button class="table-action" onclick="editarCardapio('${c.id || i}')">✏️ Editar</button>` : ''}
             ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${c.id || i}')">🗑️ Excluir</button>` : ''}
           </div>
         </td>
-      </tr>
-    `;
-  }).join('');
+      </tr>`;
+  };
+
+  const _emptyRow = (cols, msg) =>
+    `<tr><td colspan="${cols}" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic">${msg}</td></tr>`;
 
   el.innerHTML = `
     <div class="page-header">
@@ -4781,18 +4787,37 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
       </div>
     </div>`}
 
-    <div class="card ${weekly.length > 0 ? 'mb-24' : ''}">
+    <!-- SEÇÃO 1: Em Elaboração -->
+    <div class="card mb-24">
       <div class="card-header">
-        <div class="card-title">Cardápios ${readOnly ? 'Disponíveis' : 'Publicados e Em Elaboração'}</div>
-        <span class="status-badge status-info">${allCardapios.length}</span>
+        <div class="card-title">✏️ Cardápios em Elaboração</div>
+        <span class="status-badge status-info">${emElaboracao.length}</span>
       </div>
       <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Status</th><th>Autor</th><th>Ações</th></tr></thead><tbody>
-          ${rows}
+        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Autor</th><th>Ações</th></tr></thead><tbody>
+          ${emElaboracao.length > 0
+            ? emElaboracao.map((c, i) => _row(c, i, true)).join('')
+            : _emptyRow(5, 'Nenhum cardápio em elaboração no momento')}
         </tbody></table>
       </div>
     </div>
 
+    <!-- SEÇÃO 2: Publicados -->
+    <div class="card mb-24">
+      <div class="card-header">
+        <div class="card-title">✅ Cardápios Publicados</div>
+        <span class="status-badge status-ok">${publicados.length}</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Autor</th><th>Ações</th></tr></thead><tbody>
+          ${publicados.length > 0
+            ? publicados.map((c, i) => _row(c, i, false)).join('')
+            : _emptyRow(5, 'Nenhum cardápio publicado ainda')}
+        </tbody></table>
+      </div>
+    </div>
+
+    <!-- SEÇÃO 3: Semanais Publicados -->
     ${weekly.length > 0 ? `
     <div class="card">
       <div class="card-header"><div class="card-title">🗓️ Cardápios Semanais Publicados</div><span class="status-badge status-ok">${weekly.length} recentes</span></div>
@@ -4809,7 +4834,6 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
               <td>
                 <div style="display:flex;gap:4px">
                   <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(w.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
-                  <button class="table-action" onclick="editarCardapio('${w.id || idx}')">✏️ Editar</button>
                   ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${w.id || idx}')">🗑️ Excluir</button>` : ''}
                 </div>
               </td>
@@ -4820,6 +4844,7 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
     </div>` : ''}
   `;
 };
+
 
 window.excluirCardapio = (idOrIdx) => {
   if (!confirm('Tem certeza que deseja excluir este cardápio? Esta ação não poderá ser desfeita.')) return;
