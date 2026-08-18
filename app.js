@@ -4738,7 +4738,6 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
     autor: c.autor || 'Dra. Lilian Droppa',
     criadoEm: c.criadoEm || '2026-06-25',
   }));
-  const weekly = SharedState.getWeeklyMenus();
   const allCardapios = [...legacy, ...sharedMenus];
   const totalSchools = (DATA.schools||[]).length || 183;
 
@@ -4828,31 +4827,6 @@ PAGE_RENDERERS.nutricionista_cardapios = (el) => {
       </div>
     </div>
 
-    <!-- SEÇÃO 3: Semanais Publicados -->
-    ${weekly.length > 0 ? `
-    <div class="card">
-      <div class="card-header"><div class="card-title">🗓️ Cardápios Semanais Publicados</div><span class="status-badge status-ok">${weekly.length} recentes</span></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Destino</th><th>Autor</th><th>Publicado em</th><th>Média Kcal</th><th>Ações</th></tr></thead><tbody>
-          ${weekly.map((w, idx) => `
-            <tr>
-              <td><strong>${w.nome || 'Cardápio Semanal'}</strong></td>
-              <td>${w.periodo || '—'}</td>
-              <td>${w.escola || 'Toda a Rede'}</td>
-              <td style="font-size:0.82rem">${w.autor || '—'}</td>
-              <td style="font-size:0.82rem">${new Date(w.publicadoEm).toLocaleString('pt-BR')}</td>
-              <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${w.kcalMedia || '—'} kcal/dia</td>
-              <td>
-                <div style="display:flex;gap:4px">
-                  <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(w.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
-                  ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${w.id || idx}')">🗑️ Excluir</button>` : ''}
-                </div>
-              </td>
-            </tr>
-          `).join('')}
-        </tbody></table>
-      </div>
-    </div>` : ''}
   `;
 };
 
@@ -5606,24 +5580,28 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
     const d1 = new Date().toLocaleDateString('pt-BR');
     const d2 = new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
     SharedState.addMenu({
-      nome: `Cardápio Oficial IA — ${menuObj.modalidade || 'PNAE'}`,
+      nome: `Cardápio IA — ${menuObj.modalidade || 'PNAE'} (${new Date().toLocaleDateString('pt-BR')})`,
       periodo: `${d1} a ${d2}`,
       escolas: (DATA.schools||[]).length,
       escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
       status: aprovarDireto ? 'Publicado' : 'Em Elaboração',
       tipo: 'Semanal',
-      autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
+      autor: 'Dra. Lilian Droppa (CRN 12345/MS)',
+      refeicoes: menuObj.refeicoes || [],
     });
-    SharedState.addWeeklyMenu({
-      nome: `Cardápio Semanal IA PNAE (${menuObj.metricasSemanais?.numAlunos || 3992} Alunos)`,
-      periodo: `${d1} a ${d2}`,
-      semana: `${d1} a ${d2}`,
-      escola: 'Toda a Rede Piloto',
-      escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
-      refeicoes: (menuObj.refeicoes||[]).map(r => ({ dia: r.dia, tipo: 'Almoço', item: `${r.nomePrato} (${r.kcal} kcal)`, kcal: r.kcal })),
-      kcalMedia: menuObj.metricasSemanais?.mediaKcal || 700,
-      autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
-    });
+    // addWeeklyMenu apenas ao aprovar definitivamente
+    if (aprovarDireto) {
+      SharedState.addWeeklyMenu({
+        nome: `Cardápio Semanal IA PNAE (${menuObj.metricasSemanais?.numAlunos || 3992} Alunos)`,
+        periodo: `${d1} a ${d2}`,
+        semana: `${d1} a ${d2}`,
+        escola: 'Toda a Rede Piloto',
+        escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
+        refeicoes: (menuObj.refeicoes||[]).map(r => ({ dia: r.dia, tipo: 'Almoço', item: `${r.nomePrato} (${r.kcal} kcal)`, kcal: r.kcal })),
+        kcalMedia: menuObj.metricasSemanais?.mediaKcal || 700,
+        autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
+      });
+    }
   }
 
   // Carregar no planejador semanal se a tela de planejamento estiver aberta
