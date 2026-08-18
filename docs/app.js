@@ -25,6 +25,17 @@ function renderVersionTags() {
   });
 }
 
+// Sanitização e Escape seguro para renderização DOM
+window.escapeHTML = (str) => {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
 // CATÁLOGO LOCAL CURADO
 // ----------------------------
 // products, contracts, ataProducts, empenhos e lots formam um GRAFO ligado por
@@ -715,13 +726,23 @@ const SharedState = {
     this._listeners.forEach(fn => { try { fn(event, this._data); } catch {} });
   },
 
+  _notify(event) {
+    this._emit(event || 'change');
+  },
+
   onChange(fn) { this._listeners.push(fn); return () => { this._listeners = this._listeners.filter(f => f !== fn); }; },
 
-  // Leitores
+  // Leitores & Aliases de compatibilidade
   getMenus()       { return [...(this._data.menus || [])]; },
+  getMenu()        { return this.getMenus(); },
   getCardapios()   { return this.getMenus(); },
   getWeeklyMenus() { return [...(this._data.weeklyMenus || [])]; },
   getFichas()      { return [...(this._data.fichas || [])]; },
+  getFicha()       { return this.getFichas(); },
+  getOrder()       { return this.getOrders(); },
+  getProduction()  { return this.getProductions(); },
+  getDelivery()    { return this.getDeliveries(); },
+  getIncident()    { return this.getIncidents(); },
   getOrders()      { 
     const ords = this._data.orders || [];
     ords.forEach(o => { 
@@ -923,13 +944,23 @@ const SharedState = {
     const all = this._data.consumo || [];
     return escola ? all.filter(c => c.escola === escola) : [...all];
   },
-  getRestricoes(schoolId) {
+  getRestricoes(schoolIdOrName) {
     const all = this._data.restricoes || [];
-    return schoolId ? all.filter(r => r.schoolId === schoolId) : [...all];
+    if (!schoolIdOrName) return [...all];
+    return all.filter(r => 
+      r.schoolId == schoolIdOrName || 
+      (r.schoolName && typeof schoolIdOrName === 'string' && r.schoolName.toLowerCase().includes(schoolIdOrName.toLowerCase()))
+    );
   },
-  getAlunosEspeciais(escolaName) {
+  getAlunosEspeciais(escolaNameOrId) {
     const all = this._data.alunosEspeciais || [];
-    return escolaName ? all.filter(a => a.escola === escolaName || a.escola.toLowerCase().includes(escolaName.toLowerCase())) : [...all];
+    if (!escolaNameOrId) return [...all];
+    return all.filter(a => {
+      if (typeof escolaNameOrId === 'number' || (!isNaN(Number(escolaNameOrId)) && typeof escolaNameOrId !== 'string')) {
+        if (a.schoolId == escolaNameOrId) return true;
+      }
+      return a.escola && typeof escolaNameOrId === 'string' && (a.escola === escolaNameOrId || a.escola.toLowerCase().includes(escolaNameOrId.toLowerCase()));
+    });
   },
   addAlunoEspecial(aluno) {
     const a = { id: 'aluno-' + crypto.randomUUID(), registradoEm: new Date().toISOString().slice(0, 10), ...aluno };
@@ -1687,10 +1718,25 @@ function renderNotifications() {
 function renderPage() {
   const key = `${state.currentProfile}_${state.currentPage}`;
   const container = $('#page-content');
+  if (!container) return;
   container.innerHTML = '';
   container.className = 'page-content';
   const renderer = PAGE_RENDERERS[key] || PAGE_RENDERERS[`${state.currentProfile}_dashboard`] || renderGenericPage;
-  renderer(container);
+  try {
+    renderer(container);
+  } catch (err) {
+    console.error(`[Router] Erro ao renderizar ${key}:`, err);
+    container.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">⚠️ Visualização em Carregamento</div>
+        <div class="page-subtitle">${escapeHTML(err.message || 'Módulo em sincronização')}</div>
+      </div>
+      <div class="card" style="padding:24px;border-radius:12px">
+        <p style="color:var(--text-secondary);margin-bottom:16px">O módulo solicitou uma atualização de dados. Clique abaixo para retornar ao painel principal.</p>
+        <button class="btn btn-primary" onclick="navigateTo('${state.currentProfile}','dashboard')">Voltar ao Início</button>
+      </div>
+    `;
+  }
 }
 
 // CHART HELPERS
@@ -5813,7 +5859,8 @@ window.imprimirOSIndividualEscola = (escolaName, osNumero) => {
 };
 
 window.imprimirGuiaCooperativaAF = (coopName) => {
-  const prod = SharedState.getProduction().filter(p => p.cooperativa === coopName || (p.cooperativa || '').toLowerCase().includes(coopName.toLowerCase()));
+  const cName = coopName || 'Cooperativa Parceira';
+  const prod = (SharedState.getProductions() || []).filter(p => p.cooperativa === cName || (p.cooperativa || '').toLowerCase().includes(cName.toLowerCase()));
   const items = prod.length > 0 ? prod : [
     { produto: 'Melancia em cubos (Safra Local AF)', quantidadeTotalKg: 350, prazoColheita: 'Até 03/08/2026' },
     { produto: 'Banana Prata Orgânica AF', quantidadeTotalKg: 280, prazoColheita: 'Até 03/08/2026' },
@@ -7548,92 +7595,6 @@ window.applyStockSuggestion = (recipeId) => {
   window.runPnaeSimulation({ preventDefault: () => {} });
 };
 
-PAGE_RENDERERS.nutricionista_restricoes = (el) => {
-  const restricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo').map(r => ({
-    ...r,
-    tipo: (function(t) {
-      if (!t) return 'Outras Restrições';
-      const l = t.toLowerCase();
-      if (l.includes('lactose')) return 'Intolerância à lactose';
-      if (l.includes('celíaca') || l.includes('celiaca') || l.includes('gluten') || l.includes('glúten')) return 'Doença celíaca';
-      if (l.includes('diabete')) return 'Diabetes';
-      if (l.includes('aplv') || l.includes('proteína do leite') || l.includes('proteina do leite')) return 'Alergia à Proteína do Leite (APLV)';
-      if (l.includes('vegetari') || l.includes('vega')) return 'Vegetariano/Vegano';
-      return t;
-    })(r.tipo)
-  }));
-
-  const schools = DATA.schools || [];
-  const totalAlunosRestr = restricoes.reduce((a, b) => a + (b.quantidade || 1), 0);
-  const tiposUnicos = Array.from(new Set(restricoes.map(r => r.tipo)));
-
-  el.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Gestão de Restrições Alimentares</div>
-      <div class="page-subtitle">Consolidação oficial dos laudos e prescrições das ${schools.length} Escolas Piloto (4.430 Alunos)</div>
-    </div>
-
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${totalAlunosRestr}</div><div class="kpi-label">Alunos com Restrição</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${restricoes.length}</div><div class="kpi-label">Registros Ativos</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">🏫</div><div class="kpi-value">${new Set(restricoes.map(r=>r.schoolName)).size}</div><div class="kpi-label">Escolas Notificando</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">🧬</div><div class="kpi-value">${tiposUnicos.length}</div><div class="kpi-label">Categorias Clínicas</div></div>
-    </div>
-
-    <div class="card mb-24">
-      <div class="card-header">
-        <div class="card-title">🛡️ Resumo por Tipo de Restrição Clinicamente Mapeada</div>
-      </div>
-      <div class="card-body">
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">
-          ${tiposUnicos.map(tipo => {
-            const count = restricoes.filter(r => r.tipo === tipo).reduce((a, b) => a + (b.quantidade || 1), 0);
-            const escCount = new Set(restricoes.filter(r => r.tipo === tipo).map(r => r.schoolName)).size;
-            return `
-              <div style="background:var(--surface-2,#f8fafc);border:1px solid var(--border);border-radius:8px;padding:14px">
-                <div style="font-weight:700;color:var(--primary);font-size:0.95rem">${tipo}</div>
-                <div style="font-size:1.4rem;font-weight:800;color:var(--text-primary);margin:6px 0">${count} <span style="font-size:0.8rem;font-weight:400;color:var(--text-secondary)">aluno(s)</span></div>
-                <div style="font-size:0.78rem;color:var(--text-secondary)">Presente em ${escCount} escola(s) piloto</div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">📋 Notificações por Unidade Escolar Piloto</div>
-      </div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>Escola Piloto</th>
-              <th>Tipo de Restrição</th>
-              <th>Alunos</th>
-              <th>Observações Nutricionais / Laudo</th>
-              <th>Registrado Por</th>
-              <th>Data</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${restricoes.map(r => `
-              <tr>
-                <td><strong>${r.schoolName}</strong></td>
-                <td><span class="status-badge status-warning" style="font-weight:700">${r.tipo}</span></td>
-                <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${r.quantidade || 1}</td>
-                <td style="font-size:0.85rem">${r.observacao || '—'}</td>
-                <td style="font-size:0.82rem">${r.registradoPor || 'Dra. Lilian Droppa'}</td>
-                <td style="font-size:0.8rem;color:var(--text-secondary)">${(r.criadoEm || '').slice(0,10)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-};
 
 PAGE_RENDERERS.nutricionista_simulacoes = (el) => {
   let options = '';
@@ -9525,52 +9486,72 @@ window.openRecebimentoModal = (pedidoId) => {
 };
 
 window.confirmRecebimento = (pedidoId, empenhoId, prodId) => {
-  const ateste = document.getElementById('rec-ateste').checked;
-  if(!ateste) { alert('Você precisa atestar a conferência da mercadoria marcando a caixa de seleção!'); return; }
+  const atesteEl = document.getElementById('rec-ateste');
+  const ateste = atesteEl ? atesteEl.checked : true;
+  if (!ateste) { alert('Você precisa atestar a conferência da mercadoria marcando a caixa de seleção!'); return; }
   
-  const qtd = parseFloat(document.getElementById('rec-qtd').value);
-  const val = document.getElementById('rec-val').value;
-  const nf = document.getElementById('rec-nf').value;
-  if(!val || !nf || !qtd || qtd <= 0) { alert('Preencha os dados da NF, Validade e Quantidade corretamente!'); return; }
+  const qtd = parseFloat(document.getElementById('rec-qtd')?.value || 0);
+  const val = document.getElementById('rec-val')?.value;
+  const nf = document.getElementById('rec-nf')?.value;
+  if (!val || !nf || !qtd || qtd <= 0) { alert('Preencha os dados da NF, Validade e Quantidade corretamente!'); return; }
   
   // Atualizar Pedido
+  DATA.ata_pedidos = DATA.ata_pedidos || [];
   const p = DATA.ata_pedidos.find(x => x.id === pedidoId);
-  p.delivered = (p.delivered || 0) + qtd;
+  if (p) p.delivered = (p.delivered || 0) + qtd;
   
   // Alimentar Estoque Real e gerar Lote
+  DATA.ataProducts = DATA.ataProducts || [];
   const ataP = DATA.ataProducts.find(x => x.id === prodId);
-  const stockProd = DATA.products.find(x => x.id === ataP.stockProductId);
-  if(stockProd) {
-    stockProd.stock += qtd;
+  const unitPrice = ataP ? (ataP.unitPrice || 0) : 0;
+  
+  DATA.products = DATA.products || [];
+  const stockProd = ataP ? DATA.products.find(x => x.id === ataP.stockProductId) : null;
+  if (stockProd) {
+    stockProd.stock = (stockProd.stock || 0) + qtd;
+    DATA.lots = DATA.lots || [];
     DATA.lots.push({ id: DATA.lots.length + 1, productId: stockProd.id, number: nf, entryDate: new Date().toISOString().split('T')[0], expirationDate: val, qtd: qtd });
   }
   
   // Baixar Empenho
+  DATA.empenhos = DATA.empenhos || [];
   const emp = DATA.empenhos.find(e => e.id === empenhoId);
-  if(emp) {
-    emp.items[0].delivered = (emp.items[0].delivered || 0) + qtd;
-    emp.executedValue += (qtd * ataP.unitPrice);
-    
-    // Atualiza status do empenho e da ata global
-    if(emp.items[0].delivered >= emp.items[0].qtd) emp.status = 'Liquidado';
-    else emp.status = 'Parcial';
-    
-    ataP.executedValue += (qtd * ataP.unitPrice);
+  if (emp) {
+    if (emp.items && emp.items[0]) {
+      emp.items[0].delivered = (emp.items[0].delivered || 0) + qtd;
+      if (emp.items[0].delivered >= (emp.items[0].qtd || 0)) emp.status = 'Liquidado';
+      else emp.status = 'Parcial';
+    }
+    emp.executedValue = (emp.executedValue || 0) + (qtd * unitPrice);
+    if (ataP) ataP.executedValue = (ataP.executedValue || 0) + (qtd * unitPrice);
   }
   
   // Add ao historico de NF
+  DATA.nf_history = DATA.nf_history || [];
   DATA.nf_history.push({
     id: DATA.nf_history.length + 1,
     numero: nf,
     date: new Date().toISOString().split('T')[0],
-    empenhoId: emp.id,
-    items: [{ productId: prodId, qtd: qtd, value: qtd * ataP.unitPrice }]
+    empenhoId: emp ? emp.id : empenhoId,
+    items: [{ productId: prodId, qtd: qtd, value: qtd * unitPrice }]
   });
+
+  if (window.SharedState && typeof window.SharedState.registrarLogAuditoria === 'function') {
+    window.SharedState.registrarLogAuditoria({
+      usuario: (typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].name : 'Estoque Central',
+      acao: 'Entrada de Mercadoria / NF',
+      produto: stockProd ? stockProd.name : (ataP ? ataP.name : 'Insumo'),
+      quantidade: qtd,
+      origem: `NF ${nf}`,
+      destino: 'Estoque Central',
+      motivo: 'Recebimento e Conferência Física'
+    });
+  }
   
   closeModal();
-  showToast('NF Recebida com sucesso! Estoque, Ata e Empenho atualizados.', 'success');
+  showToast('✅ NF Recebida com sucesso! Estoque, Ata e Empenho atualizados.', 'success');
   const el = document.getElementById('page-content');
-  if(el) PAGE_RENDERERS.estoque_entradas(el);
+  if (el && PAGE_RENDERERS.estoque_entradas) PAGE_RENDERERS.estoque_entradas(el);
 };
 
 PAGE_RENDERERS.estoque_separacao = (el) => {

@@ -141,6 +141,61 @@ h1,h2,h3,h4,h5,h6 { line-height: 1.3; font-weight: 600; }
 .profile-btn:hover { background: var(--primary-50); color: var(--primary); }
 .profile-btn.active { border-color: var(--primary); background: var(--primary-50); color: var(--primary); font-weight: 600; }
 .profile-icon { font-size: 1.4rem; }
+
+/* Subrole Buttons (Login Screen) */
+.subrole-btn, .colab-subrole-btn {
+  flex: 1;
+  padding: 8px 6px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all var(--duration) var(--ease);
+}
+.subrole-btn:hover, .colab-subrole-btn:hover {
+  background: var(--primary-50);
+  border-color: var(--primary-200);
+  color: var(--primary);
+}
+.subrole-btn.active, .colab-subrole-btn.active {
+  border-color: var(--primary);
+  background: var(--primary-50);
+  color: var(--primary);
+}
+.subrole-icon {
+  font-size: 1.2rem;
+}
+
+/* Form Controls & User Info */
+.form-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.88rem;
+  background: var(--card);
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: border-color var(--duration) var(--ease), box-shadow var(--duration) var(--ease);
+}
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(21,101,192,0.1);
+}
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .form-group { margin-bottom: 16px; }
 .form-group label { display: block; font-size: 0.82rem; font-weight: 600; color: var(--text-primary); margin-bottom: 6px; }
 .input-wrapper { position: relative; }

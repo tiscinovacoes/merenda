@@ -526,30 +526,37 @@
     },
 
     /**
-     * Calcula a separação de produtos por escola e aplica a regra de embalagens inteiras não-fracionadas (arroz, feijão, macarrão, óleo, sal, açúcar, etc.)
-    /**
-     * RN-002: Determina o produto substituto baseado no tipo de restrição e na faixa etária (Data de Nascimento)
+     * RN-002 & RF-004: Determina o produto substituto baseado no tipo de restrição e na faixa etária (Data de Nascimento ou Idade)
      */
-    determinarSubstitutoRestricao: function (restricaoTipo, dataNascimento) {
+    determinarSubstitutoRestricao: function (restricaoTipo, dataNascOuIdade) {
       if (!restricaoTipo) return null;
-      const t = String(restricaoTipo).toLowerCase();
+      const tipo = String(restricaoTipo).toLowerCase();
       
-      let idadeAnos = 5; // Default para alunos de ensino fundamental
-      if (dataNascimento) {
-        const dob = new Date(dataNascimento);
-        if (!isNaN(dob.getTime())) {
-          const diffMs = Date.now() - dob.getTime();
-          idadeAnos = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+      let idadeAnos = 7; // Padrão Fundamental
+      if (typeof dataNascOuIdade === 'number') {
+        idadeAnos = dataNascOuIdade;
+      } else if (typeof dataNascOuIdade === 'string' && dataNascOuIdade.trim()) {
+        const str = dataNascOuIdade.trim();
+        if (str.includes('-')) {
+          const dob = new Date(str);
+          if (!isNaN(dob.getTime())) {
+            const diffMs = Date.now() - dob.getTime();
+            idadeAnos = diffMs / (1000 * 60 * 60 * 24 * 365.25);
+          }
+        } else {
+          const parsed = parseFloat(str);
+          if (!isNaN(parsed)) idadeAnos = parsed;
         }
       }
 
-      if (t.includes('lactose')) {
+      if (tipo.includes('lactose') || tipo.includes('aplv') || tipo.includes('leite')) {
         if (idadeAnos < 2) {
           return {
             substituto: 'Fórmula Infantil Especial Zero Lactose (Lata 400g)',
             perCapitaGramos: 120,
             unidade: 'Lata 400g',
             regraEtaria: '🍼 RN-002: Faixa Etária 0-2 anos (Creche) ➔ Fórmula Infantil Específica',
+            observacao: 'Fórmula infantil sem lactose recomendada para berçário',
             naoFracionavel: true
           };
         } else {
@@ -557,33 +564,54 @@
             substituto: 'Leite UHT Zero Lactose (Caixa 1L)',
             perCapitaGramos: 200,
             unidade: 'Caixa 1L',
-            regraEtaria: '🥛 RN-002: Faixa Etária > 2 anos ➔ Leite UHT Zero Lactose Comum',
+            regraEtaria: '🥛 RN-002: Faixa Etária ≥ 2 anos ➔ Leite UHT Zero Lactose Comum',
+            observacao: 'Leite fluído sem lactose para Ensino Fundamental',
             naoFracionavel: true
           };
         }
       }
 
-      if (t.includes('celíaca') || t.includes('celiaca') || t.includes('gluten') || t.includes('glúten')) {
+      if (tipo.includes('celíac') || tipo.includes('celiac') || tipo.includes('glúten') || tipo.includes('gluten')) {
         return {
           substituto: 'Biscoito & Pão Especial Sem Glúten (Pct 300g)',
           perCapitaGramos: 60,
           unidade: 'Pacote 300g',
           regraEtaria: '🌾 RN-002: Dieta Celíaca Sem Glúten Estrita',
+          observacao: 'Insumo isento de trigo, aveia, cevada e centeio',
           naoFracionavel: true
         };
       }
 
-      if (t.includes('diabete')) {
+      if (tipo.includes('diabet') || tipo.includes('glicemia') || tipo.includes('açúcar') || tipo.includes('acucar')) {
         return {
           substituto: 'Alimentos Diet / Sem Açúcar Adicionado (Pct 500g)',
           perCapitaGramos: 50,
           unidade: 'Pacote 500g',
           regraEtaria: '🍯 RN-002: Dieta com Restrição de Açúcares/Glicemia',
+          observacao: 'Controle de carga glicêmica PNAE',
           naoFracionavel: true
         };
       }
 
-      return null;
+      if (tipo.includes('ovo') || tipo.includes('soja') || tipo.includes('peixe') || tipo.includes('frutos do mar')) {
+        return {
+          substituto: 'Proteína Vegetal/Frango In Natura Adaptado AF 🌾',
+          perCapitaGramos: 100,
+          unidade: 'Kg',
+          regraEtaria: `🥗 RN-002: Substituição Específica (${restricaoTipo})`,
+          observacao: 'Proteína alternativa segura e insumo in natura da agricultura familiar',
+          naoFracionavel: false
+        };
+      }
+
+      return {
+        substituto: 'Alimento In Natura Adaptado AF 🌾',
+        perCapitaGramos: 100,
+        unidade: 'Kg',
+        regraEtaria: 'Geral',
+        observacao: 'Substituição por fruta/hortaliça in natura da agricultura familiar',
+        naoFracionavel: false
+      };
     },
 
     /**
@@ -671,69 +699,6 @@
       }
 
       return resultadoDemanda;
-    },
-
-    /**
-     * RN-002 & RF-004: Motor de Substituição por Faixa Etária e Restrição Clínica
-     */
-    determinarSubstitutoRestricao: function(restricaoTipo, dataNascOuIdade) {
-      const tipo = (restricaoTipo || '').toLowerCase();
-      let idadeAnos = typeof dataNascOuIdade === 'number' ? dataNascOuIdade : 7;
-      
-      if (typeof dataNascOuIdade === 'string' && dataNascOuIdade.includes('-')) {
-        const anoNasc = parseInt(dataNascOuIdade.split('-')[0], 10);
-        if (!isNaN(anoNasc)) {
-          idadeAnos = new Date().getFullYear() - anoNasc;
-        }
-      }
-
-      if (tipo.includes('lactose') || tipo.includes('aplv') || tipo.includes('leite')) {
-        if (idadeAnos < 2) {
-          return {
-            substituto: 'Fórmula Infantil Especial Zero Lactose (Lata 400g)',
-            regraEtaria: 'Creche (< 2 anos)',
-            perCapitaGramos: 120,
-            unidade: 'Lata 400g',
-            observacao: 'Fórmula infantil sem lactose recomendada para berçário'
-          };
-        } else {
-          return {
-            substituto: 'Leite UHT Zero Lactose (Caixa 1L)',
-            regraEtaria: 'Fundamental (≥ 2 anos)',
-            perCapitaGramos: 200,
-            unidade: 'Caixa 1L',
-            observacao: 'Leite fluído sem lactose para Ensino Fundamental'
-          };
-        }
-      }
-
-      if (tipo.includes('celíac') || tipo.includes('celiac') || tipo.includes('glúten') || tipo.includes('gluten')) {
-        return {
-          substituto: 'Biscoito & Pão Especial Sem Glúten (Pacote 300g)',
-          regraEtaria: 'Todas as Idades (Dieta Celíaca)',
-          perCapitaGramos: 50,
-          unidade: 'Pacote 300g',
-          observacao: 'Insumo isento de trigo, aveia, cevada e centeio'
-        };
-      }
-
-      if (tipo.includes('diabet') || tipo.includes('glicemia')) {
-        return {
-          substituto: 'Alimentos Diet / Sem Açúcar Adicionado',
-          regraEtaria: 'Todas as Idades (Dieta Diabética)',
-          perCapitaGramos: 60,
-          unidade: 'Unidade',
-          observacao: 'Controle de carga glicêmica PNAE'
-        };
-      }
-
-      return {
-        substituto: 'Alimento In Natura Adaptado AF 🌾',
-        regraEtaria: 'Geral',
-        perCapitaGramos: 100,
-        unidade: 'Kg',
-        observacao: 'Substituição por fruta/hortaliça in natura da agricultura familiar'
-      };
     }
   };
 
