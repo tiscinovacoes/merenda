@@ -4,7 +4,6 @@
    SEMED · Campo Grande · MS
    ============================================ */
 
-// ============================
 // VERSÃO
 // ----------------------------
 // Fonte única da verdade. Ao commitar, os três devem subir juntos:
@@ -12,7 +11,6 @@
 //   2. "version" no package.json da raiz
 //   3. tag do git (git tag -a v<versao>)
 // Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
-// ============================
 const APP_VERSION = '2.4.1';
 const APP_BUILD_DATE = '2026-08-17';
 window.APP_VERSION = APP_VERSION;
@@ -27,7 +25,6 @@ function renderVersionTags() {
   });
 }
 
-// ============================
 // CATÁLOGO LOCAL CURADO
 // ----------------------------
 // products, contracts, ataProducts, empenhos e lots formam um GRAFO ligado por
@@ -43,13 +40,11 @@ function renderVersionTags() {
 // Enquanto true, hydrateData() preserva essas coleções (guarda em db.js).
 // Para voltar a hidratar do banco é preciso ANTES migrar o catálogo curado
 // para lá — os 28 produtos com preço e as 6 atas — senão o grafo quebra de novo.
-// ============================
 const USAR_CATALOGO_LOCAL = true;
 window.USAR_CATALOGO_LOCAL = USAR_CATALOGO_LOCAL;
 
-// ============================
 // MODAL SYSTEM (Redimensionado e Responsivo)
-// ============================
+
 window.showModal = (title, content, customWidth) => {
   let modal = document.getElementById('global-modal');
   let modalContent = document.getElementById('global-modal-content');
@@ -118,9 +113,8 @@ window.showToast = (msg, type='success') => {
   }, 3000);
 };
 
-// ============================
 // MOCK DATA
-// ============================
+
 const DATA = {
   schools: [
     {
@@ -196,7 +190,6 @@ const DATA = {
       merendeira: { name: 'Vera Lúcia Estevan', matricula: 'SEMED-18003', cpf: '888.999.000-03', telefone: '(67) 98888-0003', email: 'cozinha.eleodes@semed.ms.gov.br', initials: 'VE' },
     },
   ],
-  // ============================================================
   // ESTOQUE CENTRAL — 8 escolas piloto
   // ------------------------------------------------------------
   // Base de cálculo: 3.992 alunos · 11.664 refeições/dia · 22 dias letivos/mês
@@ -208,7 +201,6 @@ const DATA = {
   //   PROCON = pesquisa PROCON-PB 2026
   //   EST   = estimativa de mercado (não foi localizado preço oficial publicado)
   // Memória de cálculo completa: vault SUALE → Precos_e_Estoque_Real_2026.md
-  // ============================================================
   products: [
     { id: 1,  name: 'Arroz Tipo 1',                  category: 'Grãos',       unit: 'kg',   unitPrice: 4.80,  precoFonte: 'EST',    stock: 7000, avgConsume: 350,  daysLeft: 20, familyFarm: false },
     { id: 2,  name: 'Feijão Carioca',                category: 'Grãos',       unit: 'kg',   unitPrice: 9.39,  precoFonte: 'PROCON', stock: 4380, avgConsume: 292,  daysLeft: 15, familyFarm: false },
@@ -263,7 +255,6 @@ const DATA = {
     { id: 14, name: 'Rosalina Gonçalves', coop: 'COOPAERGS', products: ['Banana Nanica', 'Batata Doce', 'Melancia'], production: 3400, stock: 950, area: 10 },
     { id: 15, name: 'Osvaldo Campos Neto', coop: 'COOPASUL', products: ['Ovo de Galinha', 'Cenoura'], production: 5200, stock: 2000, area: 18 },
   ],
-  // ============================================================
   // ATAS DE REGISTRO DE PREÇO — rede municipal (183 escolas · 94,7 mil alunos)
   // ------------------------------------------------------------
   // Atas são instrumentos MUNICIPAIS; o piloto de 8 escolas consome ~4,2% do
@@ -272,7 +263,6 @@ const DATA = {
   // superdimensiona a quantidade registrada e executa só o necessário.
   // Modalidade: 'chamada_publica' = Agricultura Familiar (mín. 45% do PNAE em
   // 2026, subiu de 30%) · 'pregao' = licitação comum.
-  // ============================================================
   contracts: [
     { id: 1, number: 'ATA-2026/001', start: '2026-01-15', end: '2026-12-31', supplier: 'COOPAGRAN',                          modalidade: 'chamada_publica', globalValue: 5196400.00,  executedValue: 1719120.00, status: 'Vigente' },
     { id: 2, number: 'ATA-2026/002', start: '2026-02-01', end: '2026-12-31', supplier: 'COOPRAN / COOPAERGS',                modalidade: 'chamada_publica', globalValue: 6829900.00,  executedValue: 2360245.00, status: 'Vigente' },
@@ -349,7 +339,6 @@ const DATA = {
   separation_orders: [
     { id: 1, pedidoId: 301, school: 'EM ADV. DEMOSTHENES MARTINS', items: [{ productId: 1, requested: 120, lotSugg: 'L-ARR-092', scanned: 0 }], status: 'Pendente' }
   ],
-  // ============================================================
   // EMPENHOS — nota de empenho (NE) do exercício 2026
   // ------------------------------------------------------------
   // Numeração no padrão SIAFI: <exercício>NE<sequencial>.
@@ -357,7 +346,6 @@ const DATA = {
   // acima é o ACUMULADO do ano, não a soma só destes — por isso é maior.
   // Quantidade de cada NE ≈ 1/12 da quantidade registrada na ata (draw mensal).
   // items[].productId aponta para DATA.ataProducts (não para products).
-  // ============================================================
   empenhos: [
     { id: 1,  ataId: 5, numero: '2026NE00477', date: '2026-07-02', totalValue: 360000.00, executedValue: 360000.00, status: 'Liquidado', items: [{ productId: 20, qtd: 75000, value: 360000.00, delivered: 75000 }] },
     { id: 2,  ataId: 5, numero: '2026NE00478', date: '2026-07-02', totalValue: 297663.00, executedValue: 187800.00, status: 'Parcial',   items: [{ productId: 21, qtd: 31700, value: 297663.00, delivered: 20000 }] },
@@ -389,9 +377,8 @@ const DATA = {
   months: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
 };
 
-// ============================
 // PROFILE CONFIGS
-// ============================
+
 const PROFILES = {
   gestor: {
     userId: 'ID-xxx',
@@ -410,13 +397,15 @@ const PROFILES = {
         { id: 'cooperativas', icon: '🤝', label: 'Cooperativas', badge: null },
         { id: 'agricultura', icon: '🌾', label: 'Agricultura Familiar', badge: null },
       ]},
-      { type: 'group', label: 'Prestação de Contas', children: [
-        { id: 'atas',                  icon: '📋', label: 'Atas e Contratos',        badge: null },
-        { id: 'empenhos',              icon: '💳', label: 'Empenhos SIAFI',          badge: null },
+      { type: 'group', label: 'Gerenciamento Estoque', children: [
         { id: 'os-central',            icon: '🏭', label: 'OS Estoque Central',      badge: null },
         { id: 'recebimentos-pendentes',icon: '🚚', label: 'Recebimentos Pendentes', badge: 'NEW' },
         { id: 'expedicao-os',          icon: '📦', label: 'Expedição (OS Escolas)',   badge: null },
         { id: 'ordens-entrega',        icon: '🚛', label: 'Ordens de Entrega',        badge: null },
+      ]},
+      { type: 'group', label: 'Prestação de Contas', children: [
+        { id: 'atas',                  icon: '📋', label: 'Atas e Contratos',        badge: null },
+        { id: 'empenhos',              icon: '💳', label: 'Empenhos SIAFI',          badge: null },
         { id: 'rastreabilidade-lotes', icon: '🔍', label: 'Rastreabilidade 5-Way',   badge: null },
         { id: 'listacompras',         icon: '🛒', label: 'Lista de Compras',        badge: null },
         { id: 'os-fornecedores',       icon: '🤝', label: 'OS Fornecedores',         badge: null },
@@ -579,9 +568,8 @@ const PROFILES = {
   }
 };
 
-// ============================
 // APP STATE
-// ============================
+
 let state = {
   currentProfile: 'gestor',
   currentPage: 'dashboard',
@@ -605,7 +593,6 @@ function applyPiloto() {
   DATA.schools = state.pilotoAtivo ? window._DATA_SCHOOLS_FULL.slice(0, 8) : window._DATA_SCHOOLS_FULL.slice();
 }
 
-// ============================
 // SHARED STATE
 // ---------------------------
 // Estado interligado entre todos os perfis. Persistido em localStorage
@@ -621,7 +608,6 @@ function applyPiloto() {
 // - incidents     → ocorrências (Motorista → Gestor/Escola)
 // - productions   → atualizações de produção (Agricultor → Cooperativa/Gestor)
 // - stockAdjust   → ajustes de estoque por escola (Escola/Almoxarifado → Gestor)
-// ============================
 const SHARED_STATE_KEY = 'saged_shared_state_v2';
 
 const SharedState = {
@@ -1437,21 +1423,8 @@ document.addEventListener('DOMContentLoaded', () => {
   renderVersionTags();
 });
 
-// Helper de UI: mostra um toast rápido de sucesso/erro
-function showToast(msg, kind) {
-  const t = document.createElement('div');
-  t.className = 'toast';
-  t.textContent = msg;
-  t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:' + (kind === 'error' || kind === 'warning' ? '#C62828' : '#2E7D32') + ';color:white;padding:12px 18px;border-radius:8px;font-size:0.9rem;box-shadow:0 8px 24px rgba(0,0,0,0.2);z-index:9999;font-weight:600;opacity:0;transition:opacity .2s';
-  document.body.appendChild(t);
-  requestAnimationFrame(() => t.style.opacity = '1');
-  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 250); }, 3200);
-}
-window.showToast = showToast;
-
-// ============================
 // UTILITIES
-// ============================
+
 function $(sel) { return document.querySelector(sel); }
 function $$(sel) { return document.querySelectorAll(sel); }
 function formatCurrency(val) { return 'R$ ' + (val / 1).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
@@ -1471,9 +1444,44 @@ function destroyCharts() {
   state.charts = {};
 }
 
-// ============================
+// HTML HELPERS — padrões reutilizáveis para reduzir template literals repetidos
+// Uso: _kpi('blue','🏫','8','Escolas','1') ou _tag('green','Entregue')
+function _kpi(color, icon, value, label, stagger = '', trend = '', extra = '') {
+  const cls = stagger ? ` animate-fade-up stagger-${stagger}` : '';
+  return `<div class="kpi-card ${color}${cls}">
+    <div class="kpi-icon">${icon}</div>
+    <div class="kpi-value">${value}</div>
+    <div class="kpi-label">${label}</div>
+    ${trend ? `<div class="kpi-trend">${trend}</div>` : ''}
+    ${extra}
+  </div>`;
+}
+function _pageHeader(title, subtitle = '', actions = '') {
+  return `<div class="page-header">
+    <div><div class="page-title">${title}</div>${subtitle ? `<div class="page-subtitle">${subtitle}</div>` : ''}</div>
+    ${actions ? `<div class="page-actions">${actions}</div>` : ''}
+  </div>`;
+}
+function _cardHeader(title, actions = '') {
+  return `<div class="card-header"><div class="card-title">${title}</div>${actions}</div>`;
+}
+function _tag(color, text) {
+  return `<span class="tag tag-${color}">${text}</span>`;
+}
+function _statusBadge(status) {
+  return `<span class="status-badge ${statusClass(status)}">${statusLabel(status) || status}</span>`;
+}
+function _emptyState(icon, msg, sub = '') {
+  return `<div style="text-align:center;padding:40px;color:var(--text-secondary)">
+    <div style="font-size:2.5rem;margin-bottom:12px">${icon}</div>
+    <div style="font-weight:600;margin-bottom:6px">${msg}</div>
+    ${sub ? `<div style="font-size:0.85rem">${sub}</div>` : ''}
+  </div>`;
+}
+
+
 // NAVIGATION
-// ============================
+
 function navigateTo(profile, page) {
   if (profile) state.currentProfile = profile;
   state.currentPage = page || 'dashboard';
@@ -1560,9 +1568,8 @@ function updateDbStatusBadge() {
   }
 }
 
-// ============================
 // RENDER: SIDEBAR
-// ============================
+
 function computeDynamicBadge(profile, pageId) {
   const orders = SharedState.getOrders();
   const incidents = SharedState.getIncidents();
@@ -1634,9 +1641,8 @@ function renderSidebar() {
   });
 }
 
-// ============================
 // RENDER: HEADER
-// ============================
+
 function renderHeader() {
   const prof = PROFILES[state.currentProfile];
   $('#header-avatar').textContent = prof.initials;
@@ -1653,9 +1659,8 @@ function renderHeader() {
   `;
 }
 
-// ============================
 // RENDER NOTIFICATIONS
-// ============================
+
 function renderNotifications() {
   const notifs = [
     { icon: '🔴', title: 'Estoque Crítico', desc: 'EMTI PROFª IRACEMA MARIA VICENTE com estoque abaixo de 15%', time: '5 min', unread: true },
@@ -1677,9 +1682,8 @@ function renderNotifications() {
   `).join('');
 }
 
-// ============================
 // RENDER: PAGE ROUTER
-// ============================
+
 function renderPage() {
   const key = `${state.currentProfile}_${state.currentPage}`;
   const container = $('#page-content');
@@ -1689,9 +1693,8 @@ function renderPage() {
   renderer(container);
 }
 
-// ============================
 // CHART HELPERS
-// ============================
+
 function createChart(id, config) {
   const canvas = document.getElementById(id);
   if (!canvas) return null;
@@ -1726,9 +1729,8 @@ const CHART_DEFAULTS = {
   }
 };
 
-// ============================
 // PAGE RENDERERS
-// ============================
+
 const PAGE_RENDERERS = {};
 
 // ─── GESTOR: DASHBOARD EXECUTIVO ───
@@ -2072,13 +2074,11 @@ PAGE_RENDERERS.gestor_escolas = (el) => {
   });
 };
 
-// ============================================================
 // TOTAIS DERIVADOS — atas, empenhos e estoque
 // ------------------------------------------------------------
 // Nada aqui lê campo estático (ata.executedValue etc). Tudo é somado a partir
 // do grafo, para que gravar um empenho novo ou receber uma NF mude os KPIs na
 // hora, sem precisar atualizar contador nenhum na mão.
-// ============================================================
 
 // Totais de uma ata, somados dos seus produtos e empenhos.
 function ataTotais(ataId) {
@@ -2358,7 +2358,6 @@ window.openEmpenhoDetailsModal = (empenhoId) => {
     </div>
   `);
 };
-
 
 // ─── NOVO EMPENHO (multi-item) ───
 // O empenho pode carregar vários itens da mesma ata. Cada linha valida o saldo
@@ -6391,9 +6390,8 @@ window.excluirAlunoEspecial = (id) => {
   if (container) PAGE_RENDERERS.nutricionista_restricoes(container);
 };
 
-// ============================================================
 // REQUISITOS PDF: ESTOQUE SUAL READ-ONLY PARA NUTRIÇÃO
-// ============================================================
+
 PAGE_RENDERERS.nutricionista_estoquesual = (el) => {
   const products = DATA.products || [];
   const zerados = products.filter(p => (p.stock || 0) === 0);
@@ -6466,9 +6464,8 @@ PAGE_RENDERERS.nutricionista_estoquesual = (el) => {
   `;
 };
 
-// ============================================================
 // REQUISITOS PDF: GUIAS DE ENTREGA, FRACIONAMENTO E SAZONALIDADE
-// ============================================================
+
 PAGE_RENDERERS.nutricionista_guiasentrega = (el) => {
   const schools = (DATA && DATA.schools && DATA.schools.length) ? DATA.schools : (window._PILOT_SCHOOLS || [{ id: 1, name: 'EMEF Prof. Arlene Marques', students: 540, region: 'Birbiriuçu' }]);
   const menus = SharedState.getCardapios();
@@ -7855,25 +7852,6 @@ window.applyIaSuggestion = (i) => {
   showToast('✅ Sugestão da IA registrada. Considere no próximo cardápio.');
 };
 
-window.applyIaCropSuggestion = () => {
-  const btn = document.getElementById('btn-ia-apply-crop');
-  if (btn) {
-    btn.textContent = 'Aplicado';
-    btn.className = 'btn btn-sm btn-outline';
-    btn.disabled = true;
-  }
-  alert('Recomendação da IA aplicada! O ingrediente Melancia foi substituído por Manga Tommy no cardápio do mês de Julho.');
-};
-
-window.applyIaFiberSuggestion = () => {
-  const btn = document.getElementById('btn-ia-apply-fiber');
-  if (btn) {
-    btn.textContent = 'Aplicado';
-    btn.className = 'btn btn-sm btn-outline';
-    btn.disabled = true;
-  }
-  alert('Recomendação da IA aplicada! Integração da mandioca executada nas tabelas de cardápio.');
-};
 
 // ─── ESCOLA: helpers ───
 function getCurrentSchool() {
@@ -9708,7 +9686,6 @@ window._concluirOsAuto = (osId) => {
   PAGE_RENDERERS.estoque_separacao(document.getElementById('page-content'));
 };
 
-
 window.sharedStartSeparacao = (orderId) => {
   const o = SharedState.getOrders().find(x => x.id === orderId);
   if (!o) return;
@@ -10197,9 +10174,7 @@ PAGE_RENDERERS.motorista_historico = (el) => {
   `;
 };
 
-// ============================================================
 // ─── DIRETOR: RENDERERS ─────────────────────────────────────
-// ============================================================
 
 PAGE_RENDERERS.diretor_dashboard = (el) => {
   const sc = getCurrentSchool();
@@ -10743,9 +10718,7 @@ PAGE_RENDERERS.diretor_restricoes = (el) => {
   });
 };
 
-// ============================================================
 // ─── RESP_ESTOQUE: RENDERERS ─────────────────────────────────
-// ============================================================
 
 PAGE_RENDERERS.resp_estoque_dashboard = (el) => {
   const sc = getCurrentSchool();
@@ -11133,7 +11106,6 @@ function renderCrudScreen(title, subtitle, headers, rows) {
   `;
 }
 
-// ============================
 function initAppEvents() {
   const SCHOOL_SUBROLES = ['diretor', 'resp_estoque', 'merendeira'];
   const COLAB_SUBROLES = ['cooperativa', 'agricultor'];
@@ -11299,7 +11271,6 @@ if (document.readyState === 'loading') {
 } else {
   initAppEvents();
 }
-
 
 // MERENDEIRA ALIASES
 PAGE_RENDERERS.merendeira_dashboard = PAGE_RENDERERS.escola_dashboard;
@@ -12083,7 +12054,6 @@ window.abrirModalDetalhesEmpenho = (numeroEmpenho) => {
 
 // (salvarNovoEmpenho is handled globally by window.salvarNovoEmpenho)
 
-
 // ─── GESTOR: OS ESTOQUE CENTRAL ──────────────────────────────────────
 PAGE_RENDERERS['gestor_os-central'] = (el) => {
   const os = SharedState.getOsEstoqueCentral();
@@ -12638,11 +12608,9 @@ window.abrirModalLogsAuditoria = () => {
   window.showModal('📜 Trilha de Auditoria & Rastreabilidade de Suprimentos', content, '950px');
 };
 
-// ============================================================
 // SUALE — MÓDULO DE ESTOQUE CENTRAL (v2.3.0)
 // Módulo 01: Recebimento de Mercadorias & Módulo 02: Expedição para Escolas
 // Implementação Integral das 13 Regras de Negócio (RN01 a RN13)
-// ============================================================
 
 (function initEstoqueCentralModulo() {
   if (!SharedState._data.recebimentosPendentes) {
@@ -13035,11 +13003,14 @@ PAGE_RENDERERS['gestor_ordens-entrega'] = (el) => {
 
 // ─── TELA 04: RASTREABILIDADE 5-WAY (RN13) ───────────────────────────
 PAGE_RENDERERS['gestor_rastreabilidade-lotes'] = (el) => {
-  const lotes = [
+  // Dados reais do SharedState; fallback demo se ainda vazio
+  const _lotesSeed = [
     { lote: 'LOT-ARZ-2026A', produto: 'Arroz Tipo 1 (5kg)', fornecedor: 'NUTRI ALIMENTOS DISTRIBUIDORA LTDA', empenho: '2026NE00477', nf: 'NF-e 000.4891', escola: 'EMEF Prof. Henrique Scabello', motorista: 'Carlos Alberto Santos', dataEntrada: '2026-06-01', validade: '2026-10-15', status: 'Em Consumo na Escola' },
     { lote: 'LOT-LTE-2026A', produto: 'Leite Integral (1L)', fornecedor: 'POLARIS COMÉRCIO DE ALIMENTOS LTDA', empenho: '2026NE00512', nf: 'NF-e 000.5102', escola: 'EMEF Doutor João Sampaio', motorista: 'Marcos Antônio Ribeiro', dataEntrada: '2026-06-12', validade: '2026-09-20', status: 'Em Rota de Entrega' },
     { lote: 'LOT-BAN-2026A', produto: 'Banana Nanica', fornecedor: 'COOPAGRAN (Cooperativa AF)', empenho: '2026NE00489', nf: 'Guia Produtor 044/2026', escola: 'EMEF Doutor João Sampaio', motorista: 'José Maria Rodrigues', dataEntrada: '2026-06-05', validade: '2026-08-12', status: 'Entregue' }
   ];
+  const _lotesState = (typeof SharedState !== 'undefined' && typeof SharedState.getLotes === 'function') ? SharedState.getLotes() : [];
+  const lotes = _lotesState.length > 0 ? _lotesState : _lotesSeed;
 
   const rows = lotes.map(l => `
     <tr>
