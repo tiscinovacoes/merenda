@@ -9807,22 +9807,21 @@ window.sharedStartSeparacao = (orderId) => {
 window.sharedFinishSeparacao = (orderId) => {
   const o = SharedState.getOrders().find(x => x.id === orderId);
   if (!o) return;
-  SharedState.updateOrderStatus(orderId, 'Em transporte');
-  showToast('🚚 Pedido separado — vai para Carregamento/Bipagem.');
-  PAGE_RENDERERS.estoque_separacao(document.getElementById('page-content'));
+  SharedState.updateOrderStatus(orderId, 'Separado');
+  showToast('✅ Pedido #' + String(o.numero).padStart(3,'0') + ' marcado como SEPARADO! Redirecionando para Carregamento (Bipagem)...');
+  navigateTo(state.currentProfile, 'carregamento');
 };
 
 window.startSeparacao = (orderId) => {
   const o = DATA.separation_orders.find(x => x.id === orderId);
-  o.status = 'Separado';
+  if (o) o.status = 'Separado';
   showToast('Separação concluída via FIFO! Lotes vinculados.', 'success');
-  const el = document.getElementById('page-content');
-  if(el) PAGE_RENDERERS.estoque_separacao(el);
+  navigateTo(state.currentProfile, 'carregamento');
 };
 
 PAGE_RENDERERS.estoque_carregamento = (el) => {
   const separated = DATA.separation_orders.filter(o => o.status === 'Separado');
-  const sharedInTransit = SharedState.getOrders().filter(o => o.status === 'Em transporte');
+  const sharedInTransit = SharedState.getOrders().filter(o => o.status === 'Separado' || o.status === 'Em transporte');
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Carregamento e Bipagem (Check-out)</div><div class="page-subtitle">Validação de caixas no caminhão · Pedidos prontos aparecem em tempo real</div></div>
     <div class="grid-2">
@@ -9830,10 +9829,18 @@ PAGE_RENDERERS.estoque_carregamento = (el) => {
       <div class="card-body" style="padding:0">
         <table class="data-table"><thead><tr><th>Ordem</th><th>Destino</th><th>Itens</th><th>Ação</th></tr></thead><tbody>
           ${sharedInTransit.map(o => `<tr>
-            <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
+            <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">
+              #${String(o.numero).padStart(3,'0')}
+              <div style="font-size:0.72rem; color:#0369a1; font-weight:600; margin-top:2px;">📜 Ref: ${o.cardapioCodigo || 'CARD-2026/08-101'}</div>
+            </td>
             <td><strong>${o.school}</strong></td>
             <td style="font-size:0.82rem">${(o.itens||[]).length} itens</td>
-            <td><button class="btn btn-sm btn-primary" onclick="sharedLiberarCaminhao('${o.id}')">✅ Liberar p/ Motorista</button></td>
+            <td>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-sm btn-primary" onclick="openSharedBipagem('${o.id}')">📦 Bipar Carga</button>
+                <button class="btn btn-sm btn-success" onclick="sharedLiberarCaminhao('${o.id}')">✅ Liberar</button>
+              </div>
+            </td>
           </tr>`).join('')}
           ${separated.map(o => `<tr>
             <td><strong>#ORD-${o.id}</strong></td>
@@ -9852,9 +9859,39 @@ PAGE_RENDERERS.estoque_carregamento = (el) => {
   `;
 };
 
+window.openSharedBipagem = (orderId) => {
+  const o = SharedState.getOrders().find(x => x.id === orderId);
+  if (!o) return;
+  const area = document.getElementById('bipagem-area');
+  if (!area) return;
+  area.innerHTML = `
+    <h4 style="margin-top:0">Bipando Ordem #${String(o.numero).padStart(3,'0')} (${o.school})</h4>
+    <div style="font-size:0.82rem; color:#0369a1; font-weight:600; margin-bottom:12px;">📜 Ref. Cardápio: <strong>${o.cardapioCodigo || 'CARD-2026/08-101'}</strong></div>
+    <div style="display:flex;gap:12px;margin-bottom:20px;">
+      <input type="text" id="bip-shared-input" class="form-control" placeholder="Clique aqui e simule o leitor (aperte Enter)..." style="flex:1" onkeydown="if(event.key==='Enter') window.confirmarSharedBipagem('${o.id}')">
+      <button class="btn btn-primary" onclick="window.confirmarSharedBipagem('${o.id}')">Bipar</button>
+    </div>
+    <ul id="bip-list" style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px;">
+      ${(o.itens || []).map(i => `
+        <li style="padding:10px 12px;border:1px solid #bbf7d0;border-radius:6px;display:flex;justify-content:space-between;align-items:center;background:#f0fdf4">
+          <div><strong style="color:#14532d;">${i.produto}</strong><br><small style="color:#166534;">Regra: ${i.regra || 'Conforme demanda'}</small></div>
+          <div style="font-family:var(--font-mono);font-weight:bold;color:#15803d">${i.qtd} ${i.unidade || 'kg'} (Bipado)</div>
+        </li>
+      `).join('')}
+    </ul>
+  `;
+};
+
+window.confirmarSharedBipagem = (orderId) => {
+  const input = document.getElementById('bip-shared-input');
+  if (input) input.value = '';
+  showToast('🟢 Item de caixa verificado com sucesso pelo leitor de código de barras!');
+};
+
 window.sharedLiberarCaminhao = (orderId) => {
   const o = SharedState.getOrders().find(x => x.id === orderId);
   if (!o) return;
+  SharedState.updateOrderStatus(orderId, 'Em transporte');
   showToast('🚚 Caminhão liberado — carga #' + String(o.numero).padStart(3,'0') + ' entregue ao Motorista.');
   PAGE_RENDERERS.estoque_carregamento(document.getElementById('page-content'));
 };
