@@ -103,6 +103,95 @@ window.showToast = (msg, type='success') => {
   }, 3000);
 };
 
+// Cross-perfil (Fase 3.3). O levantamento das 148 funcoes globais do app.js
+// mostrou que apenas estas duas, alem do trio de UI acima, sao usadas por mais
+// de um perfil: exportRelatorio serve gestor + resp_estoque e _resolverRestricao
+// serve nutricionista + diretor. As outras 115 pertencem a um perfil so e vao
+// junto com o respectivo modulo na Fase 4.
+window.exportRelatorio = (key) => {
+  let rows = [];
+  let headers = [];
+  let fname = 'relatorio.csv';
+
+  switch (key) {
+    case 'produtos_consumo': {
+      const acc = {};
+      SharedState.getConsumo().forEach(c => { acc[c.produto] = (acc[c.produto] || 0) + (c.qtd || 0); });
+      headers = ['Produto', 'Qtd Total', 'Unidade'];
+      rows = Object.entries(acc).sort((a,b) => b[1]-a[1]).map(([p, q]) => [p, q, 'kg/L']);
+      fname = 'produtos_consumidos.csv';
+      break;
+    }
+    case 'consumo_escola': {
+      const acc = {};
+      SharedState.getConsumo().forEach(c => { acc[c.escola] = acc[c.escola] || { qtd:0, n:0 }; acc[c.escola].qtd += (c.qtd||0); acc[c.escola].n++; });
+      headers = ['Escola', 'Qtd Total', 'Nº Registros'];
+      rows = Object.entries(acc).sort((a,b) => b[1].qtd - a[1].qtd).map(([e, d]) => [e, d.qtd, d.n]);
+      fname = 'consumo_por_escola.csv';
+      break;
+    }
+    case 'entregas': {
+      headers = ['Pedido', 'Escola', 'Cooperativa', 'Status', 'Recebido por', 'Data Confirmação'];
+      rows = SharedState.getDeliveries().map(d => [
+        '#' + String(d.orderNumero).padStart(3,'0'),
+        d.school || '', d.cooperative || '', d.status || '',
+        d.receiver || '', d.confirmadoEm ? new Date(d.confirmadoEm).toLocaleString('pt-BR') : '',
+      ]);
+      fname = 'entregas.csv';
+      break;
+    }
+    case 'empenhos': {
+      headers = ['Empenho', 'Ata', 'Produto', 'Qtd Total', 'Consumido', 'Saldo', 'Status'];
+      rows = SharedState.getEmpenhos().map(e => [
+        e.numero, e.ataNumero, e.produto,
+        e.qtdTotal, e.qtdConsumida || 0, (e.qtdTotal||0) - (e.qtdConsumida||0), e.status,
+      ]);
+      fname = 'empenhos.csv';
+      break;
+    }
+    case 'nfs': {
+      headers = ['NF', 'Empenho', 'Qtd', 'Valor', 'Data', 'Lote', 'Ateste'];
+      rows = SharedState.getNFs().map(n => [n.numero, n.empenhoNumero, n.qtd, n.valor, n.dataRec, n.lote, n.ateste]);
+      fname = 'nfs_recebidas.csv';
+      break;
+    }
+    case 'producoes': {
+      headers = ['Agricultor', 'Produto', 'Área (ha)', 'Prevista', 'Disponível', 'Status'];
+      rows = SharedState.getProductions().map(p => [p.agricultor, p.produto, p.area, p.previsto, p.disponivel, p.status]);
+      fname = 'producoes.csv';
+      break;
+    }
+  }
+
+  if (rows.length === 0) {
+    showToast('⚠️ Sem dados para exportar. Use o sistema para gerar registros.', 'error');
+    return;
+  }
+
+  const csv = [headers.join(',')].concat(rows.map(r => r.map(c => {
+    const v = String(c ?? '');
+    return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v.replace(/"/g,'""') + '"' : v;
+  }).join(','))).join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('📥 ' + fname + ' baixado (' + rows.length + ' linhas).');
+};
+
+window._resolverRestricao = (id) => {
+  if (confirm('Marcar esta restrição como resolvida?')) {
+    SharedState.resolverRestricao(id);
+    renderPage();
+  }
+};
+
 // HTML HELPERS REUTILIZÁVEIS
 window._kpi = (title, val, sub, icon, trend) => `
   <div class="kpi-card">

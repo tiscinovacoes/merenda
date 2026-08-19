@@ -56,73 +56,8 @@ window.USAR_CATALOGO_LOCAL = USAR_CATALOGO_LOCAL;
 
 // MODAL SYSTEM (Redimensionado e Responsivo)
 
-window.showModal = (title, content, customWidth) => {
-  let modal = document.getElementById('global-modal');
-  let modalContent = document.getElementById('global-modal-content');
-
-  if (!modal) {
-    modal = document.createElement('div');
-    modal.id = 'global-modal';
-    modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15, 23, 42, 0.65);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:9999;padding:16px;box-sizing:border-box;';
-    
-    modalContent = document.createElement('div');
-    modalContent.id = 'global-modal-content';
-    modalContent.className = 'card';
-    modalContent.style.cssText = 'width:95%;max-width:900px;max-height:90vh;background:var(--bg, #ffffff);border-radius:12px;overflow:hidden;box-shadow:0 20px 25px -5px rgba(0,0,0,0.2), 0 10px 10px -5px rgba(0,0,0,0.1);display:flex;flex-direction:column;';
-    
-    const header = document.createElement('div');
-    header.className = 'card-header';
-    header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border, #e2e8f0);background:var(--surface-1, #f8fafc);flex-shrink:0;';
-    
-    const titleEl = document.createElement('h3');
-    titleEl.id = 'global-modal-title';
-    titleEl.style.cssText = 'margin:0;font-size:1.15rem;font-weight:700;color:var(--text-primary, #0f172a);';
-    
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '✕';
-    closeBtn.style.cssText = 'background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--text-secondary, #64748b);padding:4px 8px;border-radius:6px;line-height:1;';
-    closeBtn.onmouseover = () => closeBtn.style.background = '#e2e8f0';
-    closeBtn.onmouseout = () => closeBtn.style.background = 'none';
-    closeBtn.onclick = closeModal;
-    
-    const body = document.createElement('div');
-    body.className = 'card-body';
-    body.id = 'global-modal-body';
-    body.style.cssText = 'padding:20px;overflow-y:auto;max-height:calc(90vh - 70px);box-sizing:border-box;';
-    
-    header.appendChild(titleEl);
-    header.appendChild(closeBtn);
-    modalContent.appendChild(header);
-    modalContent.appendChild(body);
-    modal.appendChild(modalContent);
-    document.body.appendChild(modal);
-  }
-  
-  if (modalContent) {
-    modalContent.style.maxWidth = customWidth || '900px';
-  }
-  
-  document.getElementById('global-modal-title').innerText = title;
-  document.getElementById('global-modal-body').innerHTML = content;
-  modal.style.display = 'flex';
-};
-
-window.closeModal = () => {
-  const modal = document.getElementById('global-modal');
-  if (modal) modal.style.display = 'none';
-};
-
-window.showToast = (msg, type='success') => {
-  let toast = document.createElement('div');
-  toast.innerText = msg;
-  toast.style.cssText = `position:fixed;bottom:20px;right:20px;background:var(--${type});color:white;padding:12px 24px;border-radius:var(--radius-md);box-shadow:var(--shadow-lg);z-index:10000;font-weight:600;opacity:0;transition:opacity 0.3s;`;
-  document.body.appendChild(toast);
-  setTimeout(() => toast.style.opacity = '1', 10);
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
-};
+// showModal/closeModal/showToast vivem em js/core_hub.js (Fase 3.3).
+// As copias que existiam aqui eram byte-identicas as do Hub — removidas.
 
 
 
@@ -1887,82 +1822,7 @@ PAGE_RENDERERS.gestor_relatorios = (el) => {
   `;
 };
 
-window.exportRelatorio = (key) => {
-  let rows = [];
-  let headers = [];
-  let fname = 'relatorio.csv';
-
-  switch (key) {
-    case 'produtos_consumo': {
-      const acc = {};
-      SharedState.getConsumo().forEach(c => { acc[c.produto] = (acc[c.produto] || 0) + (c.qtd || 0); });
-      headers = ['Produto', 'Qtd Total', 'Unidade'];
-      rows = Object.entries(acc).sort((a,b) => b[1]-a[1]).map(([p, q]) => [p, q, 'kg/L']);
-      fname = 'produtos_consumidos.csv';
-      break;
-    }
-    case 'consumo_escola': {
-      const acc = {};
-      SharedState.getConsumo().forEach(c => { acc[c.escola] = acc[c.escola] || { qtd:0, n:0 }; acc[c.escola].qtd += (c.qtd||0); acc[c.escola].n++; });
-      headers = ['Escola', 'Qtd Total', 'Nº Registros'];
-      rows = Object.entries(acc).sort((a,b) => b[1].qtd - a[1].qtd).map(([e, d]) => [e, d.qtd, d.n]);
-      fname = 'consumo_por_escola.csv';
-      break;
-    }
-    case 'entregas': {
-      headers = ['Pedido', 'Escola', 'Cooperativa', 'Status', 'Recebido por', 'Data Confirmação'];
-      rows = SharedState.getDeliveries().map(d => [
-        '#' + String(d.orderNumero).padStart(3,'0'),
-        d.school || '', d.cooperative || '', d.status || '',
-        d.receiver || '', d.confirmadoEm ? new Date(d.confirmadoEm).toLocaleString('pt-BR') : '',
-      ]);
-      fname = 'entregas.csv';
-      break;
-    }
-    case 'empenhos': {
-      headers = ['Empenho', 'Ata', 'Produto', 'Qtd Total', 'Consumido', 'Saldo', 'Status'];
-      rows = SharedState.getEmpenhos().map(e => [
-        e.numero, e.ataNumero, e.produto,
-        e.qtdTotal, e.qtdConsumida || 0, (e.qtdTotal||0) - (e.qtdConsumida||0), e.status,
-      ]);
-      fname = 'empenhos.csv';
-      break;
-    }
-    case 'nfs': {
-      headers = ['NF', 'Empenho', 'Qtd', 'Valor', 'Data', 'Lote', 'Ateste'];
-      rows = SharedState.getNFs().map(n => [n.numero, n.empenhoNumero, n.qtd, n.valor, n.dataRec, n.lote, n.ateste]);
-      fname = 'nfs_recebidas.csv';
-      break;
-    }
-    case 'producoes': {
-      headers = ['Agricultor', 'Produto', 'Área (ha)', 'Prevista', 'Disponível', 'Status'];
-      rows = SharedState.getProductions().map(p => [p.agricultor, p.produto, p.area, p.previsto, p.disponivel, p.status]);
-      fname = 'producoes.csv';
-      break;
-    }
-  }
-
-  if (rows.length === 0) {
-    showToast('⚠️ Sem dados para exportar. Use o sistema para gerar registros.', 'error');
-    return;
-  }
-
-  const csv = [headers.join(',')].concat(rows.map(r => r.map(c => {
-    const v = String(c ?? '');
-    return v.includes(',') || v.includes('"') || v.includes('\n') ? '"' + v.replace(/"/g,'""') + '"' : v;
-  }).join(','))).join('\n');
-
-  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fname;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  showToast('📥 ' + fname + ' baixado (' + rows.length + ' linhas).');
-};
+// exportRelatorio -> core_hub.js (Fase 3.3: usado por gestor e resp_estoque).
 
 // ─── GESTOR: IA DE PREVISÃO ───
 PAGE_RENDERERS.gestor_ia = (el) => {
@@ -8506,12 +8366,7 @@ PAGE_RENDERERS.nutricionista_restricoes = (el) => {
   });
 };
 
-window._resolverRestricao = (id) => {
-  if (confirm('Marcar esta restrição como resolvida?')) {
-    SharedState.resolverRestricao(id);
-    renderPage();
-  }
-};
+// _resolverRestricao -> core_hub.js (Fase 3.3: usado por nutricionista e diretor).
 
 PAGE_RENDERERS.diretor_restricoes = (el) => {
   const sc = getCurrentSchool();
