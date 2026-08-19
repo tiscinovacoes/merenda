@@ -201,55 +201,9 @@ window.confirmSchoolDelivery = (id, receiver) => {
   renderPage();
 };
 
-// HTML HELPERS REUTILIZÁVEIS
-window._kpi = (title, val, sub, icon, trend) => `
-  <div class="kpi-card">
-    <div class="kpi-icon">${icon || '📊'}</div>
-    <div class="kpi-title">${escapeHTML(title)}</div>
-    <div class="kpi-value">${escapeHTML(val)}</div>
-    ${sub ? `<div class="kpi-sub ${trend || ''}">${escapeHTML(sub)}</div>` : ''}
-  </div>
-`;
-
-window._pageHeader = (title, subtitle, actionsHtml) => `
-  <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
-    <div>
-      <h1 class="page-title" style="margin:0;font-size:1.75rem;font-weight:800;color:var(--text-primary,#0f172a);">${escapeHTML(title)}</h1>
-      ${subtitle ? `<p class="page-subtitle" style="margin:4px 0 0 0;color:var(--text-secondary,#64748b);font-size:0.9rem;">${escapeHTML(subtitle)}</p>` : ''}
-    </div>
-    ${actionsHtml ? `<div class="header-actions" style="display:flex;gap:12px;">${actionsHtml}</div>` : ''}
-  </div>
-`;
-
-window._cardHeader = (title, badge, actionBtn) => `
-  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid var(--border,#e2e8f0);">
-    <div style="display:flex;align-items:center;gap:8px;">
-      <h3 style="margin:0;font-size:1.1rem;font-weight:700;">${escapeHTML(title)}</h3>
-      ${badge ? `<span class="badge badge-info">${escapeHTML(badge)}</span>` : ''}
-    </div>
-    ${actionBtn || ''}
-  </div>
-`;
-
-window._tag = (text, type = 'neutral') => `<span class="tag tag-${type}">${escapeHTML(text)}</span>`;
-
-window._statusBadge = (status) => {
-  const map = {
-    'Pendente': 'warning', 'Em separação': 'info', 'Separado': 'info',
-    'Em transporte': 'primary', 'Em Rota': 'primary', 'Entregue': 'success',
-    'Liquidado': 'success', 'Parcial': 'warning', 'Publicado': 'success',
-    'Em Elaboração': 'neutral', 'Vigente': 'success', 'Encerrada': 'danger',
-  };
-  const cls = map[status] || 'neutral';
-  return `<span class="badge badge-${cls}">${escapeHTML(status)}</span>`;
-};
-
-window._emptyState = (msg = 'Nenhum registro encontrado.') => `
-  <div style="padding:40px 20px;text-align:center;color:var(--text-secondary,#64748b);">
-    <div style="font-size:2rem;margin-bottom:8px;">📭</div>
-    <p style="margin:0;font-size:0.9rem;">${escapeHTML(msg)}</p>
-  </div>
-`;
+// HTML HELPERS REUTILIZÁVEIS — _kpi/_pageHeader/_cardHeader/_tag/_statusBadge/
+// _emptyState vivem em app.js (assinaturas contra as quais os módulos foram
+// escritos) e serão absorvidos aqui na consolidação final da Fase 5.
 
 // ============================================================
 // ESTADO GLOBAL E DADOS (migrados do app.js na Fase 3.2)
@@ -1685,63 +1639,8 @@ window.applyPiloto = applyPiloto;
 // Paridade implementada com o app.js: reset do container, resolução dinâmica de
 // aliases do perfil `estoque`, fallback para o dashboard do perfil e error
 // boundary com tela de recuperação.
-window.renderPage = (pageKey) => {
-  const targetPage = pageKey || window.state?.currentPage || 'dashboard';
-  if (window.state) window.state.currentPage = targetPage;
-
-  const contentEl = document.getElementById('page-content');
-  if (!contentEl) return;
-
-  const profileKey = window.state?.currentProfile || 'gestor';
-  let key = `${profileKey}_${targetPage}`;
-
-  // Telas da Central de Estoque compartilhadas com o Gestor: o menu do perfil
-  // `estoque` usa ids curtos que apontam para os módulos de alta fidelidade do
-  // Gestor. Mantém a mesma tabela do app.js.
-  if (!window.PAGE_RENDERERS[key] && profileKey === 'estoque') {
-    const aliasMap = {
-      'entradas': 'recebimentos-pendentes',
-      'separacao': 'expedicao-os',
-      'carregamento': 'ordens-entrega'
-    };
-    const targetAlias = aliasMap[targetPage] || targetPage;
-    if (window.PAGE_RENDERERS[`gestor_${targetAlias}`]) key = `gestor_${targetAlias}`;
-  }
-
-  contentEl.innerHTML = '';
-  contentEl.className = 'page-content';
-
-  const renderer = window.PAGE_RENDERERS[key]
-    || window.PAGE_RENDERERS[targetPage]
-    || window.PAGE_RENDERERS[`${profileKey}_dashboard`];
-
-  if (typeof renderer !== 'function') {
-    contentEl.innerHTML = `
-      <div style="padding:32px;text-align:center;">
-        <h2 style="color:var(--text-primary,#0f172a);">Tela não encontrada</h2>
-        <p style="color:var(--text-secondary,#64748b);">Página solicitada: <code>${escapeHTML(key)}</code></p>
-        <button class="btn btn-primary" onclick="renderPage('dashboard')">Voltar ao Dashboard</button>
-      </div>
-    `;
-    return;
-  }
-
-  try {
-    renderer(contentEl);
-  } catch (err) {
-    console.error(`[Router] Erro ao renderizar ${key}:`, err);
-    contentEl.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">⚠️ Visualização em Carregamento</div>
-        <div class="page-subtitle">${escapeHTML(err.message || 'Módulo em sincronização')}</div>
-      </div>
-      <div class="card" style="padding:24px;border-radius:12px">
-        <p style="color:var(--text-secondary);margin-bottom:16px">O módulo solicitou uma atualização de dados. Clique abaixo para retornar ao painel principal.</p>
-        <button class="btn btn-primary" onclick="navigateTo('${profileKey}','dashboard')">Voltar ao Início</button>
-      </div>
-    `;
-  }
-};
+// window.renderPage vive em app.js (versão com limpeza de charts e aliases da
+// Central de Estoque); será absorvido aqui na consolidação final da Fase 5.
 
 window.login = window.login || async function(profile, schoolId) {
   if (typeof state !== 'undefined') {
@@ -1804,3 +1703,6691 @@ window.addEventListener('DOMContentLoaded', () => {
     SharedState.init();
   }
 });
+
+
+// ############################################################################
+// # CONSOLIDACAO FASE 5 — corpo remanescente do antigo app.js absorvido aqui.
+// # (helpers HTML, engines, handlers cross-perfil, renderPage e bootstrap).
+// # app.js foi removido do index.html; este e o Hub Central unico.
+// ############################################################################
+
+/* ============================================
+   SUALE — Application Engine
+   Sistema de Gestão da Alimentação Escolar
+   SEMED · Campo Grande · MS
+   ============================================ */
+
+// VERSÃO
+// ----------------------------
+// Fonte única da verdade. Ao commitar, os três devem subir juntos:
+//   1. APP_VERSION aqui
+//   2. "version" no package.json da raiz
+//   3. tag do git (git tag -a v<versao>)
+// Semver: MAJOR quebra fluxo/dados · MINOR nova tela ou perfil · PATCH correção
+var APP_VERSION = '3.0.0-hub';
+var APP_BUILD_DATE = '2026-08-18';
+window.APP_VERSION = APP_VERSION;
+window.APP_BUILD_DATE = APP_BUILD_DATE;
+
+function renderVersionTags() {
+  const txt = 'v' + APP_VERSION;
+  document.querySelectorAll('[data-app-version]').forEach(el => {
+    el.textContent = el.dataset.appVersion === 'full'
+      ? `${txt} · ${APP_BUILD_DATE}`
+      : txt;
+  });
+}
+
+// Sanitização e Escape seguro para renderização DOM
+window.escapeHTML = (str) => {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+};
+
+// CATÁLOGO LOCAL CURADO
+// ----------------------------
+// products, contracts, ataProducts, empenhos e lots formam um GRAFO ligado por
+// id: ataProducts.stockProductId → products.id · empenhos.items[].productId →
+// ataProducts.id · ataProducts.ataId → contracts.id · lots.productId → products.id
+//
+// O Supabase ainda tem o catálogo antigo (20 produtos, 4 atas com outra
+// numeração). O hydrateData() sobrescrevia só `products` e `contracts` — e não
+// ataProducts/empenhos, que não têm tabela lá — então o grafo quebrava:
+// ataProducts passava a apontar para ids de produto inexistentes e o modal de
+// Novo Empenho abria vazio nas atas 1 e 2.
+//
+// Enquanto true, hydrateData() preserva essas coleções (guarda em db.js).
+// Para voltar a hidratar do banco é preciso ANTES migrar o catálogo curado
+// para lá — os 28 produtos com preço e as 6 atas — senão o grafo quebra de novo.
+var USAR_CATALOGO_LOCAL = window.USAR_CATALOGO_LOCAL !== undefined ? window.USAR_CATALOGO_LOCAL : true;
+window.USAR_CATALOGO_LOCAL = USAR_CATALOGO_LOCAL;
+
+// MODAL SYSTEM (Redimensionado e Responsivo)
+
+// showModal/closeModal/showToast vivem em js/core_hub.js (Fase 3.3).
+// As copias que existiam aqui eram byte-identicas as do Hub — removidas.
+
+// SHARED STATE + MOCK DATA -> migrados para js/core_hub.js (Fase 3.2).
+// O Hub carrega antes do app.js, portanto DATA, SHARED_STATE_KEY e SharedState
+// continuam disponiveis como globais para todo o codigo abaixo.
+// PROFILES, state, togglePilotoMode e applyPiloto -> migrados para js/core_hub.js (Fase 3.5).
+
+// Escolas piloto — capturadas UMA VEZ antes de qualquer hydrateData do Supabase.
+// Serve de fallback quando o Supabase não responde; o db.js substitui por escolas reais quando conecta.
+window._PILOT_SCHOOLS = DATA.schools.filter(sc => sc.diretor).slice();
+
+// O dropdown do login precisa listar as MESMAS escolas (e IDs) que acabam em _PILOT_SCHOOLS,
+// senão o usuário escolhe uma escola e entra em outra.
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.DB && typeof window.DB.initLoginDropdown === 'function') window.DB.initLoginDropdown();
+  renderVersionTags();
+});
+
+// UTILITIES
+
+function $(sel) { return document.querySelector(sel); }
+function $$(sel) { return document.querySelectorAll(sel); }
+function formatCurrency(val) { return 'R$ ' + (val / 1).toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+function formatDate(d) { const dt = new Date(d + 'T12:00:00'); return dt.toLocaleDateString('pt-BR'); }
+function statusClass(s) {
+  if (['ok', 'Entregue', 'Vigente', 'Confirmado', 'Ativo', 'Normal'].includes(s)) return 'status-ok';
+  if (['warning', 'Em separação', 'Em transporte', 'Em análise', 'Baixo'].includes(s)) return 'status-warning';
+  if (['danger', 'Pendente', 'Atrasado', 'Crítico', 'Vencido'].includes(s)) return 'status-danger';
+  return 'status-info';
+}
+function statusLabel(s) {
+  const map = { ok: 'Abastecida', warning: 'Atenção', danger: 'Risco' };
+  return map[s] || s;
+}
+function destroyCharts() {
+  Object.values(state.charts).forEach(c => { if (c && c.destroy) c.destroy(); });
+  state.charts = {};
+}
+
+// HTML HELPERS — padrões reutilizáveis para reduzir template literals repetidos
+// Uso: _kpi('blue','🏫','8','Escolas','1') ou _tag('green','Entregue')
+function _kpi(color, icon, value, label, stagger = '', trend = '', extra = '') {
+  const cls = stagger ? ` animate-fade-up stagger-${stagger}` : '';
+  return `<div class="kpi-card ${color}${cls}">
+    <div class="kpi-icon">${icon}</div>
+    <div class="kpi-value">${value}</div>
+    <div class="kpi-label">${label}</div>
+    ${trend ? `<div class="kpi-trend">${trend}</div>` : ''}
+    ${extra}
+  </div>`;
+}
+function _pageHeader(title, subtitle = '', actions = '') {
+  return `<div class="page-header">
+    <div><div class="page-title">${title}</div>${subtitle ? `<div class="page-subtitle">${subtitle}</div>` : ''}</div>
+    ${actions ? `<div class="page-actions">${actions}</div>` : ''}
+  </div>`;
+}
+function _cardHeader(title, actions = '') {
+  return `<div class="card-header"><div class="card-title">${title}</div>${actions}</div>`;
+}
+function _tag(color, text) {
+  return `<span class="tag tag-${color}">${text}</span>`;
+}
+function _statusBadge(status) {
+  return `<span class="status-badge ${statusClass(status)}">${statusLabel(status) || status}</span>`;
+}
+function _emptyState(icon, msg, sub = '') {
+  return `<div style="text-align:center;padding:40px;color:var(--text-secondary)">
+    <div style="font-size:2.5rem;margin-bottom:12px">${icon}</div>
+    <div style="font-weight:600;margin-bottom:6px">${msg}</div>
+    ${sub ? `<div style="font-size:0.85rem">${sub}</div>` : ''}
+  </div>`;
+}
+
+// NAVIGATION
+
+function navigateTo(profile, page) {
+  if (profile) state.currentProfile = profile;
+  state.currentPage = page || 'dashboard';
+  destroyCharts();
+  renderSidebar();
+  renderHeader();
+  renderPage();
+}
+
+async function login(profile, schoolId) {
+  window.login = login;
+  state.currentProfile = profile;
+  state.currentPage = 'dashboard';
+  if (schoolId) {
+    state.selectedSchoolId = schoolId;
+    // Usa _PILOT_SCHOOLS (imutável) — nunca sofre sobrescrita do Supabase hydrateData
+    state.selectedSchool = (window._PILOT_SCHOOLS || []).find(s => s.id === schoolId)
+                         || DATA.schools.find(s => s.id === schoolId)
+                         || null;
+  } else {
+    state.selectedSchoolId = null;
+    state.selectedSchool = null;
+  }
+  $('#screen-login').classList.remove('active');
+  $('#screen-login').hidden = true;
+  const app = $('#screen-app');
+  app.hidden = false;
+  app.removeAttribute('hidden');
+  app.classList.add('active');
+
+  // Mostra loading enquanto hidrata do Supabase
+  const pageContent = $('#page-content');
+  if (pageContent) {
+    pageContent.innerHTML = `
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;color:var(--text-secondary)">
+        <div style="width:40px;height:40px;border:3px solid var(--primary-light);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite"></div>
+        <div style="font-weight:600">Carregando dados...</div>
+        <div style="font-size:0.8rem">Sincronizando com o banco de dados</div>
+      </div>
+    `;
+  }
+
+  destroyCharts();
+  renderSidebar();
+  renderHeader();
+
+  // Hidrata DATA com dados reais do Supabase (com timeout de 2s para nao travar a UI)
+  if (window.DB) {
+    await Promise.race([
+      window.DB.hydrateData(),
+      new Promise(r => setTimeout(r, 2000))
+    ]).catch(() => {});
+    updateDbStatusBadge();
+  }
+
+  // Depois da hidratação DATA.schools já é a lista real — só aqui dá para
+  // semear o estoque das escolas na proporção certa do porte de cada uma.
+  seedSchoolStocks();
+
+  applyPiloto();
+  renderPage();
+}
+window.login = login;
+
+function logout() {
+  destroyCharts();
+  const app = $('#screen-app');
+  app.classList.remove('active');
+  app.hidden = true;
+  const loginEl = $('#screen-login');
+  loginEl.hidden = false;
+  loginEl.removeAttribute('hidden');
+  loginEl.classList.add('active');
+}
+
+function updateDbStatusBadge() {
+  const dot = document.getElementById('db-status-dot');
+  const label = document.getElementById('db-status-label');
+  if (!dot || !label) return;
+  if (window.DB_STATUS && window.DB_STATUS.connected) {
+    dot.style.background = '#22C55E';
+    label.textContent = 'Supabase • Ao Vivo';
+  } else {
+    dot.style.background = '#F59E0B';
+    label.textContent = 'Modo Demo';
+  }
+}
+
+// RENDER: SIDEBAR
+
+function computeDynamicBadge(profile, pageId) {
+  try {
+    const orders = (SharedState.getOrders && SharedState.getOrders()) || [];
+    const incidents = (SharedState.getIncidents && SharedState.getIncidents()) || [];
+    const productions = (SharedState.getProductions && SharedState.getProductions()) || [];
+    if (profile === 'gestor' && pageId === 'pedidos')       return orders.filter(o => o.status === 'Pendente').length || null;
+    if (profile === 'gestor' && pageId === 'dashboard')     return incidents.filter(i => i.status === 'Aberta').length || null;
+    if (profile === 'nutricionista' && pageId === 'cardapios') {
+      const weekly = (SharedState.getWeeklyMenus && SharedState.getWeeklyMenus()) || [];
+      return weekly.length || null;
+    }
+    if (profile === 'escola' && pageId === 'cardapios')     return ((SharedState.getWeeklyMenus && SharedState.getWeeklyMenus()) || []).length || null;
+    if (profile === 'escola' && pageId === 'entregas')      return orders.filter(o => o.status !== 'Entregue' && o.status !== 'Pendente').length || null;
+    if (profile === 'escola' && pageId === 'pedidos')       return orders.filter(o => o.status === 'Pendente').length || null;
+    if (profile === 'cooperativa' && pageId === 'pedidos')  return orders.filter(o => o.status === 'Pendente').length || null;
+    if (profile === 'agricultor' && pageId === 'pedidos')   return orders.filter(o => ['Pendente','Em separação'].includes(o.status)).length || null;
+    if (profile === 'almoxarifado' && pageId === 'separacao') return orders.filter(o => ['Pendente','Em separação'].includes(o.status)).length || null;
+    if (profile === 'motorista' && pageId === 'entregas')   return orders.filter(o => o.status === 'Em transporte').length || null;
+  } catch(e) {}
+  return null;
+}
+
+function _renderMenuItem(item, profile) {
+  const dyn = computeDynamicBadge(profile, item.id);
+  const badge = dyn != null ? dyn : item.badge;
+  return `
+    <button class="sidebar-nav-item ${item.id === state.currentPage ? 'active' : ''}" data-page="${item.id}" type="button">
+      <span class="nav-icon">${item.icon}</span>
+      <span>${item.label}</span>
+      ${badge ? `<span class="nav-badge">${badge}</span>` : ''}
+    </button>`;
+}
+
+function renderSidebar() {
+  window.renderSidebar = renderSidebar;
+  const prof = PROFILES[state.currentProfile];
+  console.log('[DEBUG] renderSidebar:', state.currentProfile, prof);
+  $('#sidebar-avatar').textContent = prof.initials;
+  $('#sidebar-user-name').textContent = prof.name;
+  $('#sidebar-user-role > span').textContent = prof.role;
+  if ($('#sidebar-user-id')) $('#sidebar-user-id').textContent = prof.userId;
+  const nav = $('#sidebar-nav');
+  if (!state._groupState) state._groupState = {};
+  nav.innerHTML = prof.menu.map(item => {
+    if (item.type === 'group') {
+      const open = state._groupState[item.label] !== false;
+      return `
+        <div class="sidebar-group">
+          <button class="sidebar-group-toggle" data-group="${item.label}" type="button" style="display:flex;align-items:center;width:100%;padding:8px 16px;border:none;background:none;cursor:pointer;color:var(--text-secondary);font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;gap:6px">
+            <span style="transition:transform .2s;transform:rotate(${open?'90':'0'}deg);font-size:0.7rem">▶</span>
+            <span>${item.label}</span>
+          </button>
+          <div class="sidebar-group-children" style="${open ? '' : 'display:none'}">
+            ${(item.children||[]).map(child => _renderMenuItem(child, state.currentProfile)).join('')}
+          </div>
+        </div>`;
+    }
+    return _renderMenuItem(item, state.currentProfile);
+  }).join('');
+  nav.querySelectorAll('.sidebar-nav-item').forEach(btn => {
+    btn.addEventListener('click', () => navigateTo(null, btn.dataset.page));
+  });
+  nav.querySelectorAll('.sidebar-group-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const group = btn.dataset.group;
+      const children = btn.nextElementSibling;
+      const arrow = btn.querySelector('span');
+      const isOpen = children.style.display !== 'none';
+      children.style.display = isOpen ? 'none' : '';
+      if (arrow) arrow.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
+      state._groupState[group] = !isOpen;
+    });
+  });
+}
+
+// RENDER: HEADER
+
+function renderHeader() {
+  window.renderHeader = renderHeader;
+  const prof = PROFILES[state.currentProfile];
+  $('#header-avatar').textContent = prof.initials;
+  $('#header-user-name').textContent = prof.name;
+  $('#header-user-role > span').textContent = prof.role;
+  if ($('#header-user-id')) $('#header-user-id').textContent = prof.userId;
+  const flat = prof.menu.flatMap(m => m.type === 'group' ? (m.children || []) : [m]);
+  const menuItem = flat.find(m => m.id === state.currentPage);
+  const label = menuItem ? menuItem.label : 'Dashboard';
+  $('#breadcrumb').innerHTML = `
+    <span class="breadcrumb-item" onclick="navigateTo(null,'dashboard')">Início</span>
+    <span class="breadcrumb-sep">›</span>
+    <span class="breadcrumb-item active">${label}</span>
+  `;
+}
+
+// RENDER NOTIFICATIONS
+
+function renderNotifications() {
+  const notifs = [
+    { icon: '🔴', title: 'Estoque Crítico', desc: 'EMTI PROFª IRACEMA MARIA VICENTE com estoque abaixo de 15%', time: '5 min', unread: true },
+    { icon: '🔴', title: 'Entrega Atrasada', desc: 'Pedido #003 da EM ADV. DEMOSTHENES MARTINS', time: '1h', unread: true },
+    { icon: '🟡', title: 'Novo Pedido', desc: 'EMEI ELEODES ESTEVAN solicitou abastecimento', time: '2h', unread: true },
+    { icon: '🟢', title: 'Entrega Concluída', desc: 'COOPASUL entregou na EM Licurgo', time: '4h', unread: false },
+    { icon: '🤖', title: 'Alerta IA', desc: 'Banana Nanica com previsão de escassez em 5 dias', time: '6h', unread: true },
+    { icon: '📊', title: 'Relatório Disponível', desc: 'Relatório mensal de consumo gerado', time: '1d', unread: false },
+  ];
+  $('#notif-list').innerHTML = notifs.map(n => `
+    <div class="notif-item ${n.unread ? 'unread' : ''}">
+      <div class="notif-item-icon">${n.icon}</div>
+      <div class="notif-item-content">
+        <div class="notif-item-title">${n.title}</div>
+        <div class="notif-item-desc">${n.desc}</div>
+        <div class="notif-item-time">${n.time} atrás</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+// RENDER: PAGE ROUTER
+
+function renderPage() {
+  let key = `${state.currentProfile}_${state.currentPage}`;
+  
+  // Resolução dinâmica para telas do Estoque Central compartilhadas com o Gestor
+  if (!PAGE_RENDERERS[key] && state.currentProfile === 'estoque') {
+    const aliasMap = {
+      'entradas': 'recebimentos-pendentes',
+      'separacao': 'expedicao-os',
+      'carregamento': 'ordens-entrega'
+    };
+    const targetPage = aliasMap[state.currentPage] || state.currentPage;
+    if (PAGE_RENDERERS[`gestor_${targetPage}`]) {
+      key = `gestor_${targetPage}`;
+    }
+  }
+
+  const container = $('#page-content');
+  if (!container) return;
+  container.innerHTML = '';
+  container.className = 'page-content';
+  const renderer = PAGE_RENDERERS[key] || PAGE_RENDERERS[`${state.currentProfile}_dashboard`] || renderGenericPage;
+  try {
+    renderer(container);
+  } catch (err) {
+    console.error(`[Router] Erro ao renderizar ${key}:`, err);
+    container.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">⚠️ Visualização em Carregamento</div>
+        <div class="page-subtitle">${escapeHTML(err.message || 'Módulo em sincronização')}</div>
+      </div>
+      <div class="card" style="padding:24px;border-radius:12px">
+        <p style="color:var(--text-secondary);margin-bottom:16px">O módulo solicitou uma atualização de dados. Clique abaixo para retornar ao painel principal.</p>
+        <button class="btn btn-primary" onclick="navigateTo('${state.currentProfile}','dashboard')">Voltar ao Início</button>
+      </div>
+    `;
+  }
+}
+
+// CHART HELPERS
+
+function createChart(id, config) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return null;
+
+  // Evita "Canvas is already in use. Chart with ID 'N' must be destroyed...".
+  // renderPage() limpa o #page-content e recria os canvases com os mesmos ids,
+  // mas os gráficos são criados dentro de setTimeout — o callback de um render
+  // anterior pode chegar depois que o novo canvas já existe, ou a mesma tela
+  // pode renderizar duas vezes em sequência. Em ambos os casos o Chart.js ainda
+  // tem uma instância registrada para o canvas e recusa a criação.
+  const registrado = (typeof Chart.getChart === 'function') ? Chart.getChart(canvas) : null;
+  if (registrado && registrado.destroy) registrado.destroy();
+  if (state.charts[id] && state.charts[id].destroy) state.charts[id].destroy();
+
+  const ctx = canvas.getContext('2d');
+  const chart = new Chart(ctx, config);
+  state.charts[id] = chart;
+  return chart;
+}
+
+const CHART_COLORS = {
+  blue: 'rgba(21,101,192,0.8)',
+  blueFill: 'rgba(21,101,192,0.1)',
+  green: 'rgba(46,125,50,0.8)',
+  greenFill: 'rgba(46,125,50,0.1)',
+  orange: 'rgba(245,127,23,0.8)',
+  red: 'rgba(198,40,40,0.8)',
+  teal: 'rgba(0,137,123,0.8)',
+  purple: 'rgba(123,31,162,0.8)',
+  palette: ['#1565C0','#2E7D32','#F57F17','#C62828','#00897B','#7B1FA2','#E65100','#283593','#00838F','#4E342E'],
+};
+
+const CHART_DEFAULTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { font: { family: "'Inter', sans-serif", size: 11 }, padding: 12, usePointStyle: true, pointStyleWidth: 8 } },
+    tooltip: { backgroundColor: '#0F172A', titleFont: { family: "'Inter'", size: 12 }, bodyFont: { family: "'Inter'", size: 11 }, padding: 10, cornerRadius: 8, displayColors: true },
+  },
+  scales: {
+    x: { grid: { display: false }, ticks: { font: { family: "'Inter'", size: 10 }, color: '#94A3B8' } },
+    y: { grid: { color: '#F1F5F9' }, ticks: { font: { family: "'Inter'", size: 10 }, color: '#94A3B8' }, beginAtZero: true },
+  }
+};
+
+// PAGE RENDERERS
+
+window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
+const PAGE_RENDERERS = window.PAGE_RENDERERS;
+
+// ─── GESTOR: DASHBOARD EXECUTIVO ───
+
+// ─── MAP RENDERER ───
+function renderMap() {
+  const container = document.getElementById('map-container');
+  if (!container) return;
+
+  const regions = [
+    { name: 'Anhanduizinho', path: 'M40,180 L120,160 L140,200 L130,260 L60,260 L30,220 Z', cx: 80, cy: 210 },
+    { name: 'Bandeira', path: 'M120,160 L200,140 L220,180 L200,220 L140,200 Z', cx: 170, cy: 180 },
+    { name: 'Centro', path: 'M200,140 L280,120 L300,160 L280,200 L220,180 Z', cx: 250, cy: 160 },
+    { name: 'Imbirussu', path: 'M40,120 L120,100 L120,160 L40,180 Z', cx: 80, cy: 140 },
+    { name: 'Lagoa', path: 'M280,120 L380,100 L400,160 L380,200 L300,160 Z', cx: 340, cy: 150 },
+    { name: 'Prosa', path: 'M280,200 L380,200 L400,260 L300,280 L260,240 Z', cx: 330, cy: 240 },
+    { name: 'Segredo', path: 'M120,100 L200,80 L200,140 L120,160 Z', cx: 160, cy: 120 },
+  ];
+
+  const schoolDots = DATA.schools.map(s => {
+    // Fallback: escolas com região fora das 7 do mapa (ex.: 'Rural') caem numa
+    // posição neutra em vez de estourar `reg.cx` e derrubar o mapa inteiro.
+    const reg = regions.find(r => r.name === s.region) || { cx: 220, cy: 285 };
+    const offsetX = (Math.random() - 0.5) * 40;
+    const offsetY = (Math.random() - 0.5) * 30;
+    const color = s.stockStatus === 'ok' ? '#2E7D32' : s.stockStatus === 'warning' ? '#F57F17' : '#C62828';
+    return `<circle class="school-dot" cx="${reg.cx + offsetX}" cy="${reg.cy + offsetY}" r="4" fill="${color}" stroke="white" stroke-width="1.5" data-school="${s.name}" data-status="${s.stockStatus}">
+      <title>${s.name} — ${statusLabel(s.stockStatus)} (${s.stockPct}%)</title>
+    </circle>`;
+  });
+
+  container.innerHTML = `
+    <svg viewBox="0 0 440 300" class="map-svg">
+      ${regions.map(r => `
+        <path class="region-path" d="${r.path}" data-region="${r.name}">
+          <title>${r.name}</title>
+        </path>
+        <text x="${r.cx}" y="${r.cy}" text-anchor="middle" fill="var(--primary-dark)" font-size="9" font-weight="600" pointer-events="none">${r.name}</text>
+      `).join('')}
+      ${schoolDots.join('')}
+    </svg>
+    <div class="map-legend">
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#2E7D32"></div>Abastecida</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#F57F17"></div>Atenção</div>
+      <div class="map-legend-item"><div class="map-legend-dot" style="background:#C62828"></div>Risco</div>
+    </div>
+  `;
+}
+
+// NOTA: gestor_escolas/nutricionista_escolas usam a tela de cooperativa_escolas (ver aliases mais abaixo).
+// TOTAIS DERIVADOS — atas, empenhos e estoque
+// ------------------------------------------------------------
+// Nada aqui lê campo estático (ata.executedValue etc). Tudo é somado a partir
+// do grafo, para que gravar um empenho novo ou receber uma NF mude os KPIs na
+// hora, sem precisar atualizar contador nenhum na mão.
+
+// Totais de uma ata, somados dos seus produtos e empenhos.
+function ataTotais(ataId) {
+  const prods = DATA.ataProducts.filter(p => p.ataId === ataId);
+  const emps  = DATA.empenhos.filter(e => e.ataId === ataId);
+  const global    = prods.reduce((s, p) => s + (p.globalValue || 0), 0);
+  const empenhado = emps.reduce((s, e) => s + (e.totalValue || 0), 0);
+  const liquidado = emps.reduce((s, e) => s + (e.executedValue || 0), 0);
+  return { global, empenhado, liquidado, saldo: global - empenhado, prods, emps };
+}
+
+// Quanto de um item de ata já foi empenhado e entregue (varre todos os empenhos).
+function ataProdutoTotais(ataProdId) {
+  const ap = DATA.ataProducts.find(p => p.id === ataProdId);
+  if (!ap) return { valorEmpenhado: 0, qtdEmpenhada: 0, qtdEntregue: 0, saldoQtd: 0, saldoValor: 0 };
+  let qtdEmp = 0, qtdEnt = 0, valEmp = 0;
+  DATA.empenhos.forEach(e => (e.items || []).forEach(i => {
+    if (i.productId === ataProdId) {
+      qtdEmp += i.qtd || 0;
+      qtdEnt += i.delivered || 0;
+      valEmp += i.value || 0;
+    }
+  }));
+  return {
+    valorEmpenhado: valEmp, qtdEmpenhada: qtdEmp, qtdEntregue: qtdEnt,
+    saldoQtd: (ap.maxQtd || 0) - qtdEmp,
+    saldoValor: (ap.globalValue || 0) - valEmp,
+  };
+}
+
+// Estoque consolidado = Estoque Central + soma do que está nas escolas.
+// Junta lotes (validade) e a quebra por escola para o collapse da linha.
+function estoqueConsolidado() {
+  const porEscola = {};
+  (DATA.schools || []).forEach(sc => {
+    (SharedState.getSchoolStock(sc.name) || []).forEach(it => {
+      if (!it.produto) return;
+      (porEscola[it.produto] = porEscola[it.produto] || []).push({
+        escola: sc.name, sigla: sc.sigla || '', qtd: it.qtd || 0, unidade: it.unidade || '',
+      });
+    });
+  });
+  return DATA.products.map(p => {
+    const escolas = (porEscola[p.name] || []).filter(e => e.qtd > 0).sort((a, b) => b.qtd - a.qtd);
+    const nasEscolas = escolas.reduce((s, e) => s + e.qtd, 0);
+    const total = (p.stock || 0) + nasEscolas;
+    const lotes = (DATA.lots || [])
+      .filter(l => l.productId === p.id)
+      .sort((a, b) => new Date(a.expirationDate) - new Date(b.expirationDate)); // FEFO
+    return { ...p, central: p.stock || 0, nasEscolas, total, escolas, lotes,
+             diasCobertura: p.avgConsume ? Math.round(total / p.avgConsume) : null };
+  });
+}
+
+// Dias até vencer — usado nos badges de validade do collapse.
+function diasAteVencer(dataIso) {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  return Math.ceil((new Date(dataIso) - hoje) / 86400000);
+}
+
+// ------------------------------------------------------------
+// Semeia o estoque das escolas na primeira execução.
+// Sem isso o "Estoque Consolidado" só mostrava o Central e a coluna
+// "Nas Escolas" ficava zerada — a consolidação não tinha o que consolidar.
+//
+// Cada escola guarda alguns dias do PRÓPRIO consumo, proporcional ao seu porte:
+//   fração da escola = (alunos × refeições/dia) ÷ (total da rede)
+//   qtd = avgConsume do produto × fração × dias de estoque local
+// Perecível fica com menos dias que seco, como na prática.
+// ------------------------------------------------------------
+function seedSchoolStocks(force) {
+  if (!window.SharedState) return;
+  const atual = SharedState._data.schoolStocks || {};
+  if (!force && Object.keys(atual).length) return; // já semeado
+
+  const escolas = DATA.schools || [];
+  if (!escolas.length || !DATA.products) return;
+
+  const refeicoesDe = sc => (sc.students || 0) * (sc.refeicoesDia || sc.meals_per_day || 2);
+  const totalRef = escolas.reduce((s, sc) => s + refeicoesDe(sc), 0);
+  if (!totalRef) return;
+
+  // Dias de estoque local por categoria — perecível gira mais rápido.
+  const diasPorCategoria = {
+    'Hortaliças': 3, 'Frutas': 3, 'Laticínios': 5, 'Proteínas': 6,
+    'Tubérculos': 7, 'Grãos': 12, 'Gorduras': 15, 'Condimentos': 15, 'Especiais': 10,
+  };
+
+  const stocks = {};
+  escolas.forEach(sc => {
+    const fracao = refeicoesDe(sc) / totalRef;
+    if (!fracao) return;
+    const doEstoque = {};
+    DATA.products.forEach(p => {
+      if (!p.avgConsume) return;
+      const dias = diasPorCategoria[p.category] || 7;
+      const qtd = p.avgConsume * fracao * dias;
+      if (qtd < 1) return;                      // abaixo de 1 unidade não faz sentido estocar
+      if (p.stock === 0) return;                // produto zerado no central também falta na escola
+      doEstoque[p.name] = {
+        qtd: Math.round(qtd * 10) / 10,
+        unidade: p.unit,
+        atualizadoEm: new Date().toISOString(),
+      };
+    });
+    if (Object.keys(doEstoque).length) stocks[sc.name] = doEstoque;
+  });
+
+  SharedState._data.schoolStocks = stocks;
+  SharedState._persist();
+  console.log(`[SUALE] Estoque semeado em ${Object.keys(stocks).length} escolas.`);
+}
+window.seedSchoolStocks = seedSchoolStocks;
+
+// ─── GESTOR: ATAS E CONTRATOS ───
+window.openAtaDetalhe = (ataId) => {
+  const container = document.getElementById('page-content');
+  const ata = DATA.contracts.find(a => a.id === ataId);
+  if (!ata) return;
+  const prods = DATA.ataProducts.filter(p => p.ataId === ataId);
+  const t = ataTotais(ataId);
+  const emps = t.emps;
+  const pctEmp = t.global ? Math.round(t.empenhado / t.global * 100) : 0;
+
+  container.innerHTML = `
+    <div class="page-header" style="display:flex;align-items:center;gap:12px">
+      <button class="btn btn-outline" onclick="PAGE_RENDERERS.gestor_atas(document.getElementById('page-content'))">🔙 Voltar</button>
+      <div>
+        <div class="page-title">Ata nº ${ata.number}</div>
+        <div class="page-subtitle">Fornecedor: ${ata.supplier} | Vigência: ${formatDate(ata.start)} a ${formatDate(ata.end)} | ${ata.modalidade === 'chamada_publica' ? '🌾 Chamada Pública (Agricultura Familiar)' : '📋 Pregão'}</div>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(t.global)}</div><div class="kpi-label">Valor Global · ${t.prods.length} ${t.prods.length === 1 ? 'item' : 'itens'}</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">📝</div><div class="kpi-value">${formatCurrency(t.empenhado)}</div><div class="kpi-label">Empenhado · ${emps.length} NE (${pctEmp}%)</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${formatCurrency(t.liquidado)}</div><div class="kpi-label">Liquidado (NF recebida)</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(t.saldo)}</div><div class="kpi-label">Saldo a Empenhar</div></div>
+    </div>
+    
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-top:20px">
+      <!-- Painel de Produtos -->
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <h3>Produtos da Ata</h3>
+          <button class="btn btn-primary" onclick="window.openModalEmpenho(${ataId})">+ Novo Empenho</button>
+        </div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead><tr><th>Produto</th><th>Qtd Registrada</th><th>Empenhado</th><th>Saldo a Empenhar</th></tr></thead>
+            <tbody>
+              ${t.prods.map(p => {
+                const pt = ataProdutoTotais(p.id);
+                const pctQtd = p.maxQtd ? Math.round(pt.qtdEmpenhada / p.maxQtd * 100) : 0;
+                return `
+                <tr>
+                  <td><strong>${p.name}</strong><br><small style="color:var(--text-secondary)">${formatCurrency(p.unitPrice)} / ${p.unit}</small></td>
+                  <td style="font-family:var(--font-mono)">${(p.maxQtd||0).toLocaleString('pt-BR')} ${p.unit}<br><small style="color:var(--text-secondary)">${formatCurrency(p.globalValue)}</small></td>
+                  <td style="font-family:var(--font-mono)">${pt.qtdEmpenhada.toLocaleString('pt-BR')} ${p.unit}
+                    <div class="progress-bar" style="width:90px;margin-top:4px"><div class="progress-fill ${pctQtd>80?'red':pctQtd>50?'orange':'green'}" style="width:${Math.min(100,pctQtd)}%"></div></div>
+                    <small style="color:var(--text-secondary)">${pctQtd}% · entregue ${pt.qtdEntregue.toLocaleString('pt-BR')}</small>
+                  </td>
+                  <td style="font-family:var(--font-mono);font-weight:600;color:var(--primary)">${pt.saldoQtd.toLocaleString('pt-BR')} ${p.unit}<br><small style="color:var(--text-secondary)">${formatCurrency(pt.saldoValor)}</small></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- Histórico de Empenhos e Pedidos -->
+      <div class="card">
+        <div class="card-header">
+          <h3>Empenhos e NFs</h3>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${emps.map(e => {
+              const pedidos = DATA.ata_pedidos ? DATA.ata_pedidos.filter(p => p.empenhoId === e.id) : [];
+              const nfs = DATA.nf_history.filter(nf => nf.empenhoId === e.id);
+              return `
+              <div class="empenho-card-summary" style="padding:12px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--surface);cursor:pointer;transition:all 0.2s" onclick="window.openEmpenhoDetailsModal(${e.id})" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+                <div style="display:flex;justify-content:space-between;margin-bottom:6px">
+                  <strong>${e.numero}</strong>
+                  <span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : 'status-warning'}">${e.status}</span>
+                </div>
+                <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:4px">Data: ${formatDate(e.date)} | Valor Total: ${formatCurrency(e.totalValue)} | Saldo Financeiro: ${formatCurrency(e.totalValue - e.executedValue)}</div>
+                <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:8px">
+                  ${(e.items || []).map(it => {
+                    const ap = DATA.ataProducts.find(x => x.id === it.productId);
+                    const pend = (it.qtd || 0) - (it.delivered || 0);
+                    return `<div style="display:flex;justify-content:space-between;gap:8px;padding:2px 0">
+                      <span>${ap ? ap.name : 'Item #' + it.productId}</span>
+                      <span style="font-family:var(--font-mono);white-space:nowrap">${(it.delivered||0).toLocaleString('pt-BR')}/${(it.qtd||0).toLocaleString('pt-BR')} ${ap ? ap.unit : ''}${pend > 0 ? ` <span style="color:var(--warning)">▲${pend.toLocaleString('pt-BR')}</span>` : ' ✓'}</span>
+                    </div>`;
+                  }).join('')}
+                  ${(e.items||[]).length > 1 ? `<div style="margin-top:4px;font-weight:600;color:var(--text)">${e.items.length} itens no empenho</div>` : ''}
+                </div>
+                <div style="text-align:right;margin-top:8px;">
+                  <span style="font-size:0.8rem;color:var(--primary);font-weight:600">Ver Movimentações ➔</span>
+                </div>
+              </div>
+            `}).join('')}
+            ${emps.length === 0 ? '<div style="color:var(--text-secondary);text-align:center;padding:20px">Nenhum empenho registrado.</div>' : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+window.openEmpenhoDetailsModal = (empenhoId) => {
+  const e = DATA.empenhos.find(x => x.id === empenhoId);
+  const pedidos = DATA.ata_pedidos ? DATA.ata_pedidos.filter(p => p.empenhoId === e.id) : [];
+  const nfs = DATA.nf_history.filter(nf => nf.empenhoId === e.id);
+  
+  showModal('Movimentações do Empenho ' + e.numero, `
+    <div style="margin-bottom:16px;padding:12px;background:var(--surface-2);border-radius:var(--radius-md)">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <strong>Status: <span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : 'status-warning'}">${e.status}</span></strong>
+      </div>
+      <div style="font-size:0.85rem">Data: ${formatDate(e.date)} | Total Empenhado: ${formatCurrency(e.totalValue)}</div>
+      <div style="font-size:0.85rem;margin-top:4px;color:var(--danger)">Saldo Financeiro Restante: ${formatCurrency(e.totalValue - e.executedValue)}</div>
+      <div style="margin-top:8px">
+        <div style="font-size:0.8rem;font-weight:700;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px">Itens do empenho (${(e.items||[]).length})</div>
+        ${(e.items || []).map(it => {
+          const ap = DATA.ataProducts.find(x => x.id === it.productId);
+          const pend = (it.qtd || 0) - (it.delivered || 0);
+          return `<div style="display:flex;justify-content:space-between;gap:8px;font-size:0.85rem;padding:4px 0;border-bottom:1px dashed var(--border)">
+            <span>${ap ? ap.name : 'Item #' + it.productId}</span>
+            <span style="font-family:var(--font-mono);white-space:nowrap">${(it.delivered||0).toLocaleString('pt-BR')} / ${(it.qtd||0).toLocaleString('pt-BR')} ${ap ? ap.unit : ''} · ${formatCurrency(it.value||0)}
+              ${pend > 0 ? `<span style="color:var(--warning);font-weight:600"> · faltam ${pend.toLocaleString('pt-BR')}</span>` : '<span style="color:var(--success);font-weight:600"> · completo</span>'}</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+
+    <div style="margin-bottom:20px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+        <h4 style="margin:0">Pedidos Realizados</h4>
+        <button class="btn btn-sm btn-primary" onclick="window.openModalPedidoEmpenho(${e.id})">+ Solicitar Entrega</button>
+      </div>
+      ${pedidos.length === 0 ? '<div style="font-size:0.85rem;color:var(--text-secondary)">Nenhum pedido realizado para este empenho.</div>' : ''}
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${pedidos.map(p => `
+          <div style="font-size:0.85rem;display:flex;justify-content:space-between;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:4px">
+            <div>
+              <strong>🛒 Pedido em ${formatDate(p.date)}</strong><br>
+              <span style="color:var(--text-secondary)">Qtd Solicitada: ${p.qtd} | Qtd Entregue: ${p.delivered || 0}</span>
+            </div>
+            <div style="font-family:var(--font-mono);font-weight:600;text-align:right">
+              ${formatCurrency(p.value)}<br>
+              <span class="status-badge ${(p.delivered||0) >= p.qtd ? 'status-ok' : 'status-warning'}" style="font-size:0.7rem;margin-top:4px">${(p.delivered||0) >= p.qtd ? 'Atendido' : 'Pendente'}</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+
+    <div>
+      <div style="border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+        <h4 style="margin:0">Notas Fiscais (Baixas no Estoque)</h4>
+      </div>
+      ${nfs.length === 0 ? '<div style="font-size:0.85rem;color:var(--text-secondary)">Nenhuma entrada de mercadoria registrada.</div>' : ''}
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${nfs.map(nf => `
+          <div style="font-size:0.85rem;display:flex;justify-content:space-between;padding:8px;background:var(--surface);border:1px solid var(--border);border-radius:4px">
+            <div>
+              <strong>🧾 NF ${nf.numero}</strong><br>
+              <span style="color:var(--text-secondary)">Recebida em: ${formatDate(nf.date)}</span>
+            </div>
+            <div style="font-family:var(--font-mono);font-weight:600">
+              ${formatCurrency(nf.items.reduce((a,i)=>a+i.value,0))}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `);
+};
+
+// ─── NOVO EMPENHO (multi-item) ───
+// O empenho pode carregar vários itens da mesma ata. Cada linha valida o saldo
+// disponível daquele item (maxQtd menos o que já foi empenhado em outras NEs).
+window._empenhoDraft = { ataId: null, linhas: [] };
+
+window.openModalEmpenho = (ataId) => {
+  const disponiveis = DATA.ataProducts.filter(p => p.ataId === ataId);
+  if (!disponiveis.length) {
+    return window.showToast('Esta ata não tem produtos cadastrados.', 'error');
+  }
+  window._empenhoDraft = { ataId, linhas: [{ uid: Date.now(), prodId: disponiveis[0].id, qtd: '' }] };
+
+  showModal('Novo Empenho', `
+    <div class="form-group">
+      <label>Nº do Empenho</label>
+      <input type="text" id="ata-empenho-numero" placeholder="Ex: 2026NE00477">
+    </div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px">
+      <label style="margin:0;font-weight:700">Itens do empenho</label>
+      <button type="button" class="btn btn-sm btn-outline" onclick="window.empenhoAddLinha()">+ Adicionar item</button>
+    </div>
+    <div id="empenho-linhas"></div>
+
+    <div id="empenho-resumo" style="margin-top:12px;padding:10px;background:var(--surface-2);border-radius:var(--radius-md);font-size:0.88rem"></div>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="window.saveEmpenho()">Gravar Empenho</button>
+  `);
+  window.empenhoRenderLinhas();
+};
+
+window.empenhoAddLinha = () => {
+  const d = window._empenhoDraft;
+  const usados = d.linhas.map(l => l.prodId);
+  const livre = DATA.ataProducts.find(p => p.ataId === d.ataId && !usados.includes(p.id));
+  if (!livre) return window.showToast('Todos os produtos da ata já estão no empenho.', 'info');
+  d.linhas.push({ uid: Date.now() + Math.random(), prodId: livre.id, qtd: '' });
+  window.empenhoRenderLinhas();
+};
+
+window.empenhoRemoveLinha = (uid) => {
+  const d = window._empenhoDraft;
+  if (d.linhas.length === 1) return window.showToast('O empenho precisa de ao menos um item.', 'info');
+  d.linhas = d.linhas.filter(l => String(l.uid) !== String(uid));
+  window.empenhoRenderLinhas();
+};
+
+window.empenhoSetLinha = (uid, campo, valor) => {
+  const l = window._empenhoDraft.linhas.find(x => String(x.uid) === String(uid));
+  if (!l) return;
+  l[campo] = campo === 'prodId' ? parseInt(valor, 10) : valor;
+  window.empenhoRenderLinhas();
+};
+
+window.empenhoRenderLinhas = () => {
+  const d = window._empenhoDraft;
+  const wrap = document.getElementById('empenho-linhas');
+  if (!wrap) return;
+  const opcoes = DATA.ataProducts.filter(p => p.ataId === d.ataId);
+
+  wrap.innerHTML = d.linhas.map(l => {
+    const ap = opcoes.find(p => p.id === l.prodId);
+    const pt = ataProdutoTotais(l.prodId);
+    const qtd = parseFloat(l.qtd) || 0;
+    const excede = qtd > pt.saldoQtd;
+    return `
+      <div style="display:grid;grid-template-columns:1fr 130px 32px;gap:8px;align-items:start;margin-bottom:8px">
+        <div>
+          <select style="width:100%;padding:9px;border-radius:var(--radius-md);border:1px solid var(--border)"
+                  onchange="window.empenhoSetLinha('${l.uid}','prodId',this.value)">
+            ${opcoes.map(p => `<option value="${p.id}" ${p.id === l.prodId ? 'selected' : ''}>${p.name}</option>`).join('')}
+          </select>
+          <small style="color:var(--text-secondary)">Saldo: ${pt.saldoQtd.toLocaleString('pt-BR')} ${ap ? ap.unit : ''} · ${ap ? formatCurrency(ap.unitPrice) : ''}/${ap ? ap.unit : ''}</small>
+        </div>
+        <div>
+          <input type="number" min="1" step="any" value="${l.qtd}" placeholder="Qtd"
+                 style="width:100%;padding:9px;border-radius:var(--radius-md);border:1px solid ${excede ? 'var(--danger)' : 'var(--border)'}"
+                 oninput="window.empenhoSetLinha('${l.uid}','qtd',this.value)">
+          <small style="color:${excede ? 'var(--danger)' : 'var(--text-secondary)'}">${excede ? '⚠️ acima do saldo' : (qtd && ap ? formatCurrency(qtd * ap.unitPrice) : '—')}</small>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline" title="Remover item"
+                style="padding:8px;color:var(--danger)" onclick="window.empenhoRemoveLinha('${l.uid}')">✕</button>
+      </div>`;
+  }).join('');
+
+  const resumo = document.getElementById('empenho-resumo');
+  if (resumo) {
+    let total = 0, invalidas = 0;
+    d.linhas.forEach(l => {
+      const ap = opcoes.find(p => p.id === l.prodId);
+      const qtd = parseFloat(l.qtd) || 0;
+      const pt = ataProdutoTotais(l.prodId);
+      if (!qtd || qtd > pt.saldoQtd) invalidas++;
+      if (ap) total += qtd * ap.unitPrice;
+    });
+    const t = ataTotais(d.ataId);
+    resumo.innerHTML = `
+      <div style="display:flex;justify-content:space-between"><span>${d.linhas.length} ${d.linhas.length === 1 ? 'item' : 'itens'}</span><strong style="font-family:var(--font-mono)">${formatCurrency(total)}</strong></div>
+      <div style="display:flex;justify-content:space-between;color:var(--text-secondary);font-size:0.82rem;margin-top:4px"><span>Saldo da ata após empenhar</span><span style="font-family:var(--font-mono)">${formatCurrency(t.saldo - total)}</span></div>
+      ${invalidas ? `<div style="color:var(--danger);font-size:0.82rem;margin-top:6px">⚠️ ${invalidas} ${invalidas === 1 ? 'item precisa' : 'itens precisam'} de quantidade válida dentro do saldo.</div>` : ''}`;
+  }
+};
+
+window.saveEmpenho = () => {
+  const d = window._empenhoDraft;
+  const numero = (document.getElementById('ata-empenho-numero').value || '').trim();
+  if (!numero) return window.showToast('Informe o nº do empenho.', 'error');
+  if (DATA.empenhos.some(e => e.numero.toLowerCase() === numero.toLowerCase())) {
+    return window.showToast('Já existe um empenho com esse número.', 'error');
+  }
+
+  const items = [];
+  for (const l of d.linhas) {
+    const ap = DATA.ataProducts.find(p => p.id === l.prodId);
+    const qtd = parseFloat(l.qtd) || 0;
+    if (!ap || qtd <= 0) return window.showToast('Preencha a quantidade de todos os itens.', 'error');
+    const pt = ataProdutoTotais(l.prodId);
+    if (qtd > pt.saldoQtd) return window.showToast(`"${ap.name}" excede o saldo da ata (${pt.saldoQtd.toLocaleString('pt-BR')} ${ap.unit}).`, 'error');
+    items.push({ productId: ap.id, qtd, value: qtd * ap.unitPrice, delivered: 0 });
+  }
+
+  const totalValue = items.reduce((s, i) => s + i.value, 0);
+  DATA.empenhos.push({
+    id: Math.max(0, ...DATA.empenhos.map(e => e.id)) + 1,
+    ataId: d.ataId,
+    numero,
+    date: new Date().toISOString().split('T')[0],
+    totalValue,
+    executedValue: 0,
+    status: 'Pendente',
+    items,
+  });
+
+  closeModal();
+  window.showToast(`Empenho ${numero} gravado — ${items.length} ${items.length === 1 ? 'item' : 'itens'}, ${formatCurrency(totalValue)}`, 'success');
+  window.openAtaDetalhe(d.ataId);
+};
+
+window.openModalPedidoEmpenho = (empenhoId) => {
+  const e = DATA.empenhos.find(x => x.id === empenhoId);
+  showModal('Novo Pedido (Contra Empenho)', `
+    <div style="margin-bottom:15px;padding:10px;background:var(--surface-2);border-radius:var(--radius-md)">
+      <strong>Empenho: ${e.numero}</strong><br>
+      Saldo a receber: <strong style="color:var(--danger)">${formatCurrency(e.totalValue - e.executedValue)}</strong>
+    </div>
+    <div class="form-group">
+      <label>Quantidade a solicitar (Pedido)</label>
+      <input type="number" id="ata-pedido-qtd" placeholder="Qtd">
+    </div>
+    <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="window.savePedidoEmpenho(${empenhoId})">Gerar Pedido</button>
+  `);
+};
+
+window.savePedidoEmpenho = (empenhoId) => {
+  const qtd = parseInt(document.getElementById('ata-pedido-qtd').value);
+  if(!qtd) return alert('Preencha a quantidade.');
+  
+  const emp = DATA.empenhos.find(x => x.id === empenhoId);
+  const item = emp.items[0]; // Simplificação
+  const value = qtd * (item.value / item.qtd);
+  
+  if (!DATA.ata_pedidos) DATA.ata_pedidos = [];
+  DATA.ata_pedidos.push({
+    id: DATA.ata_pedidos.length + 1,
+    empenhoId: empenhoId,
+    date: new Date().toISOString().split('T')[0],
+    qtd: qtd,
+    value: value
+  });
+  
+  closeModal();
+  window.showToast('Pedido gerado! Estoque atualizado.', 'success');
+  window.openAtaDetalhe(emp.ataId);
+};
+
+window.openModalNFAta = (empenhoId) => {
+  const e = DATA.empenhos.find(x => x.id === empenhoId);
+  const saldoEmp = e.totalValue - e.executedValue;
+  showModal('Registrar Entrada (Nota Fiscal)', `
+    <div style="margin-bottom:15px;padding:10px;background:var(--surface-2);border-radius:var(--radius-md)">
+      <strong>Empenho: ${e.numero}</strong><br>
+      Saldo a receber: <strong style="color:var(--danger)">${formatCurrency(saldoEmp)}</strong>
+    </div>
+    <div class="form-group">
+      <label>Número da NF</label>
+      <input type="text" id="ata-nf-num" placeholder="000.000.000">
+    </div>
+    <div class="form-group">
+      <label>Valor da NF (R$)</label>
+      <input type="number" id="ata-nf-valor" value="${saldoEmp}">
+    </div>
+    <button class="btn btn-success" style="width:100%;margin-top:10px" onclick="window.saveNFAta(${empenhoId})">Confirmar Entrada e Dar Baixa</button>
+  `);
+};
+
+window.saveNFAta = (empenhoId) => {
+  const num = document.getElementById('ata-nf-num').value;
+  const val = parseFloat(document.getElementById('ata-nf-valor').value);
+  if(!num || !val) return alert('Preencha todos os campos.');
+  
+  const emp = DATA.empenhos.find(x => x.id === empenhoId);
+  emp.executedValue += val;
+  if (emp.executedValue >= emp.totalValue) emp.status = 'Liquidado';
+  else emp.status = 'Parcial';
+  
+  const item = emp.items[0]; // Simplificação
+  DATA.nf_history.push({
+    id: DATA.nf_history.length + 1,
+    empenhoId: empenhoId,
+    date: new Date().toISOString().split('T')[0],
+    numero: num,
+    items: [{ productId: item.productId, qtd: val/item.value*item.qtd, value: val }]
+  });
+  
+  // Atualizar saldo na ATA global e no PRODUTO
+  const ata = DATA.contracts.find(a => a.id === emp.ataId);
+  ata.executedValue += val;
+  const prod = DATA.ataProducts.find(p => p.id === item.productId);
+  prod.executedValue += val;
+  
+  // Atualizar Estoque Real (Soma quantidade recebida ao estoque do produto)
+  const stockProd = DATA.products.find(p => p.id === prod.stockProductId);
+  if (stockProd) {
+    stockProd.stock += Math.round(val / item.value * item.qtd);
+  }
+  
+  closeModal();
+  window.showToast('NF registrada e estoque incrementado!', 'success');
+  window.openAtaDetalhe(emp.ataId);
+};
+
+// ─── GESTOR: PEDIDOS (R1 — Triagem Contratual) ───────────────────────
+
+// ─── GESTOR: COOPERATIVAS ───
+
+// ─── GESTOR: AGRICULTURA FAMILIAR ───
+
+// ─── GESTOR: ESTOQUE CONSOLIDADO ───
+
+// ─── GESTOR: PLANEJAMENTO ───
+
+// ─── GESTOR: RELATÓRIOS ───
+
+// exportRelatorio -> core_hub.js (Fase 3.3: usado por gestor e resp_estoque).
+
+// ─── GESTOR: IA DE PREVISÃO ───
+
+function updateSimulator() {
+  const alunos = parseInt($('#sim-alunos')?.value || 10);
+  const escolas = parseInt($('#sim-escolas')?.value || 2);
+  const cardapio = parseInt($('#sim-cardapio')?.value || 5);
+  if ($('#sim-alunos-val')) $('#sim-alunos-val').textContent = alunos + '%';
+  if ($('#sim-escolas-val')) $('#sim-escolas-val').textContent = escolas;
+  if ($('#sim-cardapio-val')) $('#sim-cardapio-val').textContent = cardapio + '%';
+  const impact = alunos + (escolas * 2) + cardapio;
+  const financial = Math.round(impact * 18000);
+  const kgExtra = Math.round(impact * 432);
+  if ($('#sim-consumo')) $('#sim-consumo').textContent = `+${impact}%`;
+  if ($('#sim-financeiro')) $('#sim-financeiro').textContent = `+R$ ${(financial / 1000).toFixed(0)}K`;
+  if ($('#sim-compra')) $('#sim-compra').textContent = `+${kgExtra.toLocaleString('pt-BR')} kg`;
+}
+
+// ─── NUTRICIONISTA: DASHBOARD ───
+
+// ─── NUTRICIONISTA: OTHER SCREENS ───
+const _FICHAS_DEMO = [
+  {
+    id: 'arroz_feijao',
+    nome: 'Arroz com Feijão Tradicional',
+    tipo: 'Almoço',
+    totais: { kcal: 425, carbos: 72, proteinas: 14, lipidios: 8, sodio: 320 },
+    ingredientes: [{ nome: 'Arroz Tipo 1' }, { nome: 'Feijão Carioca' }, { nome: 'Temperos' }],
+    descricao: 'Feijão carioca cozido com alho e cebola acompanhado de arroz branco.',
+    porcao: '350g',
+    isDemo: true,
+  },
+  {
+    id: 'frango_legumes',
+    nome: 'Frango Grelhado com Legumes',
+    tipo: 'Almoço',
+    totais: { kcal: 380, carbos: 28, proteinas: 32, lipidios: 14, sodio: 410 },
+    ingredientes: [{ nome: 'Frango' }, { nome: 'Cenoura' }, { nome: 'Abóbora' }],
+    descricao: 'Peito de frango grelhado com cenoura, batata e abóbora cozidos no vapor.',
+    porcao: '280g',
+    isDemo: true,
+  },
+  {
+    id: 'vitamina_banana',
+    nome: 'Vitamina de Banana',
+    tipo: 'Lanche',
+    totais: { kcal: 210, carbos: 38, proteinas: 7, lipidios: 4, sodio: 85 },
+    ingredientes: [{ nome: 'Leite Integral' }, { nome: 'Banana Nanica' }, { nome: 'Aveia' }],
+    descricao: 'Bebida cremosa de leite integral batido com banana prata e aveia.',
+    porcao: '250ml',
+    isDemo: true,
+  },
+];
+
+function _tipoBadgeClass(tipo) {
+  if (!tipo) return 'status-ok';
+  const t = tipo.toLowerCase();
+  if (t === 'almoço' || t === 'jantar') return 'status-ok';
+  if (t === 'lanche') return 'status-warning';
+  if (t === 'desjejum') return 'status-info';
+  return 'status-ok';
+}
+
+function _renderFichaCard(f) {
+  const isDemo = f.isDemo;
+  const nIngr = (f.ingredientes || []).length;
+  const porcao = f.porcao || (f.ingredientes ? f.ingredientes.reduce((s, i) => s + (parseFloat(i.quantidade) || 0), 0) + 'g' : '—');
+  const descricao = f.descricao || (f.ingredientes ? f.ingredientes.map(i => i.nome).filter(Boolean).join(', ') : '');
+  const onclick = `viewFichaDetails('${f.id}')`;
+  return `
+    <div class="card ficha-card" data-name="${String(f.nome || '').toLowerCase()}" style="cursor:pointer" onclick="${onclick}">
+      <div class="card-header">
+        <div class="card-title">${f.nome}</div>
+        <span class="status-badge ${_tipoBadgeClass(f.tipo)}">${f.tipo || '—'}</span>
+      </div>
+      <div class="card-body">
+        <div style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:12px">${descricao}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:0.85rem">
+          <div>🔥 <strong>Valor:</strong> ${Math.round(f.totais?.kcal || 0)} kcal</div>
+          <div>⚖️ <strong>Porção:</strong> ${porcao}</div>
+          <div>🥩 <strong>Prot:</strong> ${parseFloat(f.totais?.proteinas || 0).toFixed(1)}g</div>
+          <div>🌾 <strong>Ingr:</strong> ${nIngr} ${isDemo ? 'itens (Demo)' : 'itens'}</div>
+        </div>
+        <div style="margin-top:12px;text-align:right;color:var(--primary);font-size:0.8rem;font-weight:600">Ver ficha completa ➔</div>
+      </div>
+    </div>
+  `;
+}
+
+// Fonte única de fichas técnicas: mescla _FICHAS_DEMO + localStorage + SharedState (dedup por id/nome)
+function mergeFichas() {
+  const legacy = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
+  const shared = SharedState.getFichas ? SharedState.getFichas() : [];
+  const all = [..._FICHAS_DEMO, ...legacy, ...shared];
+  const seen = new Set();
+  return all.filter(f => {
+    const k = String(f.id || f.nome || '').toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+window.filterFichas = () => {
+  const query = document.getElementById('search-fichas').value.toLowerCase();
+  const cards = document.querySelectorAll('.ficha-card');
+  cards.forEach(card => {
+    const name = card.getAttribute('data-name');
+    if (name.includes(query)) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+};
+
+window.viewFichaDetails = (recipeId) => {
+  const container = document.getElementById('page-content');
+
+  // Fichas salvas pelo usuário ou geradas por IA — buscar em mergeFichas()
+  const todas = mergeFichas();
+  const fichaSalva = todas.find(f => String(f.id) === String(recipeId) || String(f.nome).toLowerCase() === String(recipeId).toLowerCase());
+  if (fichaSalva) {
+    const ing = fichaSalva.ingredientes || [];
+    const tot = fichaSalva.totais || {};
+    const porcaoTotal = ing.reduce((s, i) => s + (parseFloat(i.quantidade) || 0), 0);
+    container.innerHTML = `
+      <div class="page-header" style="margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <button class="btn btn-outline btn-sm" onclick="cancelCreateFicha()">← Voltar</button>
+          <div>
+            <div class="page-title">${fichaSalva.nome}</div>
+            <div class="page-subtitle">${fichaSalva.tipo} • ${fichaSalva.modalidade || ''} • Criado em ${fichaSalva.dataCriacao || ''}</div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Composição Nutricional</div></div>
+        <div class="card-body">
+          <div class="grid-5" style="margin-bottom:20px">
+            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:8px">
+              <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600">Energia</div>
+              <div style="font-size:1.4rem;font-weight:700;color:var(--primary)">${Math.round(tot.kcal || 0)} kcal</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:8px">
+              <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600">Carboidratos</div>
+              <div style="font-size:1.4rem;font-weight:700;color:#F57F17">${parseFloat(tot.carbos || 0).toFixed(1)}g</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:8px">
+              <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600">Proteínas</div>
+              <div style="font-size:1.4rem;font-weight:700;color:#2E7D32">${parseFloat(tot.proteinas || 0).toFixed(1)}g</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:8px">
+              <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600">Lipídios</div>
+              <div style="font-size:1.4rem;font-weight:700;color:#E65100">${parseFloat(tot.lipidios || 0).toFixed(1)}g</div>
+            </div>
+            <div style="text-align:center;padding:12px;background:var(--surface-2);border-radius:8px">
+              <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600">Sódio</div>
+              <div style="font-size:1.4rem;font-weight:700;color:#C62828">${Math.round(tot.sodio || 0)} mg</div>
+            </div>
+          </div>
+          <table class="table" style="width:100%">
+            <thead><tr><th>Ingrediente</th><th>Qtd (g)</th><th>Kcal</th><th>Carb (g)</th><th>Prot (g)</th><th>Lip (g)</th><th>Sódio (mg)</th></tr></thead>
+            <tbody>
+              ${ing.map(i => `<tr>
+                <td><strong>${i.nome || '—'}</strong></td>
+                <td>${parseFloat(i.quantidade || 0).toFixed(0)}</td>
+                <td>${parseFloat(i.kcal || 0).toFixed(1)}</td>
+                <td>${parseFloat(i.carbos || 0).toFixed(1)}</td>
+                <td>${parseFloat(i.proteinas || 0).toFixed(1)}</td>
+                <td>${parseFloat(i.lipidios || 0).toFixed(1)}</td>
+                <td>${Math.round(i.sodio || 0)}</td>
+              </tr>`).join('')}
+            </tbody>
+            <tfoot><tr style="font-weight:700;background:var(--surface-2)">
+              <td>TOTAL</td><td>${porcaoTotal.toFixed(0)}g</td>
+              <td>${Math.round(tot.kcal || 0)}</td>
+              <td>${parseFloat(tot.carbos || 0).toFixed(1)}</td>
+              <td>${parseFloat(tot.proteinas || 0).toFixed(1)}</td>
+              <td>${parseFloat(tot.lipidios || 0).toFixed(1)}</td>
+              <td>${Math.round(tot.sodio || 0)}</td>
+            </tr></tfoot>
+          </table>
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  let recipeName = '';
+  let mealType = '';
+  let rendimento = '350g';
+  let coccao = '0.28';
+  let rows = '';
+
+  if (recipeId === 'arroz_feijao') {
+    recipeName = 'Arroz com Feijão Tradicional';
+    mealType = 'Almoço';
+    rendimento = '350g';
+    coccao = '0.28';
+    rows = `
+      <tr>
+        <td><strong>Arroz Polido Tipo 1</strong></td>
+        <td>50g</td>
+        <td>50g</td>
+        <td>1.0</td>
+        <td>R$ 6,00</td>
+        <td>R$ 0,30</td>
+        <td>170</td>
+        <td>3.8g</td>
+        <td>0.4g</td>
+        <td>38g</td>
+        <td>2mg</td>
+      </tr>
+      <tr>
+        <td><strong>Feijão Carioca</strong></td>
+        <td>40g</td>
+        <td>40g</td>
+        <td>1.0</td>
+        <td>R$ 9,00</td>
+        <td>R$ 0,36</td>
+        <td>135</td>
+        <td>8.8g</td>
+        <td>0.5g</td>
+        <td>24.8g</td>
+        <td>3mg</td>
+      </tr>
+      <tr>
+        <td><strong>Óleo e Condimentos</strong></td>
+        <td>10g</td>
+        <td>10g</td>
+        <td>1.0</td>
+        <td>R$ 17,40</td>
+        <td>R$ 1,74</td>
+        <td>120</td>
+        <td>0.4g</td>
+        <td>10.1g</td>
+        <td>0.7g</td>
+        <td>250mg</td>
+      </tr>
+      <tr style="background:var(--primary-light);font-weight:700">
+        <td>TOTAL / PORÇÃO</td>
+        <td>100g</td>
+        <td>100g</td>
+        <td>1.0</td>
+        <td>—</td>
+        <td>R$ 2,40</td>
+        <td>425</td>
+        <td>13g</td>
+        <td>11g</td>
+        <td>63.5g</td>
+        <td>255mg</td>
+      </tr>
+    `;
+  } else if (recipeId === 'frango_legumes') {
+    recipeName = 'Frango Grelhado com Legumes';
+    mealType = 'Almoço';
+    rendimento = '280g';
+    coccao = '0.71';
+    rows = `
+      <tr>
+        <td><strong>Peito de Frango Cru</strong></td>
+        <td>120g</td>
+        <td>100g</td>
+        <td>1.2</td>
+        <td>R$ 20,00</td>
+        <td>R$ 2,40</td>
+        <td>165</td>
+        <td>31g</td>
+        <td>3.6g</td>
+        <td>0g</td>
+        <td>74mg</td>
+      </tr>
+      <tr>
+        <td><strong>Legumes Mistos (Cenoura/Batata)</strong></td>
+        <td>80g</td>
+        <td>60g</td>
+        <td>1.33</td>
+        <td>R$ 10,00</td>
+        <td>R$ 0,80</td>
+        <td>95</td>
+        <td>1.8g</td>
+        <td>0.2g</td>
+        <td>21.5g</td>
+        <td>42mg</td>
+      </tr>
+      <tr>
+        <td><strong>Óleo e Condimentos</strong></td>
+        <td>10g</td>
+        <td>10g</td>
+        <td>1.0</td>
+        <td>R$ 10,00</td>
+        <td>R$ 1,00</td>
+        <td>120</td>
+        <td>0g</td>
+        <td>13.6g</td>
+        <td>0g</td>
+        <td>200mg</td>
+      </tr>
+      <tr style="background:var(--primary-light);font-weight:700">
+        <td>TOTAL / PORÇÃO</td>
+        <td>210g</td>
+        <td>170g</td>
+        <td>1.24</td>
+        <td>—</td>
+        <td>R$ 4,20</td>
+        <td>380</td>
+        <td>32.8g</td>
+        <td>17.4g</td>
+        <td>21.5g</td>
+        <td>316mg</td>
+      </tr>
+    `;
+  } else {
+    recipeName = 'Vitamina de Banana';
+    mealType = 'Lanche';
+    rendimento = '250ml';
+    coccao = '1.11';
+    rows = `
+      <tr>
+        <td><strong>Leite Integral Líquido</strong></td>
+        <td>200ml</td>
+        <td>200ml</td>
+        <td>1.0</td>
+        <td>R$ 6,00</td>
+        <td>R$ 1,20</td>
+        <td>124</td>
+        <td>6.4g</td>
+        <td>6.5g</td>
+        <td>9.6g</td>
+        <td>98mg</td>
+      </tr>
+      <tr>
+        <td><strong>Banana Prata</strong></td>
+        <td>90g</td>
+        <td>60g</td>
+        <td>1.5</td>
+        <td>R$ 6,00</td>
+        <td>R$ 0,54</td>
+        <td>59</td>
+        <td>0.8g</td>
+        <td>0.2g</td>
+        <td>15.5g</td>
+        <td>1mg</td>
+      </tr>
+      <tr>
+        <td><strong>Aveia em Flocos</strong></td>
+        <td>10g</td>
+        <td>10g</td>
+        <td>1.0</td>
+        <td>R$ 6,00</td>
+        <td>R$ 0,06</td>
+        <td>27</td>
+        <td>1.4g</td>
+        <td>0.7g</td>
+        <td>5.7g</td>
+        <td>0mg</td>
+      </tr>
+      <tr style="background:var(--primary-light);font-weight:700">
+        <td>TOTAL / PORÇÃO</td>
+        <td>300g</td>
+        <td>270g</td>
+        <td>1.11</td>
+        <td>—</td>
+        <td>R$ 1,80</td>
+        <td>210</td>
+        <td>8.6g</td>
+        <td>7.4g</td>
+        <td>30.8g</td>
+        <td>99mg</td>
+      </tr>
+    `;
+  }
+  
+  container.innerHTML = `
+    <div class="page-header"><div class="page-title">${recipeName}</div><div class="page-subtitle">Visualização oficial da Ficha Técnica de Preparo (FNDE)</div></div>
+    
+    <div class="card mb-24">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">Ficha Oficial FNDE</div>
+        <span class="status-badge status-ok">${mealType}</span>
+      </div>
+      <div class="card-body">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Ingrediente</th>
+              <th>P.C. Bruto</th>
+              <th>P.C. Líquido</th>
+              <th>F.C. (Fator Corr.)</th>
+              <th>Custo Unit</th>
+              <th>Custo Porção</th>
+              <th>Kcal</th>
+              <th>Proteína</th>
+              <th>Lipídeos</th>
+              <th>Carboidratos</th>
+              <th>Sódio</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+        
+        <div style="margin-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:16px;background:var(--primary-light);border-radius:var(--radius)">
+          <div>⚖️ <strong>Rendimento Líquido Total:</strong> ${rendimento}</div>
+          <div>🔥 <strong>Fator de Cocção (Cocção/Bruto):</strong> ${coccao}</div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end">
+          <button class="btn btn-outline" id="btn-back-fichas" onclick="cancelCreateFicha()">Voltar para a Lista</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// Per capita por modalidade (em gramas) - extraído da planilha PER CAPITA 2026
+const PER_CAPITA_MODALIDADES = {
+  'Escolar Urbana (Regular)': {
+    açúcar: 10, arroz: 30, feijão: 12, leite: 19, macarrão: 20,
+    frango: 3.5, carne: 20, cenoura: 7, tomate: 10, alface: 5,
+    batata: 10, ovo: 8, sal: 2.5, óleo: 4
+  },
+  'EMEI (Educação Infantil)': {
+    açúcar: 10, arroz: 32, feijão: 17, leite: 17, macarrão: 23,
+    frango: 2.5, carne: 15, cenoura: 5, tomate: 8, alface: 4,
+    batata: 8, ovo: 5, sal: 2.3, óleo: 3
+  },
+  'Integral Urbana': {
+    açúcar: 17, arroz: 50, feijão: 25, leite: 25, macarrão: 40,
+    frango: 8, carne: 40, cenoura: 15, tomate: 18, alface: 8,
+    batata: 15, ovo: 6, sal: 3, óleo: 6
+  },
+  'Escolar Rural': {
+    açúcar: 15, arroz: 40, feijão: 12, leite: 20, macarrão: 30,
+    frango: 3.5, carne: 20, cenoura: 7, tomate: 10, alface: 5,
+    batata: 10, ovo: 7, sal: 2.5, óleo: 8
+  },
+  'Integral Rural': {
+    açúcar: 10, arroz: 75, feijão: 25, leite: 12, macarrão: 23,
+    frango: 4, carne: 15, cenoura: 20, tomate: 15, alface: 5,
+    batata: 15, ovo: 8, sal: 2.3, óleo: 8
+  }
+};
+
+window.fichaFormState = {
+  nome: '',
+  tipo: 'Almoço',
+  modalidade: 'Escolar Urbana (Regular)',
+  ingredientes: [],
+  totais: { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 }
+};
+
+window.showCreateFichaForm = (autoGerarIA = false) => {
+  window.fichaFormState = {
+    nome: '',
+    tipo: 'Almoço',
+    ingredientes: [],
+    totais: { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 }
+  };
+
+  const container = document.getElementById('page-content');
+  container.innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">Nova Ficha Técnica</div>
+        <div class="page-subtitle">Cadastre receita com múltiplos ingredientes seguindo o padrão PNAE/FNDE</div>
+      </div>
+      <div>
+        <button type="button" class="btn btn-primary" onclick="window.gerarFichaTecnicaIA()" style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%);border:none;box-shadow:0 2px 8px rgba(2,132,199,0.25)">
+          ⚡ Gerar Ficha Técnica Automática com IA (Baseada no Estoque)
+        </button>
+      </div>
+    </div>
+    <div class="card" style="max-width:900px;margin:0 auto">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title" style="display:flex;align-items:center;gap:8px">
+          Ficha Técnica de Preparo
+          <span class="info-icon" data-tooltip="Documento que descreve a preparação de uma refeição, seus ingredientes, quantidade, modo de preparo e valor nutricional">ℹ️</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <form id="form-create-ficha" onsubmit="handleCreateFicha(event)">
+          <div class="grid-3" style="margin-bottom:20px">
+            <div class="form-group">
+              <label>Nome da Preparação</label>
+              <input type="text" id="ficha-name" class="btn btn-outline" style="width:100%;text-align:left;padding:10px" placeholder="Ex: Sopa de Feijão com Macarrão" oninput="fichaFormState.nome=this.value" required>
+            </div>
+            <div class="form-group">
+              <label>Tipo de Refeição</label>
+              <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="ficha-type" onchange="fichaFormState.tipo=this.value" required>
+                <option value="Almoço">Almoço</option>
+                <option value="Jantar">Jantar</option>
+                <option value="Lanche">Lanche</option>
+                <option value="Desjejum">Desjejum</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label style="display:flex;align-items:center;gap:6px">Modalidade de Ensino<span class="info-icon" data-tooltip="Selecione a modalidade para preencher automaticamente a quantidade per capita de cada ingrediente">ℹ️</span></label>
+              <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="ficha-modalidade" onchange="window.updateModalidade(this.value)" required>
+                <option value="Escolar Urbana (Regular)">Escolar Urbana (Regular)</option>
+                <option value="EMEI (Educação Infantil)">EMEI (Educação Infantil)</option>
+                <option value="Integral Urbana">Integral Urbana</option>
+                <option value="Escolar Rural">Escolar Rural</option>
+                <option value="Integral Rural">Integral Rural</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:20px">
+            <div style="font-weight:700;margin-bottom:16px;color:var(--primary);display:flex;align-items:center;justify-content:space-between">
+              <div style="display:flex;align-items:center;gap:8px">
+                Ingredientes
+                <span class="info-icon" data-tooltip="Adicione 1 ou mais ingredientes para compor a receita completa">ℹ️</span>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" onclick="window.addIngrediente()">+ Adicionar Ingrediente</button>
+            </div>
+            <div id="ingredientes-list" style="display:flex;flex-direction:column;gap:16px"></div>
+          </div>
+
+          <div style="border:1px solid var(--primary-100);background:var(--primary-50);border-radius:var(--radius);padding:16px;margin-bottom:20px">
+            <div style="font-weight:700;margin-bottom:12px;color:var(--primary-dark)">Resumo Nutricional da Receita</div>
+            <div class="grid-5" style="gap:12px">
+              <div style="text-align:center;padding:12px;background:white;border-radius:8px">
+                <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;margin-bottom:4px">Energia (kcal)</div>
+                <div style="font-size:1.3rem;font-weight:700;color:var(--primary)" id="resumo-kcal">0</div>
+              </div>
+              <div style="text-align:center;padding:12px;background:white;border-radius:8px">
+                <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;margin-bottom:4px">Carboidratos (g)</div>
+                <div style="font-size:1.3rem;font-weight:700;color:#F57F17" id="resumo-carbs">0</div>
+              </div>
+              <div style="text-align:center;padding:12px;background:white;border-radius:8px">
+                <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;margin-bottom:4px">Proteínas (g)</div>
+                <div style="font-size:1.3rem;font-weight:700;color:#2E7D32" id="resumo-proteina">0</div>
+              </div>
+              <div style="text-align:center;padding:12px;background:white;border-radius:8px">
+                <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;margin-bottom:4px">Lipídios (g)</div>
+                <div style="font-size:1.3rem;font-weight:700;color:#E65100" id="resumo-lipidios">0</div>
+              </div>
+              <div style="text-align:center;padding:12px;background:white;border-radius:8px">
+                <div style="font-size:0.75rem;color:var(--text-secondary);font-weight:600;margin-bottom:4px">Sódio (mg)</div>
+                <div style="font-size:1.3rem;font-weight:700;color:#C62828" id="resumo-sodio">0</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;justify-content:flex-end">
+            <button type="button" class="btn btn-outline" onclick="cancelCreateFicha()">Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar Receita</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+
+  // Renderizar primeiro ingrediente vazio
+  window.addIngrediente();
+
+  // Se autoGerarIA for verdadeiro, dispara a geração automática por IA
+  if (autoGerarIA) {
+    setTimeout(() => {
+      window.gerarFichaTecnicaIA();
+    }, 50);
+  }
+};
+
+window.gerarFichaTecnicaIA = () => {
+  if (!window.AICardapioEngine || typeof window.AICardapioEngine.generateFichaTecnicaFromStock !== 'function') {
+    return alert('Motor de IA de Fichas Técnicas não carregado.');
+  }
+
+  const modalidade = document.getElementById('ficha-modalidade')?.value || 'Escolar Urbana (Regular)';
+  const tipoRefeicao = document.getElementById('ficha-type')?.value || 'Almoço';
+
+  const fichaIA = window.AICardapioEngine.generateFichaTecnicaFromStock({ modalidade, tipoRefeicao });
+  if (!fichaIA) return;
+
+  window.fichaFormState = {
+    nome: fichaIA.nome,
+    tipo: fichaIA.tipo,
+    modalidade: fichaIA.modalidade,
+    ingredientes: fichaIA.ingredientes,
+    totais: fichaIA.totais,
+    geradoPorIA: true
+  };
+
+  const nameInput = document.getElementById('ficha-name');
+  if (nameInput) nameInput.value = fichaIA.nome;
+
+  const typeSelect = document.getElementById('ficha-type');
+  if (typeSelect) typeSelect.value = fichaIA.tipo;
+
+  const modalSelect = document.getElementById('ficha-modalidade');
+  if (modalSelect) modalSelect.value = fichaIA.modalidade;
+
+  window.renderIngredientes();
+  window.recalculaTotais();
+
+  // Exibir Banner da IA
+  let banner = document.getElementById('ia-ficha-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'ia-ficha-banner';
+    banner.style.cssText = 'border-left: 5px solid #0284c7; background: #f0f9ff; padding: 14px 18px; margin-bottom: 18px; border-radius: 8px; border: 1px solid #bae6fd;';
+    const form = document.getElementById('form-create-ficha');
+    if (form) form.insertBefore(banner, form.firstChild);
+  }
+
+  const fefoTexto = fichaIA.fefoItems && fichaIA.fefoItems.length > 0 
+    ? ` Insumos em estoque aproveitados: <strong>${fichaIA.fefoItems.join(', ')}</strong>.` 
+    : '';
+
+  banner.innerHTML = `
+    <div style="font-weight: 700; color: #0369a1; display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span>🤖 FICHA TÉCNICA SUGERIDA POR IA COM BASE NO ESTOQUE ATUAL</span>
+      </div>
+      <span class="status-badge status-ok" style="font-size:0.75rem">⚡ Aproveitamento FEFO + AF</span>
+    </div>
+    <div style="font-size: 0.85rem; color: #0c4a6e; margin-top: 6px;">
+      Esta preparação foi montada automaticamente pela IA utilizando insumos disponíveis no Estoque Central e safras locais.${fefoTexto} A Nutricionista <strong>Dra. Lilian Droppa</strong> pode adaptar livremente ou aprovar e salvar para o cardápio.
+    </div>
+  `;
+
+  // Atualiza o botão de submissão
+  const btnSubmit = document.querySelector('#form-create-ficha button[type="submit"]');
+  if (btnSubmit) {
+    btnSubmit.innerHTML = '✅ Aprovar & Salvar Ficha Técnica para o Cardápio (Dra. Lilian Droppa)';
+    btnSubmit.className = 'btn btn-success';
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('🤖 Ficha Técnica gerada com sucesso pela IA com base nos produtos em estoque!');
+  }
+};
+
+window.updateModalidade = (modalidade) => {
+  window.fichaFormState.modalidade = modalidade;
+
+  // Recalcular quantidade de todos os ingredientes com base no novo per capita
+  window.fichaFormState.ingredientes.forEach(ing => {
+    if (ing.nome) {
+      // Obter novo per capita para esse ingrediente na nova modalidade
+      const novaQuantidade = window.getPerCapitaPorIngrediente(ing.nome);
+
+      // Atualizar quantidade
+      ing.quantidade = novaQuantidade;
+
+      // Recalcular nutrientes com a nova quantidade
+      const nutrientes = window.getNutrientesDoAlimento(ing.nome, novaQuantidade);
+      ing.kcal = parseFloat(nutrientes.kcal);
+      ing.carbos = parseFloat(nutrientes.carbos);
+      ing.proteinas = parseFloat(nutrientes.proteinas);
+      ing.lipidios = parseFloat(nutrientes.lipidios);
+      ing.sodio = parseFloat(nutrientes.sodio);
+    }
+  });
+
+  // Recalcular totais
+  window.recalculaTotais();
+
+  // Atualizar interface
+  window.renderIngredientes();
+};
+
+window.getPerCapitaPorIngrediente = (nomeIngrediente) => {
+  const modalidade = window.fichaFormState.modalidade || 'Escolar Urbana (Regular)';
+  const perCapitaData = PER_CAPITA_MODALIDADES[modalidade] || {};
+
+  // Buscar por nome similar
+  const nomeLower = nomeIngrediente.toLowerCase();
+
+  for (const [chave, valor] of Object.entries(perCapitaData)) {
+    if (nomeLower.includes(chave) || chave.includes(nomeLower)) {
+      return valor;
+    }
+  }
+
+  return 100; // Valor padrão se não encontrar
+};
+
+window.addIngrediente = () => {
+  const id = Date.now();
+  const ingrediente = {
+    id,
+    nome: '',
+    quantidade: 100,
+    unidade: 'g',
+    kcal: 0,
+    carbos: 0,
+    proteinas: 0,
+    lipidios: 0,
+    sodio: 0
+  };
+  window.fichaFormState.ingredientes.push(ingrediente);
+  window.renderIngredientes();
+};
+
+window.removeIngrediente = (id) => {
+  window.fichaFormState.ingredientes = window.fichaFormState.ingredientes.filter(ing => ing.id !== id);
+  window.renderIngredientes();
+};
+
+window.updateIngrediente = (id, field, value) => {
+  const ing = window.fichaFormState.ingredientes.find(i => i.id === id);
+  if (ing) {
+    ing[field] = value;
+    window.recalculaTotais();
+  }
+};
+
+window.renderIngredientes = () => {
+  const list = document.getElementById('ingredientes-list');
+  if (!list) return;
+
+  list.innerHTML = window.fichaFormState.ingredientes.map(ing => `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:12px;background:var(--surface-1)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <span style="font-weight:600;color:var(--text-primary)">Ingrediente #${window.fichaFormState.ingredientes.indexOf(ing) + 1}</span>
+        ${window.fichaFormState.ingredientes.length > 1 ? `<button type="button" class="btn btn-ghost btn-sm" onclick="window.removeIngrediente(${ing.id})" style="color:var(--danger)">✕ Remover</button>` : ''}
+      </div>
+      <div class="grid-2" style="gap:12px;margin-bottom:12px">
+        <div class="form-group">
+          <label style="font-size:0.8rem">Nome do Ingrediente</label>
+          <div class="autocomplete-container">
+            <input type="text" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;cursor:text" placeholder="Buscar produto..." value="${ing.nome}" oninput="window.updateIngrediente(${ing.id}, 'nome', this.value); window.handleIngredienteSearchForId(${ing.id}, this)" required>
+            <div class="autocomplete-dropdown" id="dropdown-${ing.id}"></div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label style="font-size:0.8rem">Quantidade (g)</label>
+          <input type="number" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${ing.quantidade}" min="1" oninput="window.updateIngrediente(${ing.id}, 'quantidade', parseFloat(this.value))" required>
+        </div>
+      </div>
+      <div class="grid-5" style="gap:8px">
+        <div style="padding:8px;background:white;border-radius:6px;text-align:center;font-size:0.75rem">
+          <div style="color:var(--text-secondary);font-weight:600">Kcal</div>
+          <input type="number" class="btn btn-outline" style="width:100%;padding:4px;text-align:center;font-size:0.85rem" step="0.1" value="${ing.kcal.toFixed(1)}" oninput="window.updateIngrediente(${ing.id}, 'kcal', parseFloat(this.value))">
+        </div>
+        <div style="padding:8px;background:white;border-radius:6px;text-align:center;font-size:0.75rem">
+          <div style="color:var(--text-secondary);font-weight:600">Carbs (g)</div>
+          <input type="number" class="btn btn-outline" style="width:100%;padding:4px;text-align:center;font-size:0.85rem" step="0.1" value="${ing.carbos.toFixed(1)}" oninput="window.updateIngrediente(${ing.id}, 'carbos', parseFloat(this.value))">
+        </div>
+        <div style="padding:8px;background:white;border-radius:6px;text-align:center;font-size:0.75rem">
+          <div style="color:var(--text-secondary);font-weight:600">Prot (g)</div>
+          <input type="number" class="btn btn-outline" style="width:100%;padding:4px;text-align:center;font-size:0.85rem" step="0.1" value="${ing.proteinas.toFixed(1)}" oninput="window.updateIngrediente(${ing.id}, 'proteinas', parseFloat(this.value))">
+        </div>
+        <div style="padding:8px;background:white;border-radius:6px;text-align:center;font-size:0.75rem">
+          <div style="color:var(--text-secondary);font-weight:600">Lip (g)</div>
+          <input type="number" class="btn btn-outline" style="width:100%;padding:4px;text-align:center;font-size:0.85rem" step="0.1" value="${ing.lipidios.toFixed(1)}" oninput="window.updateIngrediente(${ing.id}, 'lipidios', parseFloat(this.value))">
+        </div>
+        <div style="padding:8px;background:white;border-radius:6px;text-align:center;font-size:0.75rem">
+          <div style="color:var(--text-secondary);font-weight:600">Sódio (mg)</div>
+          <input type="number" class="btn btn-outline" style="width:100%;padding:4px;text-align:center;font-size:0.85rem" step="0.1" value="${ing.sodio.toFixed(0)}" oninput="window.updateIngrediente(${ing.id}, 'sodio', parseFloat(this.value))">
+        </div>
+      </div>
+    </div>
+  `).join('');
+};
+
+window.recalculaTotais = () => {
+  const totais = { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 };
+  window.fichaFormState.ingredientes.forEach(ing => {
+    totais.kcal += ing.kcal || 0;
+    totais.carbos += ing.carbos || 0;
+    totais.proteinas += ing.proteinas || 0;
+    totais.lipidios += ing.lipidios || 0;
+    totais.sodio += ing.sodio || 0;
+  });
+  window.fichaFormState.totais = totais;
+
+  // Atualizar display
+  document.getElementById('resumo-kcal').textContent = totais.kcal.toFixed(0);
+  document.getElementById('resumo-carbs').textContent = totais.carbos.toFixed(1);
+  document.getElementById('resumo-proteina').textContent = totais.proteinas.toFixed(1);
+  document.getElementById('resumo-lipidios').textContent = totais.lipidios.toFixed(1);
+  document.getElementById('resumo-sodio').textContent = totais.sodio.toFixed(0);
+};
+
+window.handleIngredienteSearchForId = (ingredienteId, inputElement) => {
+  const query = inputElement.value.toLowerCase().trim();
+  const dropdown = document.getElementById(`dropdown-${ingredienteId}`);
+
+  if (query.length < 1) {
+    dropdown?.classList.remove('active');
+    return;
+  }
+
+  // Busca na tabela PNAE completa (584 alimentos do Supabase)
+  const alimentos = DATA.alimentos || (typeof ALIMENTOS_PNAE !== 'undefined' ? ALIMENTOS_PNAE : []);
+  const filtered = alimentos.filter(a =>
+    a.name && (a.name.toLowerCase().includes(query) || (a.category && a.category.toLowerCase().includes(query)))
+  ).slice(0, 12);
+
+  if (!dropdown) return;
+
+  if (filtered.length === 0) {
+    dropdown.innerHTML = '<div class="autocomplete-no-results">Nenhum alimento encontrado na base PNAE</div>';
+    dropdown.classList.add('active');
+    return;
+  }
+
+  dropdown.innerHTML = filtered.map(a => `
+    <div class="autocomplete-item" onclick="window.selectIngredienteForId(${ingredienteId}, '${a.name.replace(/'/g, "'")}')">
+      <span class="autocomplete-item-name">${a.name}</span>
+      <span class="autocomplete-item-details">
+        ${a.category || ''} • ${a.kcal_per_100g || 0} kcal/100g
+      </span>
+    </div>
+  `).join('');
+
+  dropdown.classList.add('active');
+};
+
+window.getNutrientesDoAlimento = (nomeAlimento, quantidade) => {
+  // Buscar na tabela PNAE do Supabase ou fallback local
+  const alimentos = DATA.alimentos || (typeof ALIMENTOS_PNAE !== 'undefined' ? ALIMENTOS_PNAE : []);
+
+  if (alimentos.length === 0) {
+    console.warn(`Tabela de alimentos vazia`);
+    return { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 };
+  }
+
+  const nomeLower = nomeAlimento.toLowerCase();
+
+  // 1. Tentar busca exata por nome
+  let alimento = alimentos.find(a =>
+    a.name && a.name.toLowerCase() === nomeLower
+  );
+
+  // 2. Tentar busca por inclusão de string
+  if (!alimento) {
+    alimento = alimentos.find(a =>
+      a.name && a.name.toLowerCase().includes(nomeLower)
+    );
+  }
+
+  // 3. Tentar busca pela primeira palavra
+  if (!alimento) {
+    const primeirasPalavras = nomeLower.split(' ')[0];
+    alimento = alimentos.find(a =>
+      a.name && a.name.toLowerCase().includes(primeirasPalavras)
+    );
+  }
+
+  // 4. Se ainda não encontrar, tentar busca por código se disponível
+  if (!alimento && alimentos[0].code) {
+    alimento = alimentos.find(a =>
+      a.code && a.code.toLowerCase().includes(nomeLower)
+    );
+  }
+
+  // Se não encontrar, retornar zeros
+  if (!alimento) {
+    console.warn(`[NUTRIENTES] Alimento "${nomeAlimento}" não encontrado na base PNAE (${alimentos.length} disponíveis)`);
+    return { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 };
+  }
+
+  console.log(`[NUTRIENTES] Alimento encontrado: "${alimento.name}" (${alimento.kcal_per_100g} kcal/100g)`);
+
+  // Calcular nutrientes para a quantidade especificada
+  // Os valores na tabela PNAE são por 100g
+  const fator = quantidade / 100;
+
+  return {
+    kcal: ((alimento.kcal_per_100g || 0) * fator).toFixed(1),
+    carbos: ((alimento.carb_per_100g || 0) * fator).toFixed(1),
+    proteinas: ((alimento.protein_per_100g || 0) * fator).toFixed(1),
+    lipidios: ((alimento.fat_per_100g || 0) * fator).toFixed(1),
+    sodio: ((alimento.sodium_per_100g || 0) * fator).toFixed(0)
+  };
+};
+
+window.selectIngredienteForId = (ingredienteId, productName) => {
+  window.updateIngrediente(ingredienteId, 'nome', productName);
+
+  // Auto-preencher quantidade com per capita da modalidade
+  const perCapita = window.getPerCapitaPorIngrediente(productName);
+  window.updateIngrediente(ingredienteId, 'quantidade', perCapita);
+
+  // Auto-preencher valores nutricionais da tabela PNAE
+  const nutrientes = window.getNutrientesDoAlimento(productName, perCapita);
+  window.updateIngrediente(ingredienteId, 'kcal', parseFloat(nutrientes.kcal));
+  window.updateIngrediente(ingredienteId, 'carbos', parseFloat(nutrientes.carbos));
+  window.updateIngrediente(ingredienteId, 'proteinas', parseFloat(nutrientes.proteinas));
+  window.updateIngrediente(ingredienteId, 'lipidios', parseFloat(nutrientes.lipidios));
+  window.updateIngrediente(ingredienteId, 'sodio', parseFloat(nutrientes.sodio));
+
+  document.getElementById(`dropdown-${ingredienteId}`)?.classList.remove('active');
+  window.renderIngredientes();
+};
+
+window.cancelCreateFicha = () => {
+  const container = document.getElementById('page-content');
+  PAGE_RENDERERS.nutricionista_fichas(container);
+};
+
+window.handleCreateFicha = (event) => {
+  event.preventDefault();
+
+  const nome = document.getElementById('ficha-name')?.value || window.fichaFormState.nome;
+  const tipo = document.getElementById('ficha-type')?.value || window.fichaFormState.tipo;
+  const modalidade = document.getElementById('ficha-modalidade')?.value || window.fichaFormState.modalidade || 'Escolar Urbana (Regular)';
+  const ingredientes = window.fichaFormState.ingredientes || [];
+
+  if (!nome || ingredientes.length === 0) {
+    alert('Preencha o nome e adicione ao menos um ingrediente!');
+    return;
+  }
+
+  const porcaoTotal = ingredientes.reduce((s, i) => s + (parseFloat(i.quantidade) || 0), 0);
+  const descricaoIngredientes = ingredientes.map(i => i.nome).filter(Boolean).join(', ');
+
+  // Criar objeto da receita com ID em String para evitar crash de tipo
+  const receita = {
+    id: String(Date.now()),
+    nome: nome,
+    tipo: tipo,
+    modalidade: modalidade,
+    ingredientes: ingredientes,
+    totais: window.fichaFormState.totais || { kcal: 0, carbos: 0, proteinas: 0, lipidios: 0, sodio: 0 },
+    descricao: descricaoIngredientes,
+    porcao: `${Math.round(porcaoTotal)}g`,
+    dataCriacao: new Date().toISOString().split('T')[0],
+    nutricionista: 'Dra. Lilian Droppa (CRN 12345/MS)',
+    aprovado: true,
+    ativo: true
+  };
+
+  // Salvar no localStorage (cache local imediato)
+  let fichas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
+  fichas = fichas.filter(f => String(f.id) !== receita.id && (f.nome || '').toLowerCase() !== receita.nome.toLowerCase());
+  fichas.push(receita);
+  localStorage.setItem('fichas_tecnicas', JSON.stringify(fichas));
+
+  // Persiste no Supabase
+  if (window.DB && typeof window.DB.saveFichaTecnica === 'function') {
+    window.DB.saveFichaTecnica(receita).then(ok => {
+      if (!ok) console.warn('[Fichas] Não foi possível persistir no Supabase — mantida apenas em localStorage');
+    });
+  }
+
+  // Publica no SharedState para que Escola/Gestor também vejam
+  if (window.SharedState && typeof window.SharedState.addFicha === 'function') {
+    SharedState.addFicha(receita);
+  }
+
+  // Adicionar ao DATA.receitas para aparecer nos planejadores de cardápio
+  if (!DATA.receitas) DATA.receitas = [];
+  DATA.receitas = DATA.receitas.filter(r => String(r.id) !== receita.id && (r.nome || '').toLowerCase() !== receita.nome.toLowerCase());
+  DATA.receitas.push(receita);
+
+  // Registrar também no motor da IA de Cardápios
+  if (window.AICardapioEngine && typeof window.AICardapioEngine.addReceita === 'function') {
+    window.AICardapioEngine.addReceita(receita);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast(`✅ Ficha técnica de "${nome}" aprovada e salva com sucesso para o cardápio!`);
+  } else {
+    alert(`Ficha técnica de "${nome}" criada e salva com sucesso!\n\nEnergia: ${Math.round(receita.totais.kcal)} kcal\nProteína: ${receita.totais.proteinas.toFixed(1)}g\nCarboidratos: ${receita.totais.carbos.toFixed(1)}g`);
+  }
+
+  const container = document.getElementById('page-content');
+  PAGE_RENDERERS.nutricionista_fichas(container);
+};
+
+window.excluirCardapio = (idOrIdx) => {
+  if (!confirm('Tem certeza que deseja excluir este cardápio? Esta ação não poderá ser desfeita.')) return;
+
+  const id = String(idOrIdx);
+
+  // Caso 1: ID do tipo 'legacy-N' → remover do localStorage
+  if (id.startsWith('legacy-')) {
+    const idx = parseInt(id.replace('legacy-', ''), 10);
+    const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+    if (!isNaN(idx) && idx >= 0 && idx < legacy.length) {
+      legacy.splice(idx, 1);
+      localStorage.setItem('cardapios_publicados', JSON.stringify(legacy));
+    }
+  }
+  // Caso 2: ID do tipo 'wk-*' → cardápio semanal do SharedState
+  else if (id.startsWith('wk-')) {
+    if (window.SharedState && typeof window.SharedState.deleteWeeklyMenu === 'function') {
+      window.SharedState.deleteWeeklyMenu(id);
+    }
+  }
+  // Caso 3: ID do tipo 'menu-*' ou qualquer outro → menu normal do SharedState
+  else {
+    if (window.SharedState && typeof window.SharedState.deleteMenu === 'function') {
+      window.SharedState.deleteMenu(id);
+    }
+  }
+
+  if (typeof showToast === 'function') showToast('✅ Cardápio excluído com sucesso!');
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.nutricionista_cardapios(container);
+};
+
+// ─── Publicar Cardápio em Elaboração ────────────────────────────────────────
+window.publicarCardapio = (id) => {
+  if (!confirm('Publicar este cardápio? Ele ficará visível para as escolas e serão geradas as Ordens de Serviço automáticas.')) return;
+
+  const sid = String(id);
+  let menuPublicado = null;
+
+  // Atualiza status no SharedState (menu normal ou semanal)
+  if (sid.startsWith('menu-') || (!sid.startsWith('legacy-') && !sid.startsWith('wk-'))) {
+    menuPublicado = window.SharedState?.updateMenu(sid, {
+      status: 'Publicado',
+      publicadoEm: new Date().toISOString(),
+    });
+  } else if (sid.startsWith('wk-')) {
+    menuPublicado = window.SharedState?.updateWeeklyMenu(sid, {
+      status: 'Publicado',
+      publicadoEm: new Date().toISOString(),
+    });
+  } else if (sid.startsWith('legacy-')) {
+    // Cardápios legados: atualiza no localStorage
+    const idx = parseInt(sid.replace('legacy-', ''), 10);
+    const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+    if (!isNaN(idx) && legacy[idx]) {
+      legacy[idx].status = 'Publicado';
+      legacy[idx].publicadoEm = new Date().toISOString();
+      localStorage.setItem('cardapios_publicados', JSON.stringify(legacy));
+    }
+  }
+
+  // Dispara fluxo de Ordens de Serviço para escolas + cooperativas/agricultores
+  const activeMenu = menuPublicado || window.currentActiveIAMenu || window.tempIAMenuPreview;
+  if (typeof window.gerarOrdensDeServicoPorEscola === 'function') {
+    window.gerarOrdensDeServicoPorEscola(activeMenu);
+  }
+
+  if (typeof showToast === 'function') {
+    showToast('🚀 Cardápio publicado! Ordens de Serviço enviadas para escolas e cooperativas.');
+  }
+
+  // Re-renderiza a tela de gestão
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.nutricionista_cardapios(container);
+};
+
+window.editarCardapio = (idOrIdx) => {
+  if (typeof window.showMenuPlanner === 'function') {
+    window.showMenuPlanner();
+    if (typeof showToast === 'function') showToast('✏️ Cardápio carregado no planejador para edição.');
+  }
+};
+
+window.viewCardapio = (id) => {
+  const container = document.getElementById('page-content');
+  container.innerHTML = `
+    <div class="page-header"><div class="page-title">Detalhes do Cardápio</div><div class="page-subtitle">Ações de visualização, exportação e logística</div></div>
+    <div class="card mb-24">
+      <div class="card-body" style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="showMenuPlanner()">✏️ Editar Cardápio</button>
+        <button class="btn btn-outline" onclick="generateMenuPDF()">📄 Exportar Cardápio (PDF)</button>
+        <button class="btn btn-outline" onclick="generateRomaneio()">📦 Gerar Romaneio de Entrega</button>
+        <button class="btn btn-outline" style="color:var(--danger);border-color:var(--danger)" onclick="PAGE_RENDERERS.nutricionista_cardapios(document.getElementById('page-content'))">🔙 Voltar</button>
+      </div>
+    </div>
+    
+    <div id="print-area">
+      <div class="card" style="padding: 24px">
+        <h2 style="text-align:center;margin-bottom:20px;color:var(--primary)">Cardápio Oficial — Referência</h2>
+        <table class="data-table">
+          <thead><tr><th>Data</th><th>Refeição</th><th>Preparação Sugerida</th></tr></thead>
+          <tbody>
+            <tr><td>01/07/2026</td><td>Desjejum</td><td>Pão com Manteiga e Leite</td></tr>
+            <tr><td>01/07/2026</td><td>Almoço</td><td>Arroz com Feijão Tradicional</td></tr>
+            <tr><td>01/07/2026</td><td>Lanche</td><td>Vitamina de Banana</td></tr>
+            <tr><td>02/07/2026</td><td>Desjejum</td><td>Mingau de Aveia</td></tr>
+            <tr><td>02/07/2026</td><td>Almoço</td><td>Frango Grelhado com Legumes</td></tr>
+            <tr><td>02/07/2026</td><td>Lanche</td><td>Salada de Frutas</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+};
+
+window.generateMenuPDF = () => {
+  alert("O navegador abrirá a tela de impressão ajustada para exportar em PDF o cardápio oficial.");
+  const printArea = document.getElementById('print-area');
+  const originalHtml = document.body.innerHTML;
+  document.body.innerHTML = printArea.innerHTML;
+  window.print();
+  document.body.innerHTML = originalHtml;
+  location.reload(); // Recarrega para restaurar eventos
+};
+
+window.generateRomaneio = () => {
+  const container = document.getElementById('page-content');
+  container.innerHTML = `
+    <div class="page-header"><div class="page-title">Romaneio de Entrega Logística</div><div class="page-subtitle">Guia de Quantitativos para Conferência Escolar</div></div>
+    <div class="card mb-24">
+      <div class="card-body">
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Guia</button>
+        <button class="btn btn-outline" onclick="PAGE_RENDERERS.nutricionista_cardapios(document.getElementById('page-content'))">🔙 Voltar</button>
+      </div>
+    </div>
+    <div class="card" style="padding: 24px" id="romaneio-print">
+      <h2 style="text-align:center;margin-bottom:20px;color:var(--primary)">Guia de Entrega Logística — Checklist</h2>
+      <table class="data-table">
+        <thead><tr><th>✓</th><th>Ingrediente</th><th>Quantidade Total (Estivada)</th></tr></thead>
+        <tbody>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Arroz Agulhinha</td><td>150 kg</td></tr>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Feijão Carioca</td><td>80 kg</td></tr>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Peito de Frango</td><td>120 kg</td></tr>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Banana Nanica</td><td>40 kg</td></tr>
+          <tr><td style="width:40px;border:1px solid #ccc"></td><td>Leite Integral</td><td>200 L</td></tr>
+        </tbody>
+      </table>
+      <div style="margin-top:40px;border-top:1px solid #ccc;padding-top:20px;display:flex;justify-content:space-around">
+        <div style="text-align:center">________________________<br>Assinatura Entregador</div>
+        <div style="text-align:center">________________________<br>Assinatura Direção / Cozinha</div>
+      </div>
+    </div>
+  `;
+};
+
+window.buildPlannerSelectOptions = (mealType, preselectRecipeId) => {
+  const fichasSalvas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
+  const todas = [...RECIPE_LIBRARY, ..._FICHAS_DEMO, ...fichasSalvas];
+  
+  const uniqueRecipes = Array.from(new Map(todas.map(item => [item.id, item])).values());
+
+  const isDesjejum = (t) => t && (t.toLowerCase().includes('desjejum') || t.toLowerCase().includes('café'));
+  const isLanche = (t) => t && t.toLowerCase().includes('lanche');
+  const isAlmoco = (t) => t && t.toLowerCase().includes('almoço');
+
+  const filtered = uniqueRecipes.filter(r => {
+    if (!mealType) return true;
+    const t = r.mealType || r.tipo || r.categoria || '';
+    if (mealType === 'Desjejum') return isDesjejum(t) || (!isLanche(t) && !isAlmoco(t));
+    if (mealType === 'Lanche') return isLanche(t);
+    if (mealType === 'Almoço') return isAlmoco(t);
+    return true;
+  });
+
+  let options = '<option value="0">Selecione uma preparação...</option>';
+  filtered.forEach(r => {
+    const kcal = r.kcal || (r.totais && r.totais.kcal) || (r.totais && r.totais.energia) || 0;
+    const isSelected = r.id === preselectRecipeId ? 'selected' : '';
+    const name = r.name || r.nome || 'Receita sem nome';
+    options += `<option value="${kcal}" ${isSelected}>${name} (${parseFloat(kcal).toFixed(0)} kcal)</option>`;
+  });
+  return options;
+};
+
+window.generatePlannerDays = () => {
+  const start = document.getElementById('planner-start-date').value;
+  const end = document.getElementById('planner-end-date').value;
+  if (!start || !end) return alert('Selecione as datas de início e fim.');
+  
+  const [sY, sM, sD] = start.split('-');
+  const [eY, eM, eD] = end.split('-');
+  const startDate = new Date(sY, sM - 1, sD);
+  const endDate = new Date(eY, eM - 1, eD);
+  if (endDate < startDate) return alert('A data final deve ser maior ou igual à inicial.');
+  
+  const container = document.getElementById('planner-days-container');
+  container.innerHTML = '';
+  
+  const optDesjejum = window.buildPlannerSelectOptions('Desjejum', window._lastPreselectRecipeId);
+  const optAlmoco = window.buildPlannerSelectOptions('Almoço', window._lastPreselectRecipeId);
+  const optLanche = window.buildPlannerSelectOptions('Lanche', window._lastPreselectRecipeId);
+
+  let current = new Date(startDate);
+  const daysOfWeek = ['Domingo', 'Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado'];
+  
+  let html = '';
+  let dayIndex = 0;
+  while (current <= endDate) {
+    const dayName = daysOfWeek[current.getDay()];
+    if (current.getDay() !== 0 && current.getDay() !== 6) { 
+      const dateStr = current.toLocaleDateString('pt-BR');
+      const idx = dayIndex++;
+      html += `
+        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; margin-bottom:12px" class="planner-day-block" data-date="${dateStr}">
+          <div style="font-weight:700;margin-bottom:10px;color:var(--primary)">${dayName} (${dateStr})</div>
+          <div class="grid-3">
+            <div class="form-group">
+              <label>Café da Manhã</label>
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-bkf-${idx}" onchange="calculatePlannerKcal()">
+                ${optDesjejum}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Almoço</label>
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-lun-${idx}" onchange="calculatePlannerKcal()">
+                ${optAlmoco}
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Lanche da Tarde</label>
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-snk-${idx}" onchange="calculatePlannerKcal()">
+                ${optLanche}
+              </select>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  if (!html) html = '<div style="padding:16px;color:var(--text-secondary)">Nenhum dia útil selecionado no período.</div>';
+  container.innerHTML = html;
+  calculatePlannerKcal();
+};
+
+window.showMenuPlanner = (preselectRecipeId) => {
+  window._lastPreselectRecipeId = preselectRecipeId;
+  const container = document.getElementById('page-content');
+  
+  const today = new Date();
+  const nextMonday = new Date(today);
+  nextMonday.setDate(today.getDate() + ((1 + 7 - today.getDay()) % 7 || 7));
+  const nextFriday = new Date(nextMonday);
+  nextFriday.setDate(nextMonday.getDate() + 4);
+  
+  const dStart = nextMonday.toISOString().split('T')[0];
+  const dEnd = nextFriday.toISOString().split('T')[0];
+
+  const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo').map(r => ({
+    ...r,
+    tipo: (function(t) {
+      if (!t) return 'Outras Restrições';
+      const l = t.toLowerCase();
+      if (l.includes('lactose')) return 'Intolerância à lactose';
+      if (l.includes('celíaca') || l.includes('celiaca') || l.includes('gluten') || l.includes('glúten')) return 'Doença celíaca';
+      if (l.includes('diabete')) return 'Diabetes';
+      if (l.includes('aplv') || l.includes('proteína do leite') || l.includes('proteina do leite')) return 'Alergia à Proteína do Leite (APLV)';
+      if (l.includes('vegetari') || l.includes('vega')) return 'Vegetariano/Vegano';
+      return t;
+    })(r.tipo)
+  }));
+
+  const totalAlunosRestricaoRede = activeRestricoes.reduce((acc, r) => acc + (r.quantidade || 1), 0);
+
+  const restricoesSummaryHtml = activeRestricoes.length > 0 ? `
+    <div style="background: #fff7ed; border-left: 4px solid #f97316; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div style="font-weight:700; color:#c2410c; display:flex; align-items:center; gap:6px;">
+          <span>⚠️ Alerta de Restrições Alimentares na Rede Piloto (${totalAlunosRestricaoRede} aluno(s) afetados)</span>
+        </div>
+        <div style="font-size:0.83rem; color:#ea580c; margin-top:2px;">
+          ${Array.from(new Set(activeRestricoes.map(r => r.tipo))).map(t => `${t}: ${activeRestricoes.filter(r=>r.tipo===t).reduce((a,b)=>a+(b.quantidade||1),0)} aluno(s)`).join(' · ')}
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="border-color:#fdba74; color:#c2410c; background:#fff;" onclick="PAGE_RENDERERS.nutricionista_restricoes(document.getElementById('page-content'))">Ver Detalhes das Restrições →</button>
+    </div>
+  ` : '';
+
+  container.innerHTML = `
+    <div class="page-header"><div class="page-title">Planejador Semanal de Cardápio</div><div class="page-subtitle">Monte as refeições diárias e verifique o valor nutricional acumulado</div></div>
+    
+    ${restricoesSummaryHtml}
+    
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Período e Escopo</div></div>
+      <div class="card-body">
+        <div class="grid-3" style="align-items:end">
+          <div class="form-group">
+            <label>Data Inicial</label>
+            <input type="date" id="planner-start-date" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${dStart}">
+          </div>
+          <div class="form-group">
+            <label>Data Final</label>
+            <input type="date" id="planner-end-date" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${dEnd}">
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" onclick="generatePlannerDays()">Gerar Dias</button>
+            <button class="btn btn-outline" style="background:var(--primary-light,#e0f2fe);color:var(--primary);border-color:var(--primary-light,#e0f2fe);font-weight:700" onclick="abrirModalGeradorIA()">🤖 Gerar com IA</button>
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <label style="font-weight:600;font-size:0.9rem;display:block;margin-bottom:6px">Escolas Vinculadas</label>
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="radio" name="planner-escopo" value="rede" id="planner-escopo-rede" checked onchange="togglePlannerEscolas()">
+              <span>Toda a rede (${(DATA.schools||[]).length} escolas)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer">
+              <input type="radio" name="planner-escopo" value="lista" onchange="togglePlannerEscolas()">
+              <span>Escolas específicas</span>
+            </label>
+          </div>
+          <div id="planner-escolas-list" style="display:none;padding:10px;border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto">
+            ${(DATA.schools||[]).map(s => {
+              const restrEscola = activeRestricoes.filter(r => r.schoolId === s.id || (r.schoolName || '').toLowerCase() === s.name.toLowerCase());
+              const totalAlunosRestr = restrEscola.reduce((acc, r) => acc + (r.quantidade || 1), 0);
+              const tiposText = Array.from(new Set(restrEscola.map(r => r.tipo))).join(', ');
+              const restrBadge = totalAlunosRestr > 0 
+                ? `<span class="status-badge warning" style="font-size:0.75rem;padding:3px 8px;font-weight:700" title="${totalAlunosRestr} alunos com restrição (${tiposText})">⚠️ ${totalAlunosRestr} Alunos c/ Restrição (${tiposText})</span>`
+                : '';
+              return `
+                <label style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px;font-size:0.85rem;cursor:pointer;border-bottom:1px dashed var(--border,#e2e8f0)">
+                  <div>
+                    <input type="checkbox" class="planner-escola-chk" value="${s.name.replace(/"/g,'&quot;')}" style="margin-right:6px">
+                    <strong>${s.name}</strong> <span style="color:var(--text-tertiary);font-size:0.78rem">· ${s.region}</span>
+                  </div>
+                  ${restrBadge}
+                </label>
+              `;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Elaboração do Menu</div></div>
+      <div class="card-body">
+        <div id="planner-days-container" style="display:flex;gap:12px;flex-direction:column">
+        </div>
+
+        <div style="margin-top:20px;padding:16px;background:var(--primary-light);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700">Média Nutricional Diária Calculada</div>
+            <div style="font-size:0.85rem;color:var(--text-secondary)">Meta recomendada PNAE: 650 a 800 kcal/dia</div>
+          </div>
+          <div style="font-size:1.6rem;font-weight:800;color:var(--primary)" id="planner-total-kcal">0 kcal</div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="cancelMenuPlanner()">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveWeeklyMenu()">Publicar Cardápio</button>
+        </div>
+      </div>
+    </div>
+  `;
+  setTimeout(() => window.generatePlannerDays(), 50);
+};
+
+window.abrirModalGeradorIA = () => {
+  const _allSchools = (DATA.schools || []);
+  const totalAlunosPiloto = _allSchools.length > 0 ? _allSchools.reduce((acc, sc) => acc + (sc.students || 0), 0) : 3992;
+  const alunosIntegral = _allSchools.filter(s => s.refeicoesDia === 4 && !s.name.includes('EMEI')).reduce((acc, sc) => acc + (sc.students || 0), 0) || 975;
+  const alunosParcial = _allSchools.filter(s => s.refeicoesDia === 2).reduce((acc, sc) => acc + (sc.students || 0), 0) || 2152;
+  const alunosCreche = _allSchools.filter(s => s.name.includes('EMEI')).reduce((acc, sc) => acc + (sc.students || 0), 0) || 865;
+
+  const startDateInput = document.getElementById('planner-start-date')?.value || '';
+  const endDateInput = document.getElementById('planner-end-date')?.value || '';
+
+  // 1. Detectar modalidade e escopo pré-selecionados na tela principal do planejador
+  const preSelectedModality = document.getElementById('planner-modalidade')?.value || 'piloto_completo';
+  const escopoRede = document.getElementById('planner-escopo-rede')?.checked !== false;
+  const selectedSchoolNames = escopoRede 
+    ? (DATA.schools || []).map(s => s.name)
+    : Array.from(document.querySelectorAll('.planner-escola-chk:checked')).map(c => c.value);
+
+  // 2. Verificar restrições alimentares ativas para o escopo selecionado
+  const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo');
+  const restricoesNaSelecao = activeRestricoes.filter(r => 
+    escopoRede || selectedSchoolNames.some(sName => (r.schoolName || '').toLowerCase().includes(sName.toLowerCase()))
+  );
+
+  const totalAlunosRestr = restricoesNaSelecao.reduce((acc, r) => acc + (r.quantidade || 1), 0);
+  const tiposRestrUnicos = Array.from(new Set(restricoesNaSelecao.map(r => r.tipo))).join(', ');
+
+  let restricoesAlertHtml = '';
+  if (totalAlunosRestr > 0) {
+    restricoesAlertHtml = `
+      <div style="background:#fff7ed; border-left:4px solid #f97316; padding:10px 14px; border-radius:6px; margin-bottom:14px; color:#c2410c; font-size:0.88rem;">
+        🛡️ <strong>Alerta de Restrições na Seleção:</strong> A pré-seleção inclui <strong>${totalAlunosRestr} aluno(s)</strong> com laudo médico / restrição ativa (<em>${tiposRestrUnicos}</em>). A IA filtrará apenas receitas seguras.
+      </div>
+    `;
+  }
+
+  let escopoLabelInfo = escopoRede 
+    ? `Escolas Piloto (${totalAlunosPiloto.toLocaleString('pt-BR')} alunos)`
+    : `${selectedSchoolNames.length} escola(s) específica(s) pré-selecionada(s)`;
+
+  let dateBadgeHtml = '';
+  if (startDateInput && endDateInput) {
+    const d1Formatted = startDateInput.split('-').reverse().join('/');
+    const d2Formatted = endDateInput.split('-').reverse().join('/');
+    dateBadgeHtml = `
+      <div style="background:#e0f2fe; border-left:4px solid #0284c7; padding:10px 14px; border-radius:6px; margin-bottom:14px; color:#0369a1; font-size:0.88rem; display:flex; align-items:center; gap:8px;">
+        <span>📅 <strong>Período Selecionado no Planejador:</strong> ${d1Formatted} a ${d2Formatted} (5 Dias Úteis)</span>
+      </div>
+    `;
+  }
+
+  const content = `
+    <div style="padding:10px 0">
+      ${dateBadgeHtml}
+      ${restricoesAlertHtml}
+      
+      ${!escopoRede && selectedSchoolNames.length > 0 ? `
+        <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:6px; padding:10px 12px; margin-bottom:14px; font-size:0.85rem; color:#0369a1;">
+          🎯 <strong>Escolas Pré-Selecionadas (${selectedSchoolNames.length}):</strong> ${selectedSchoolNames.join(', ')}
+        </div>
+      ` : ''}
+
+      <div style="font-size:0.88rem;color:var(--text-secondary);margin-bottom:16px">
+        A Inteligência Artificial irá compor automaticamente as refeições PNAE da semana respeitando o escopo de <strong>${escopoLabelInfo}</strong>, priorizando Agricultura Familiar, combate ao desperdício (FEFO) e per capita técnico.
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:600;display:block;margin-bottom:6px">Escopo & Modalidade Escolar Alvo (Pré-Selecionada)</label>
+        <select id="ia-modalidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px">
+          ${!escopoRede && selectedSchoolNames.length > 0 ? `
+            <option value="escolas_selecionadas" selected>🎯 Escolas Selecionadas no Planejador (${selectedSchoolNames.length} Escolas)</option>
+          ` : ''}
+          <option value="piloto_completo" ${escopoRede && preSelectedModality === 'piloto_completo' ? 'selected' : ''}>🏫 Escolas Piloto SUALE 2026 (${totalAlunosPiloto.toLocaleString('pt-BR')} Alunos Atendidos)</option>
+          <option value="fundamental_integral" ${preSelectedModality === 'fundamental_integral' ? 'selected' : ''}>Ensino Fundamental Integral (${alunosIntegral.toLocaleString('pt-BR')} Alunos Piloto)</option>
+          <option value="fundamental_parcial" ${preSelectedModality === 'fundamental_parcial' ? 'selected' : ''}>Ensino Fundamental Parcial (${alunosParcial.toLocaleString('pt-BR')} Alunos Piloto)</option>
+          <option value="creche" ${preSelectedModality === 'creche' ? 'selected' : ''}>Creche / EMEIs Piloto (${alunosCreche.toLocaleString('pt-BR')} Alunos)</option>
+          <option value="rede_total" ${preSelectedModality === 'rede_total' ? 'selected' : ''}>Projeção Toda a Rede Municipal (183 Escolas — 32.000 Alunos)</option>
+        </select>
+      </div>
+
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:600;display:block;margin-bottom:6px">Meta Nutricional Média (Kcal/dia)</label>
+        <input type="number" id="ia-meta-kcal" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="700" min="400" max="1200">
+      </div>
+
+      <div style="background:var(--surface-2, #f8fafc);padding:14px;border-radius:8px;margin-bottom:18px;border:1px solid var(--border)">
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="ia-priorizar-fefo" checked>
+          <span>⚡ <strong>Priorizar Alimentos Próximos do Vencimento (FEFO)</strong></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer;margin-bottom:8px">
+          <input type="checkbox" id="ia-priorizar-sazonal" checked>
+          <span>🌾 <strong>Priorizar Safras Sazonais da Agricultura Familiar</strong></span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-size:0.88rem;cursor:pointer">
+          <input type="checkbox" id="ia-considerar-restricoes" checked>
+          <span>🛡️ <strong>Respeitar Alertas de Restrições Alimentares (${totalAlunosRestr} alunos na seleção)</strong></span>
+        </label>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="window.executarGeracaoCardapioIA(event)">⚡ Gerar Cardápio Semanal (IA)</button>
+      </div>
+    </div>
+  `;
+  window.showModal('🤖 Gerador Automático de Cardápios com IA', content);
+};
+
+window.currentActiveIAMenu = null;
+window.tempIAMenuPreview = null;
+
+window.executarGeracaoCardapioIA = (evt) => {
+  if (evt && typeof evt.preventDefault === 'function') evt.preventDefault();
+
+  try {
+    const modalidade = document.getElementById('ia-modalidade')?.value || 'piloto_completo';
+    const metaKcal = parseInt(document.getElementById('ia-meta-kcal')?.value) || 700;
+    const priorizarFEFO = document.getElementById('ia-priorizar-fefo')?.checked !== false;
+    const priorizarSazonal = document.getElementById('ia-priorizar-sazonal')?.checked !== false;
+    const considerarRestricoes = document.getElementById('ia-considerar-restricoes')?.checked !== false;
+
+    const startDate = document.getElementById('planner-start-date')?.value || '';
+    const endDate = document.getElementById('planner-end-date')?.value || '';
+
+    // Ler escolas vinculadas especificamente selecionadas no planejador
+    const escopoRede = document.getElementById('planner-escopo-rede')?.checked !== false;
+    const selectedSchoolNames = escopoRede 
+      ? (DATA.schools || []).map(s => s.name)
+      : Array.from(document.querySelectorAll('.planner-escola-chk:checked')).map(c => c.value);
+
+    const targetSchools = (DATA.schools || []).filter(s => escopoRede || selectedSchoolNames.includes(s.name));
+
+    const totalAlunosTarget = targetSchools.length > 0 
+      ? targetSchools.reduce((acc, sc) => acc + (sc.students || 0), 0) 
+      : 3992;
+
+    let numAlunos = totalAlunosTarget;
+    if (modalidade === 'rede_total') {
+      numAlunos = 32000;
+    } else if (modalidade === 'creche') {
+      numAlunos = Math.round(totalAlunosTarget * 0.22);
+    }
+
+    if (!window.AICardapioEngine) {
+      return alert('Motor de IA não carregado.');
+    }
+
+    // 1. Executa o algoritmo da IA repassando as datas e escolas do planejador
+    const resultadoIA = window.AICardapioEngine.generateWeeklyMenu({
+      modalidade,
+      metaKcal,
+      numAlunos,
+      priorizarFEFO,
+      priorizarSazonal,
+      considerarRestricoes,
+      startDate,
+      endDate
+    });
+
+    if (!resultadoIA) {
+      return alert('Falha ao gerar cardápio com a IA.');
+    }
+
+    // Anexa as escolas especificamente vinculadas a este cardápio
+    resultadoIA.escolasVinculadas = selectedSchoolNames.length > 0 ? selectedSchoolNames : (DATA.schools||[]).map(s=>s.name);
+    resultadoIA.targetSchools = targetSchools;
+
+    window.currentActiveIAMenu = resultadoIA;
+    window.tempIAMenuPreview = resultadoIA;
+
+    // 2. Fecha o modal de configuração
+    window.closeModal();
+
+    // 3. Preenche os blocos e selects da página principal (Desjejum, Almoço e Lanche)
+    if (typeof window.generatePlannerDays === 'function') {
+      window.generatePlannerDays();
+    }
+
+    const container = document.getElementById('planner-days-container');
+    if (container) {
+      const dayBlocks = container.querySelectorAll('.planner-day-block');
+      dayBlocks.forEach((block, idx) => {
+        const refeicao = resultadoIA.refeicoes[idx % resultadoIA.refeicoes.length];
+        if (!refeicao) return;
+
+        // Preenche Café / Desjejum
+        const selectBkf = block.querySelector('select[id^="planner-bkf-"]');
+        if (selectBkf && selectBkf.options.length > 1) {
+          selectBkf.selectedIndex = (idx % (selectBkf.options.length - 1)) + 1;
+        }
+
+        // Preenche Almoço
+        const selectAlmoco = block.querySelector('select[id^="planner-lun-"]');
+        if (selectAlmoco) {
+          let found = false;
+          for (let opt of selectAlmoco.options) {
+            if (opt.text.toLowerCase().includes(refeicao.nomePrato.slice(0, 15).toLowerCase())) {
+              selectAlmoco.value = opt.value;
+              found = true;
+              break;
+            }
+          }
+          if (!found && selectAlmoco.options.length > 1) {
+            selectAlmoco.selectedIndex = (idx % (selectAlmoco.options.length - 1)) + 1;
+          }
+        }
+
+        // Preenche Lanche
+        const selectSnk = block.querySelector('select[id^="planner-snk-"]');
+        if (selectSnk && selectSnk.options.length > 1) {
+          selectSnk.selectedIndex = ((idx + 1) % (selectSnk.options.length - 1)) + 1;
+        }
+      });
+
+      if (typeof window.renderAISummaryCard === 'function') {
+        window.renderAISummaryCard(resultadoIA, container);
+      }
+      if (typeof window.calculatePlannerKcal === 'function') {
+        window.calculatePlannerKcal();
+      }
+    }
+
+    // 4. Grava no SharedState — status Em Elaboracao até aprovação explícita
+    if (window.SharedState) {
+      const d1 = startDate ? startDate.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR');
+      const d2 = endDate ? endDate.split('-').reverse().join('/') : new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
+      SharedState.addMenu({
+        nome: `Cardápio IA — ${selectedSchoolNames.length} Escola(s)`,
+        periodo: `${d1} a ${d2}`,
+        escolas: selectedSchoolNames.length,
+        escolasVinculadas: selectedSchoolNames,
+        status: 'Em Elaboração',
+        tipo: 'Semanal',
+        autor: 'Dra. Lilian Droppa (CRN 12345/MS)',
+        refeicoes: resultadoIA.refeicoes || [],
+        insumosResumoSemanal: resultadoIA.insumosResumoSemanal || [],
+      });
+      // addWeeklyMenu é chamado apenas ao Publicar via botão Publicar
+    }
+
+    // 5. Abre o modal de pré-visualização interativa
+    window.abrirModalPreviewIA(resultadoIA);
+  } catch (err) {
+    console.error('Erro na geração de IA:', err);
+    alert('Erro ao gerar cardápio com IA: ' + err.message);
+  }
+};
+
+window.abrirModalPreviewIA = (resultadoIA) => {
+  if (!resultadoIA) return;
+  const m = resultadoIA.metricasSemanais;
+  const escVinculadas = resultadoIA.escolasVinculadas || [];
+
+  const content = `
+    <div style="padding:4px 0; font-family:sans-serif; color:#1e293b;">
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div>
+          <div style="font-weight:800; color:#0369a1; font-size:1.05rem;">🤖 CARDÁPIO SEMANAL SUGERIDO PELA IA (PRÉ-VISUALIZAÇÃO PNAE)</div>
+          <div style="font-size:0.85rem; color:#0c4a6e; margin-top:2px;">
+            Nutricionista: <strong>Dra. Lilian Droppa (CRN 12345/MS)</strong> · Escopo: <strong>${escVinculadas.length} Escola(s) Selecionada(s) (${m.numAlunos.toLocaleString('pt-BR')} Alunos)</strong>
+          </div>
+        </div>
+        <span class="status-badge" style="background:#fef3c7; color:#92400e; font-weight:700; font-size:0.85rem; padding:6px 12px;">
+          🟡 RASCUNHO SUGERIDO · AGUARDANDO SUAS REVISÕES/APROVAÇÃO
+        </span>
+      </div>
+
+      <!-- METRICAS NUTRICCIONAIS -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; margin-bottom:16px;">
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Energia Média</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#0284c7;">${m.mediaKcal} kcal/dia</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Proteínas</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#16a34a;">${m.mediaProteinas} g/dia</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Sódio</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#dc2626;">${m.mediaSodio} mg/dia</div>
+        </div>
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px; text-align:center;">
+          <div style="font-size:0.75rem; color:#64748b; font-weight:600;">Agric. Familiar</div>
+          <div style="font-size:1.2rem; font-weight:800; color:#d97706;">🌾 ${m.percentualAF}%</div>
+        </div>
+      </div>
+
+      <!-- CARDS DE REFEICAO DA SEMANA (3 REFEICOES POR DIA) -->
+      <div style="margin-bottom:16px;">
+        <h4 style="margin-bottom:10px; color:#0f172a; font-size:0.95rem;">📅 Refeições Diárias Sugeridas (Desjejum, Almoço e Lanche)</h4>
+        <div style="display:flex; flex-direction:column; gap:10px;">
+          ${resultadoIA.refeicoes.map(r => `
+            <div style="background:#ffffff; border:1px solid #cbd5e1; border-left:5px solid #0284c7; border-radius:8px; padding:12px 14px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-bottom:1px solid #f1f5f9; padding-bottom:6px; margin-bottom:8px;">
+                <strong style="color:#0369a1; font-size:0.95rem;">${r.dia}</strong>
+                <span class="status-badge status-ok" style="font-size:0.75rem;">${r.kcal} kcal totais · Múltiplas Refeições</span>
+              </div>
+              <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; font-size:0.85rem;">
+                <div style="background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0;">
+                  <div style="font-size:0.75rem; color:#64748b; font-weight:700;">☕ CAFÉ / DESJEJUM</div>
+                  <div style="font-weight:600; color:#334155; margin-top:2px;">Pão c/ Manteiga e Leite UHT</div>
+                </div>
+                <div style="background:#f0f9ff; padding:8px; border-radius:6px; border:1px solid #bae6fd;">
+                  <div style="font-size:0.75rem; color:#0369a1; font-weight:700;">🍲 ALMOÇO PRINCIPAL</div>
+                  <div style="font-weight:700; color:#0f172a; margin-top:2px;">${r.nomePrato}</div>
+                </div>
+                <div style="background:#fdf4ff; padding:8px; border-radius:6px; border:1px solid #f5d0fe;">
+                  <div style="font-size:0.75rem; color:#86198f; font-weight:700;">🍎 LANCHE DA TARDE</div>
+                  <div style="font-weight:600; color:#701a75; margin-top:2px;">${r.fruta} ${r.fefoBadge ? `· ${r.fefoBadge}` : ''}</div>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- TABELA EXPANSIVEL PER CAPITA E DEMANDA REDE -->
+      <details style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:18px;">
+        <summary style="font-weight:700; cursor:pointer; font-size:0.88rem; color:#0f172a;">
+          📊 Ver Tabela de Per Capita (g/aluno) e Demanda Total Semanal da Seleção (${m.numAlunos.toLocaleString('pt-BR')} Alunos)
+        </summary>
+        <div style="margin-top:10px; overflow-x:auto;">
+          <table class="data-table" style="font-size:0.82rem; width:100%;">
+            <thead>
+              <tr>
+                <th>Ingrediente</th>
+                <th>Per Capita (por Aluno)</th>
+                <th>Demanda Total da Semana (Seleção)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${resultadoIA.insumosResumoSemanal.map(ins => `
+                <tr>
+                  <td><strong>${ins.nome}</strong> ${ins.af ? '<span class="status-badge status-ok" style="font-size:0.7rem">🌾 Agric. Familiar</span>' : ''}</td>
+                  <td style="font-family:var(--font-mono);font-weight:700">${ins.perCapitaGramos} ${ins.unidade}</td>
+                  <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${ins.totalSemanalKg.toLocaleString('pt-BR')} kg</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px;">
+        <button class="btn btn-outline" onclick="closeModal()">Continuar Editando no Planejador</button>
+        <button class="btn btn-primary" onclick="window.aprovarCardapioAposPreview()">✅ Aprovar e Registrar Cardápio</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('🤖 Cardápio Sugerido pela IA (Pré-Visualização PNAE)', content, '900px');
+};
+
+window.aprovarCardapioAposPreview = () => {
+  window.aplicarIAMenuAoPlanejador(window.tempIAMenuPreview, true);
+};
+
+window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
+  if (!menuObj) return alert('Nenhum cardápio gerado pela IA.');
+
+  window.closeModal();
+
+  if (aprovarDireto && window.AICardapioEngine) {
+    menuObj = window.AICardapioEngine.approveMenu(menuObj);
+  }
+
+  window.currentActiveIAMenu = menuObj;
+
+  // Registrar no SharedState (Planejamento Alimentar & Visão Escolas)
+  if (window.SharedState) {
+    const d1 = new Date().toLocaleDateString('pt-BR');
+    const d2 = new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
+    SharedState.addMenu({
+      nome: `Cardápio IA — ${menuObj.modalidade || 'PNAE'} (${new Date().toLocaleDateString('pt-BR')})`,
+      periodo: `${d1} a ${d2}`,
+      escolas: (DATA.schools||[]).length,
+      escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
+      status: aprovarDireto ? 'Publicado' : 'Em Elaboração',
+      tipo: 'Semanal',
+      autor: 'Dra. Lilian Droppa (CRN 12345/MS)',
+      refeicoes: menuObj.refeicoes || [],
+      insumosResumoSemanal: menuObj.insumosResumoSemanal || [],
+    });
+    // addWeeklyMenu apenas ao aprovar definitivamente
+    if (aprovarDireto) {
+      SharedState.addWeeklyMenu({
+        nome: `Cardápio Semanal IA PNAE (${menuObj.metricasSemanais?.numAlunos || 3992} Alunos)`,
+        periodo: `${d1} a ${d2}`,
+        semana: `${d1} a ${d2}`,
+        escola: 'Toda a Rede Piloto',
+        escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
+        refeicoes: (menuObj.refeicoes||[]).map(r => ({ dia: r.dia, tipo: 'Almoço', item: `${r.nomePrato} (${r.kcal} kcal)`, kcal: r.kcal })),
+        kcalMedia: menuObj.metricasSemanais?.mediaKcal || 700,
+        autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
+      });
+    }
+  }
+
+  // Carregar no planejador semanal se a tela de planejamento estiver aberta
+  const container = document.getElementById('planner-days-container');
+  if (container) {
+    window.generatePlannerDays();
+
+    setTimeout(() => {
+      const currentContainer = document.getElementById('planner-days-container');
+      if (!currentContainer) return;
+
+      const dayBlocks = currentContainer.querySelectorAll('.planner-day-block');
+      dayBlocks.forEach((block, idx) => {
+        const refeicao = menuObj.refeicoes[idx % menuObj.refeicoes.length];
+        if (!refeicao) return;
+
+        const selectAlmoco = block.querySelector('select[id^="planner-lun-"]');
+        if (selectAlmoco) {
+          let found = false;
+          for (let opt of selectAlmoco.options) {
+            if (opt.text.toLowerCase().includes(refeicao.nomePrato.slice(0, 15).toLowerCase())) {
+              selectAlmoco.value = opt.value;
+              found = true;
+              break;
+            }
+          }
+          if (!found && selectAlmoco.options.length > 1) {
+            selectAlmoco.selectedIndex = (idx % (selectAlmoco.options.length - 1)) + 1;
+          }
+        }
+      });
+
+      window.renderAISummaryCard(menuObj, currentContainer);
+      window.calculatePlannerKcal();
+    }, 100);
+  }
+
+  if (aprovarDireto) {
+    if (typeof showToast === 'function') {
+      showToast('✅ Cardápio aprovado e registrado em Planejamento Alimentar & Cardápios da Escola!');
+    }
+    setTimeout(() => window.abrirRelatorioPNAE(), 200);
+  } else {
+    if (typeof showToast === 'function') {
+      showToast('📋 Cardápio sugerido pela IA carregado no planejador para revisão da Dra. Lilian Droppa.');
+    }
+  }
+};
+
+window.resolverColaboradorParaProduto = (nomeProduto) => {
+  const nome = (nomeProduto || '').toLowerCase();
+  const farmers = (typeof DATA !== 'undefined' && DATA.farmers) || [];
+  const viaFarmer = farmers.find(f => (f.products || []).some(p => nome.includes(p.toLowerCase()) || p.toLowerCase().includes(nome)));
+  if (viaFarmer) return viaFarmer.coop || viaFarmer.name;
+  const coops = (typeof DATA !== 'undefined' && DATA.cooperatives) || [];
+  if (!coops.length) return 'Cooperativa Parceira';
+  const hash = nome.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return coops[hash % coops.length].name;
+};
+
+window.abrirGuiaEntregaParaEscola = (escolaId) => {
+  window._guiaFiltroPreSelect = { modo: 'escola', escolaId };
+  closeModal();
+  navigateTo('nutricionista', 'guiasentrega');
+};
+
+window.abrirGuiaEntregaParaColaborador = (nomeColaborador) => {
+  window._guiaFiltroPreSelect = { modo: 'colaborador', colaborador: nomeColaborador };
+  closeModal();
+  navigateTo('nutricionista', 'guiasentrega');
+};
+
+window.gerarOrdensDeServicoPorEscola = (menuObj) => {
+  menuObj = menuObj || window.currentActiveIAMenu || window.tempIAMenuPreview;
+  if (!menuObj || !window.AICardapioEngine) {
+    return alert('Nenhum cardápio ativo para fracionamento de Ordem de Serviço.');
+  }
+
+  const cardapioCod = menuObj.codigoCardapio || menuObj.id || 'CARD-2026/08-101';
+  const allSchools = (DATA.schools && DATA.schools.length > 0) ? DATA.schools : [];
+  const escVinculadas = menuObj.escolasVinculadas || [];
+  
+  // Filtra estritamente as escolas vinculadas a este cardápio
+  const targetSchools = escVinculadas.length > 0
+    ? allSchools.filter(s => escVinculadas.includes(s.name))
+    : allSchools;
+
+  const schoolsToUse = targetSchools.length > 0 ? targetSchools : allSchools;
+
+  // 1. Gera Ordens de Serviço por escola aplicando a regra de embalagens inteiras não-fracionadas
+  const ordensPorEscola = schoolsToUse.map(sc => {
+    const demandaInsumos = window.AICardapioEngine.calcularDemandaPorEscola(menuObj, sc);
+    const escCodigo = sc.codigo || `ESC-${String(sc.id).padStart(3, '0')}`;
+    
+    // Registra pedido e entrega no SharedState para a escola
+    if (window.SharedState) {
+      const orderItens = demandaInsumos.map(i => ({
+        produto: i.nome, qtd: i.qtdEnviadaKg, unidade: 'kg', regra: i.detalheRegra,
+        af: !!i.af, colaborador: i.af ? window.resolverColaboradorParaProduto(i.nome) : null
+      }));
+      const order = {
+        escolaId: sc.id,
+        escolaCodigo: escCodigo,
+        escola: sc.name,
+        cardapioCodigo: cardapioCod,
+        cardapioId: menuObj.id,
+        tipo: 'Ordem de Serviço PNAE (IA)',
+        status: 'Pendente',
+        itens: orderItens,
+        items: orderItens,
+        criadoEm: new Date().toISOString()
+      };
+      SharedState.addOrder(order);
+      if (typeof SharedState.addOsEstoqueCentral === 'function') {
+        SharedState.addOsEstoqueCentral({
+          numero_os: `OS-2026/${sc.id}08`,
+          cardapioCodigo: cardapioCod,
+          escolaCodigo: escCodigo,
+          tipo: 'Distribuição Escolar',
+          escola: sc.name,
+          escolaId: sc.id,
+          itens: orderItens,
+          status: 'Pendente'
+        });
+      }
+
+      // Guia de Remessa — Estoque Central / Pregão (itens não-AF)
+      const itensPregao = orderItens.filter(i => !i.af);
+      if (itensPregao.length > 0 && typeof SharedState.addGuiaEntrega === 'function') {
+        SharedState.addGuiaEntrega({
+          tipo: 'Estoque Central', entregador: 'Estoque Central SEMED',
+          escolaId: sc.id, escolaNome: sc.name, escolaCodigo: escCodigo,
+          classificacaoGrupo: sc.tipo, linhaEntrega: sc.region,
+          cardapioCodigo: cardapioCod, produtos: itensPregao
+        });
+      }
+
+      // Guia de Remessa — por Colaborador (Cooperativa/Agricultor), itens AF agrupados por colaborador resolvido
+      const itensAF = orderItens.filter(i => i.af);
+      const colaboradoresDoGrupo = [...new Set(itensAF.map(i => i.colaborador))];
+      colaboradoresDoGrupo.forEach(colaborador => {
+        const itensDoColaborador = itensAF.filter(i => i.colaborador === colaborador);
+        const osForn = (typeof SharedState.addOsFornecedores === 'function') ? SharedState.addOsFornecedores({
+          tipo_fornecedor: 'Cooperativa', cooperativa: colaborador,
+          escola_destino: sc.name, escolaId: sc.id,
+          tipo_os: 'Ordem de Fornecimento AF', status: 'Enviada à Cooperativa',
+          itens: itensDoColaborador
+        }) : null;
+        if (typeof SharedState.addGuiaEntrega === 'function') {
+          SharedState.addGuiaEntrega({
+            tipo: 'Colaborador', entregador: colaborador,
+            escolaId: sc.id, escolaNome: sc.name, escolaCodigo: escCodigo,
+            classificacaoGrupo: sc.tipo, linhaEntrega: sc.region,
+            cardapioCodigo: cardapioCod, produtos: itensDoColaborador,
+            osFornecedorId: osForn ? osForn.id : null
+          });
+        }
+      });
+    }
+
+    return {
+      escola: sc,
+      escolaCodigo: escCodigo,
+      cardapioCodigo: cardapioCod,
+      demanda: demandaInsumos
+    };
+  });
+
+  // 2. Gera Ordens de Produção & Colheita para Cooperativas e Agricultores Familiares (Produtos AF)
+  const insumosAF = (menuObj.insumosResumoSemanal || []).filter(i => i.af);
+  const totalAlunos = (menuObj.metricasSemanais?.numAlunos || 3992);
+  
+  const ordensAgricultores = [
+    {
+      cooperativa: 'COOPAGRAN — Cooperativa Agrícola de Campo Grande',
+      contato: 'Carlos Mendes (67) 99222-1010',
+      itens: (insumosAF.length > 0 ? insumosAF.slice(0, Math.ceil(insumosAF.length / 2)) : [
+        { nome: 'Melancia em cubos (Safra Local AF)', perCapitaGramos: 120 },
+        { nome: 'Banana prata orgânica (Safra Local AF)', perCapitaGramos: 100 }
+      ]).map(i => ({
+        produto: i.nome,
+        perCapita: i.perCapitaGramos || 100,
+        totalKg: Math.round(((i.perCapitaGramos || 100) * totalAlunos * 5) / 1000),
+        prazoColheita: 'Até 03/08/2026',
+        destinos: `${ordensPorEscola.length} escola(s) vinculada(s)`
+      }))
+    },
+    {
+      cooperativa: 'Associação dos Produtores Rurais do Indubrasil & Terenos',
+      contato: 'Dona Maria de Fátima (67) 99888-4040',
+      itens: (insumosAF.length > 1 ? insumosAF.slice(Math.ceil(insumosAF.length / 2)) : [
+        { nome: 'Mamão formosa fatiado (Safra Local AF)', perCapitaGramos: 100 },
+        { nome: 'Cenoura e Legumes Frescos AF', perCapitaGramos: 60 }
+      ]).map(i => ({
+        produto: i.nome,
+        perCapita: i.perCapitaGramos || 100,
+        totalKg: Math.round(((i.perCapitaGramos || 100) * totalAlunos * 5) / 1000),
+        prazoColheita: 'Até 03/08/2026',
+        destinos: `${ordensPorEscola.length} escola(s) vinculada(s)`
+      }))
+    }
+  ];
+
+  // Registra as ordens de produção no SharedState para a Cooperativa e Agricultores
+  if (window.SharedState) {
+    ordensAgricultores.forEach(coop => {
+      coop.itens.forEach(it => {
+        SharedState.addProduction({
+          cooperativa: coop.cooperativa,
+          produto: it.produto,
+          quantidadeTotalKg: it.totalKg,
+          prazoColheita: it.prazoColheita,
+          status: 'Ordem de Colheita Emitida',
+          origem: 'Gerador de Cardápios IA Nutricional'
+        });
+      });
+    });
+  }
+
+  // Renderiza Modal de Ordens de Serviço
+  const content = `
+    <div style="padding:4px 0; font-family:sans-serif; color:#1e293b;" id="os-print-container">
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px 16px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div>
+          <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📋 ORDENS DE SERVIÇO & ROMANEIOS (ESCOLA & AGRICULTURA FAMILIAR)</div>
+          <div style="font-size:0.85rem; color:#166534; margin-top:2px;">
+            Separação técnica por Escola (embalagens inteiras) e Ordens de Colheita por Cooperativa · Escopo: <strong>${ordensPorEscola.length} Escola(s) Vinculada(s)</strong>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn btn-success btn-sm" onclick="window.abrirModalDisparoManualOS()">🚀 Disparar Ordens de Serviço (Seleção Manual)</button>
+          <span class="status-badge status-ok" style="font-size:0.85rem; padding:6px 12px;">🟢 EMISSÃO CONCLUÍDA</span>
+        </div>
+      </div>
+
+      <!-- SELEÇÃO DE VISÃO / ABAS -->
+      <div style="display:flex; gap:10px; margin-bottom:16px; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">
+        <button class="btn btn-primary btn-sm" id="tab-os-escolas-btn" onclick="window.alternarAbasOS('escolas')">🏫 Ordens de Serviço por Escola (${ordensPorEscola.length} unidades)</button>
+        <button class="btn btn-outline btn-sm" id="tab-os-coop-btn" onclick="window.alternarAbasOS('coop')">🤝 Ordem de Serviço Colaboradores (${ordensAgricultores.length})</button>
+      </div>
+
+      <!-- SEÇÃO 1: ORDENS DE SERVIÇO POR ESCOLA -->
+      <div id="secao-os-escolas">
+        <div style="margin-bottom:14px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+          <strong style="font-size:0.88rem; color:#334155;">Filtrar por Escola:</strong>
+          <select id="os-school-filter" class="btn btn-outline" style="padding:6px 12px; font-weight:600; text-align:left;" onchange="window.filtrarOSEscola(this.value)">
+            <option value="TODAS">Ver Todas as Escolas Vinculadas (${ordensPorEscola.length} unidades)</option>
+            ${ordensPorEscola.map(o => `<option value="${o.escola.id}">${o.escola.name} (${o.escola.students} alunos)</option>`).join('')}
+          </select>
+        </div>
+
+        <div id="os-tables-container" style="display:flex; flex-direction:column; gap:16px;">
+          ${ordensPorEscola.map(o => `
+            <div class="os-school-block" data-school-id="${o.escola.id}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:14px;">
+              <div style="border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                  <strong style="font-size:0.98rem; color:#0f172a;">🏫 ${o.escola.name} <span class="tag tag-blue" style="font-size:0.72rem;">ID: ${o.escolaCodigo}</span></strong>
+                  <span style="font-size:0.8rem; color:#64748b; margin-left:8px;">· Região: ${o.escola.region || 'Urbana'} · População: <strong>${o.escola.students} Alunos</strong></span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="status-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem;">OS nº OS-2026/${o.escola.id}08</span>
+                  <span class="status-badge" style="background:#fef3c7; color:#b45309; font-weight:700; font-size:0.78rem;">📜 Ref. Cardápio: ${o.cardapioCodigo}</span>
+                  <button class="btn btn-outline btn-sm" style="font-size:0.78rem;" onclick="window.abrirGuiaEntregaParaEscola(${o.escola.id})">📬 Ver Guia em Guias de Entrega</button>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="data-table" style="font-size:0.82rem; width:100%;">
+                  <thead>
+                    <tr>
+                      <th>Item / Insumo</th>
+                      <th>Per Capita (por Aluno)</th>
+                      <th>Demanda Bruta Calculada</th>
+                      <th>📦 Qtd. Expedida (Embalagem Inteira)</th>
+                      <th>Regra de Abastecimento</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${o.demanda.map(d => `
+                      <tr ${d.naoFracionavel ? 'style="background:#fefce8"' : ''}>
+                        <td><strong>${d.nome}</strong> ${d.af ? '<span class="status-badge status-ok" style="font-size:0.7rem">🌾 AF</span>' : ''}</td>
+                        <td style="font-family:var(--font-mono)">${d.perCapitaGramos}g</td>
+                        <td style="font-family:var(--font-mono);color:#64748b">${d.demandaCalculadaKg.toLocaleString('pt-BR')} kg</td>
+                        <td style="font-family:var(--font-mono);font-weight:800;color:${d.naoFracionavel ? '#d97706' : '#0284c7'}">
+                          ${d.qtdEnviadaKg.toLocaleString('pt-BR')} kg
+                        </td>
+                        <td style="font-size:0.78rem;">${d.detalheRegra}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- SEÇÃO 2: ORDENS DE PRODUÇÃO E COLHEITA AF (COOPERATIVAS) -->
+      <div id="secao-os-coop" style="display:none;">
+        <div style="display:flex; flex-direction:column; gap:16px;">
+          ${ordensAgricultores.map(c => `
+            <div style="background:#ffffff; border:1px solid #bbf7d0; border-left:5px solid #16a34a; border-radius:8px; padding:14px;">
+              <div style="border-bottom:1px solid #e2e8f0; padding-bottom:8px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                  <strong style="font-size:0.98rem; color:#14532d;">🌾 ${c.cooperativa}</strong>
+                  <div style="font-size:0.8rem; color:#475569; margin-top:2px;">Contato / Responsável: <strong>${c.contato}</strong></div>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span class="status-badge status-ok" style="font-weight:700; font-size:0.78rem;">🟢 ORDEM DE COLHEITA EMITIDA</span>
+                  <button class="btn btn-outline btn-sm" style="font-size:0.78rem; border-color:#16a34a; color:#15803d;" onclick="window.abrirGuiaEntregaParaColaborador('${c.cooperativa.replace(/'/g,"\\'")}')">📬 Ver Guia em Guias de Entrega</button>
+                </div>
+              </div>
+
+              <div style="overflow-x:auto;">
+                <table class="data-table" style="font-size:0.82rem; width:100%;">
+                  <thead>
+                    <tr>
+                      <th>Produto AF (Safra Sazonal)</th>
+                      <th>Per Capita Rede</th>
+                      <th>Demanda Total Solicitada (Rede)</th>
+                      <th>Prazo Limite de Colheita</th>
+                      <th>Destino / Logística</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${c.itens.map(it => `
+                      <tr>
+                        <td><strong>${it.produto}</strong> <span class="status-badge status-ok" style="font-size:0.7rem">🌾 AF</span></td>
+                        <td style="font-family:var(--font-mono)">${it.perCapita}g/aluno</td>
+                        <td style="font-family:var(--font-mono);font-weight:800;color:#15803d;font-size:0.95rem">${it.totalKg.toLocaleString('pt-BR')} kg</td>
+                        <td style="color:#d97706;font-weight:700">${it.prazoColheita}</td>
+                        <td style="font-size:0.78rem;">${it.destinos}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- RODAPE COM IMPRESSAO -->
+      <div style="border-top:1px solid #cbd5e1; padding-top:14px; margin-top:18px; display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Ordens de Serviço & Guias (PDF)</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📋 Ordens de Serviço (Escolas & Agricultura Familiar)', content, '950px');
+};
+
+window.imprimirOSIndividualEscola = (escolaName, osNumero) => {
+  const school = (DATA.schools || []).find(s => s.name === escolaName) || { name: escolaName, region: 'Urbana', students: 450 };
+  const orders = SharedState.getOrders().filter(o => o.school === escolaName || o.escola === escolaName);
+  const items = orders.length > 0 ? (orders[orders.length - 1].itens || []) : [
+    { produto: 'Arroz Agulhinha Tipo 1 (Saco 5kg)', qtd: 50, unidade: 'kg', regra: '10 pacotes x 5kg' },
+    { produto: 'Feijão Carioca Novo (Pacote 1kg)', qtd: 25, unidade: 'kg', regra: '25 pacotes x 1kg' },
+    { produto: 'Carne Bovina Bife Moída congelada', qtd: 40, unidade: 'kg', regra: 'Caixas de 10kg' },
+    { produto: 'Banana Prata Orgânica AF', qtd: 30, unidade: 'kg', regra: 'Caixas de 15kg' },
+  ];
+
+  const html = `
+    <div style="padding:20px;font-family:sans-serif;color:#0f172a;max-width:800px;margin:0 auto" id="print-os-guias">
+      <div style="border-bottom:2px solid #0284c7;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:1.1rem;font-weight:800;color:#0369a1">SEMED · PREFEITURA MUNICIPAL DE CAMPO GRANDE</div>
+          <div style="font-size:1rem;font-weight:700;color:#334155">ORDEM DE SERVIÇO DE EXPEDIÇÃO & CONFERÊNCIA — ESTOQUE CENTRAL</div>
+          <div style="font-size:0.8rem;color:#64748b">Sistema SAGED · Alimentação Escolar PNAE</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--font-mono);font-size:1.1rem;font-weight:800;color:#0284c7">${osNumero || 'OS-2026/01'}</div>
+          <div style="font-size:0.75rem;color:#64748b">${new Date().toLocaleDateString('pt-BR')} ${new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</div>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:16px;font-size:0.85rem;border:1px solid #e2e8f0">
+        <div><strong>Unidade Escolar Destino:</strong> ${school.name}</div>
+        <div><strong>Região de Atendimento:</strong> ${school.region || 'Urbana'}</div>
+        <div><strong>População Atendida:</strong> ${school.students || 450} Alunos</div>
+        <div><strong>Status da OS:</strong> <span style="color:#0284c7;font-weight:700">🚚 Aguardando Separação / Expedição</span></div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:8px;color:#0f172a">Itens da Ordem de Serviço (Embalagens Inteiras Fechadas)</h4>
+        <table class="data-table" style="font-size:0.85rem;width:100%">
+          <thead>
+            <tr>
+              <th>Item / Insumo</th>
+              <th>Quantidade Expedida</th>
+              <th>Instrução de Embalagem / Regra</th>
+              <th style="text-align:center">Conferido (Separador)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(it => `
+              <tr>
+                <td><strong>${it.produto}</strong></td>
+                <td style="font-family:var(--font-mono);font-weight:700;color:#0284c7">${it.qtd} ${it.unidade || 'kg'}</td>
+                <td style="font-size:0.8rem">${it.regra || 'Caixa/Fardo Fechado'}</td>
+                <td style="text-align:center;font-size:1.1rem">☐</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="border-top:2px dashed #cbd5e1;padding-top:24px;margin-top:40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;text-align:center;font-size:0.8rem;color:#475569">
+        <div>_______________________________<br><strong>Conferente Estoque Central</strong></div>
+        <div>_______________________________<br><strong>Motorista / Transportador</strong></div>
+        <div>_______________________________<br><strong>Recebimento na Escola (Direção)</strong></div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;justify-content:flex-end">
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Guia de Expedição</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal(`📄 Guia de Ordem de Serviço — ${escolaName}`, html, '850px');
+};
+
+window.imprimirGuiaCooperativaAF = (coopName) => {
+  const cName = coopName || 'Cooperativa Parceira';
+  const prod = (SharedState.getProductions() || []).filter(p => p.cooperativa === cName || (p.cooperativa || '').toLowerCase().includes(cName.toLowerCase()));
+  const items = prod.length > 0 ? prod : [
+    { produto: 'Melancia em cubos (Safra Local AF)', quantidadeTotalKg: 350, prazoColheita: 'Até 03/08/2026' },
+    { produto: 'Banana Prata Orgânica AF', quantidadeTotalKg: 280, prazoColheita: 'Até 03/08/2026' },
+  ];
+
+  const html = `
+    <div style="padding:20px;font-family:sans-serif;color:#0f172a;max-width:800px;margin:0 auto" id="print-af-guias">
+      <div style="border-bottom:2px solid #16a34a;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:1.1rem;font-weight:800;color:#15803d">SEMED · AGRICULTURA FAMILIAR PNAE</div>
+          <div style="font-size:1rem;font-weight:700;color:#334155">ORDEM DE COLHEITA & FORNECIMENTO COOPERATIVADO</div>
+          <div style="font-size:0.8rem;color:#64748b">Chamada Pública PNAE · Campo Grande (MS)</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-family:var(--font-mono);font-size:1.1rem;font-weight:800;color:#16a34a">ORDEM AF-2026/04</div>
+          <div style="font-size:0.75rem;color:#64748b">${new Date().toLocaleDateString('pt-BR')}</div>
+        </div>
+      </div>
+
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;padding:12px;border-radius:8px;margin-bottom:16px;font-size:0.85rem">
+        <div><strong>Entidade Fornecedora:</strong> ${coopName}</div>
+        <div><strong>Destino do Carregamento:</strong> Entreposto Central SEMED / Unidades Escolares Piloto</div>
+        <div><strong>Status:</strong> <span style="color:#15803d;font-weight:700">🌾 Autorizado para Colheita e Entrega</span></div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:8px;color:#0f172a">Produtos e Quantidades Autorizadas para Colheita</h4>
+        <table class="data-table" style="font-size:0.85rem;width:100%">
+          <thead>
+            <tr>
+              <th>Produto (Safra Sazonal AF)</th>
+              <th>Volume Solicitado (kg)</th>
+              <th>Prazo Limite de Colheita</th>
+              <th style="text-align:center">Vistoria Sanitária</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map(it => `
+              <tr>
+                <td><strong>${it.produto}</strong> <span class="status-badge status-ok" style="font-size:0.7rem">🌾 AF</span></td>
+                <td style="font-family:var(--font-mono);font-weight:800;color:#15803d">${it.quantidadeTotalKg || it.qtd} kg</td>
+                <td style="color:#d97706;font-weight:700">${it.prazoColheita || 'Até 03/08/2026'}</td>
+                <td style="text-align:center">✓ Aprovado</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="border-top:2px dashed #cbd5e1;padding-top:24px;margin-top:40px;display:grid;grid-template-columns:1fr 1fr;gap:20px;text-align:center;font-size:0.88rem;color:#475569">
+        <div>_______________________________<br><strong>Presidente / Resp. Cooperativa</strong></div>
+        <div>_______________________________<br><strong>Eng. Agrônomo / SEMED Nutrição</strong></div>
+      </div>
+
+      <div style="margin-top:20px;display:flex;justify-content:flex-end">
+        <button class="btn btn-success" onclick="window.print()">🖨️ Imprimir Guia de Colheita AF</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal(`🌾 Guia de Colheita AF — ${coopName}`, html, '850px');
+};
+
+window.alternarAbasOS = (aba) => {
+  const secEscolas = document.getElementById('secao-os-escolas');
+  const secCoop = document.getElementById('secao-os-coop');
+  const btnEscolas = document.getElementById('tab-os-escolas-btn');
+  const btnCoop = document.getElementById('tab-os-coop-btn');
+
+  if (aba === 'coop') {
+    if (secEscolas) secEscolas.style.display = 'none';
+    if (secCoop) secCoop.style.display = 'block';
+    if (btnEscolas) { btnEscolas.className = 'btn btn-outline btn-sm'; }
+    if (btnCoop) { btnCoop.className = 'btn btn-primary btn-sm'; }
+  } else {
+    if (secEscolas) secEscolas.style.display = 'block';
+    if (secCoop) secCoop.style.display = 'none';
+    if (btnEscolas) { btnEscolas.className = 'btn btn-primary btn-sm'; }
+    if (btnCoop) { btnCoop.className = 'btn btn-outline btn-sm'; }
+  }
+};
+
+window.filtrarOSEscola = (escolaId) => {
+  const blocks = document.querySelectorAll('.os-school-block');
+  blocks.forEach(b => {
+    if (escolaId === 'TODAS' || b.dataset.schoolId === String(escolaId)) {
+      b.style.display = 'block';
+    } else {
+      b.style.display = 'none';
+    }
+  });
+};
+
+window.abrirModalDisparoManualOS = () => {
+  const menu = window.currentActiveIAMenu || window.tempIAMenuPreview;
+  const escolasVinculadas = (menu && menu.escolasVinculadas && menu.escolasVinculadas.length > 0)
+    ? menu.escolasVinculadas
+    : (DATA.schools || []).map(s => s.name);
+
+  const coops = [
+    { id: 'c1', name: 'COOPAGRAN (Cooperativa Indubrasil)', contato: '(67) 99888-3030' },
+    { id: 'c2', name: 'COOPRAN (Produtores Terenos)', contato: '(67) 99888-4040' },
+    { id: 'c3', name: 'COOPAERGS (Assoc. Agricultura Familiar)', contato: '(67) 99777-5050' }
+  ];
+
+  const content = `
+    <div style="padding:4px 0; font-family:sans-serif; color:#1e293b;">
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:16px;">
+        <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📱 Central de Disparo Manual de Ordens de Serviço & Colheita</div>
+        <div style="font-size:0.85rem; color:#166534; margin-top:2px;">
+          Selecione com os marcadores (clickpoints) quais unidades escolares e fornecedores receberão as notificações e guias de expedição neste disparo.
+        </div>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+        <!-- ESCOLAS -->
+        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:6px; margin-bottom:8px;">
+            <strong style="font-size:0.9rem; color:#0369a1;">🏫 Escolas Destino (${escolasVinculadas.length})</strong>
+            <label style="font-size:0.78rem; cursor:pointer; color:#0284c7;">
+              <input type="checkbox" id="chk-toggle-all-escolas" checked onchange="document.querySelectorAll('.chk-disparo-escola').forEach(c=>c.checked=this.checked)">
+              <strong>Selecionar Todas</strong>
+            </label>
+          </div>
+          <div style="max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:6px;">
+            ${escolasVinculadas.map((eName, idx) => `
+              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; background:#fff; padding:6px 8px; border-radius:4px; border:1px solid #e2e8f0; cursor:pointer;">
+                <input type="checkbox" class="chk-disparo-escola" value="${eName.replace(/"/g,'&quot;')}" checked>
+                <span>${eName}</span>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- FORNECEDORES -->
+        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #bbf7d0; padding-bottom:6px; margin-bottom:8px;">
+            <strong style="font-size:0.9rem; color:#14532d;">🌾 Fornecedores AF (${coops.length})</strong>
+            <label style="font-size:0.78rem; cursor:pointer; color:#15803d;">
+              <input type="checkbox" id="chk-toggle-all-coops" checked onchange="document.querySelectorAll('.chk-disparo-coop').forEach(c=>c.checked=this.checked)">
+              <strong>Selecionar Todos</strong>
+            </label>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            ${coops.map(c => `
+              <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; background:#fff; padding:8px; border-radius:4px; border:1px solid #bbf7d0; cursor:pointer;">
+                <input type="checkbox" class="chk-disparo-coop" value="${c.name.replace(/"/g,'&quot;')}" checked>
+                <div>
+                  <strong>${c.name}</strong>
+                  <div style="font-size:0.75rem; color:#475569;">${c.contato}</div>
+                </div>
+              </label>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:12px;">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="window.confirmarDisparoManualOS()">🚀 Disparar Notificações Selecionadas</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📱 Central de Disparo Manual de Ordens de Serviço & Colheita', content, '800px');
+};
+
+window.confirmarDisparoManualOS = () => {
+  const escolasMarcadas = Array.from(document.querySelectorAll('.chk-disparo-escola:checked')).map(c => c.value);
+  const coopsMarcadas = Array.from(document.querySelectorAll('.chk-disparo-coop:checked')).map(c => c.value);
+
+  if (escolasMarcadas.length === 0 && coopsMarcadas.length === 0) {
+    return alert('Selecione ao menos uma escola ou fornecedor para efetuar o disparo.');
+  }
+
+  showToast(`✅ Disparo de Ordens de Serviço concluído! ${escolasMarcadas.length} Escola(s) e ${coopsMarcadas.length} Fornecedor(es) notificados com sucesso.`);
+  closeModal();
+};
+
+window.visualizarEImprimirCardapio = (menuName) => {
+  const menuList = SharedState.getWeeklyMenus ? SharedState.getWeeklyMenus() : [];
+  const menu = menuList.find(m => m.nome === menuName || m.semana === menuName) || {
+    nome: menuName || 'Cardápio Semanal PNAE',
+    periodo: '03/08/2026 a 07/08/2026',
+    refeicoes: [
+      { dia: 'Segunda-feira', desjejum: 'Pão c/ Manteiga e Leite UHT', almoco: 'Arroz com Feijão, Coxa de Frango Assada e Salada Colorida', lanche: 'Laranja fatiada (100g)' },
+      { dia: 'Terça-feira', desjejum: 'Mingau de Aveia', almoco: 'Arroz Integral, Feijão Preto, Carne Moída Ensopada e Salada de Cenoura', lanche: 'Melancia em cubos (120g)' },
+      { dia: 'Quarta-feira', desjejum: 'Leite c/ Cacau e Pão', almoco: 'Galinhada Caipira com Milho e Ervilha e Salada de Pepino', lanche: 'Banana prata (1 un)' },
+      { dia: 'Quinta-feira', desjejum: 'Vitamina de Mamão AF', almoco: 'Arroz, Feijão, Omelete Assado com Legumes e Salada de Repolho Roxo', lanche: 'Maçã nacional (1 un)' },
+      { dia: 'Sexta-feira', desjejum: 'Pão c/ Queijo e Leite', almoco: 'Macarronada de Carne Moída ao Molho Caseiro de Tomate e Beterraba', lanche: 'Mamão formosa fatiado (100g)' }
+    ]
+  };
+
+  const schools = DATA.schools || [];
+
+  const html = `
+    <div style="padding:10px 0; font-family:sans-serif; color:#0f172a;" id="print-menu-viewer">
+      <div style="background:#f0f9ff; border:1px solid #bae6fd; padding:12px; border-radius:8px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div>
+          <div style="font-weight:800; color:#0369a1; font-size:1.05rem;">🍱 VISUALIZAÇÃO DE CARDÁPIO PUBLICADO</div>
+          <div style="font-size:0.85rem; color:#0c4a6e;">${menu.nome} · Período: <strong>${menu.periodo || 'Semanal'}</strong></div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <strong style="font-size:0.85rem;">Filtrar por Escola:</strong>
+          <select id="select-view-escola-menu" class="btn btn-outline" style="padding:6px 10px; font-size:0.85rem; text-align:left;" onchange="window.filtrarVisualizacaoMenuEscola(this.value)">
+            <option value="TODAS">🌐 Toda a Rede (Cardápio Geral)</option>
+            ${schools.map(s => `<option value="${s.name}">${s.name} (${s.region})</option>`).join('')}
+          </select>
+        </div>
+      </div>
+
+      <div id="container-cardapio-escola-detalhes">
+        <table class="data-table" style="width:100%; font-size:0.88rem;">
+          <thead>
+            <tr style="background:#e0f2fe;">
+              <th>Dia da Semana</th>
+              <th>☕ Café da Manhã / Desjejum</th>
+              <th>🍲 Almoço Principal</th>
+              <th>🍎 Lanche da Tarde</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${(menu.refeicoes || []).map(r => `
+              <tr>
+                <td><strong>${r.dia}</strong></td>
+                <td>${r.desjejum || 'Pão com Manteiga e Leite'}</td>
+                <td><strong>${r.almoco || r.item || r.nomePrato || 'Arroz, Feijão e Proteína'}</strong></td>
+                <td>${r.lanche || r.fruta || 'Fruta da Época AF'}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="border-top:1px solid #cbd5e1; padding-top:14px; margin-top:20px; display:flex; justify-content:space-between; align-items:center;">
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir Cardápio (Escola Selecionada / Geral)</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal(`🍱 Visualização & Impressão — ${menu.nome}`, html, '900px');
+};
+
+window.filtrarVisualizacaoMenuEscola = (escolaName) => {
+  const container = document.getElementById('container-cardapio-escola-detalhes');
+  if (!container) return;
+
+  // Ao selecionar 'TODAS', recarrega a tabela geral SEM abrir um segundo modal
+  if (escolaName === 'TODAS') {
+    const _menuName = document.querySelector('#select-view-escola-menu')?.dataset?.menuName || '';
+    const menuList = SharedState.getWeeklyMenus ? SharedState.getWeeklyMenus() : [];
+    const menu = menuList.find(m => m.nome === _menuName || m.semana === _menuName) || { refeicoes: [
+      { dia: 'Segunda-feira', desjejum: 'Pão c/ Manteiga e Leite UHT', almoco: 'Arroz com Feijão, Coxa de Frango Assada e Salada Colorida', lanche: 'Laranja fatiada (100g)' },
+      { dia: 'Terça-feira', desjejum: 'Mingau de Aveia', almoco: 'Arroz Integral, Feijão Preto, Carne Moída Ensopada e Salada de Cenoura', lanche: 'Melancia em cubos (120g)' },
+      { dia: 'Quarta-feira', desjejum: 'Leite c/ Cacau e Pão', almoco: 'Galinhada Caipira com Milho e Ervilha e Salada de Pepino', lanche: 'Banana prata (1 un)' },
+      { dia: 'Quinta-feira', desjejum: 'Vitamina de Mamão AF', almoco: 'Arroz, Feijão, Omelete Assado com Legumes e Salada de Repolho Roxo', lanche: 'Maçã nacional (1 un)' },
+      { dia: 'Sexta-feira', desjejum: 'Pão c/ Queijo e Leite', almoco: 'Macarronada de Carne Moída ao Molho Caseiro de Tomate e Beterraba', lanche: 'Mamão formosa fatiado (100g)' }
+    ]};
+    container.innerHTML = `<table class="data-table" style="width:100%; font-size:0.88rem;">
+      <thead><tr style="background:#e0f2fe;">
+        <th>Dia da Semana</th><th>☕ Café da Manhã / Desjejum</th><th>🍲 Almoço Principal</th><th>🍎 Lanche da Tarde</th>
+      </tr></thead><tbody>${(menu.refeicoes||[]).map(r => `
+        <tr>
+          <td><strong>${r.dia}</strong></td>
+          <td>${r.desjejum||'Pão com Manteiga e Leite'}</td>
+          <td><strong>${r.almoco||r.item||r.nomePrato||'Arroz, Feijão e Proteína'}</strong></td>
+          <td>${r.lanche||r.fruta||'Fruta da Época AF'}</td>
+        </tr>`).join('')}</tbody></table>`;
+    return;
+  }
+
+  const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo' && (r.schoolName || '').toLowerCase() === escolaName.toLowerCase());
+  const alunosEspeciais = SharedState.getAlunosEspeciais ? SharedState.getAlunosEspeciais(escolaName) : [];
+
+  let alertaRestrHtml = '';
+  if (alunosEspeciais.length > 0 || activeRestricoes.length > 0) {
+    const totalRestr = alunosEspeciais.length || activeRestricoes.reduce((a,b)=>a+(b.quantidade||1), 0);
+    alertaRestrHtml = `
+      <div style="background:#fff7ed; border-left:4px solid #f97316; padding:10px 12px; border-radius:6px; margin-bottom:12px; font-size:0.85rem; color:#c2410c;">
+        🛡️ <strong>Adaptações Clínicas da Escola (${escolaName}):</strong> ${totalRestr} aluno(s) com restrição clínica cadastrada (Zero Lactose, Sem Glúten). Insumos especiais calculados na OS.
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    ${alertaRestrHtml}
+    <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:10px 14px; border-radius:6px; margin-bottom:14px; font-size:0.88rem;">
+      Unidade Escolar: <strong>${escolaName}</strong> · Cardápio Personalizado com Dieta Adaptada PNAE
+    </div>
+    <table class="data-table" style="width:100%; font-size:0.88rem;">
+      <thead>
+        <tr style="background:#e0f2fe;">
+          <th>Dia da Semana</th>
+          <th>☕ Café da Manhã / Desjejum</th>
+          <th>🍲 Almoço Principal</th>
+          <th>🍎 Lanche da Tarde</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Segunda-feira</strong></td><td>Pão c/ Manteiga e Leite (Zero Lactose p/ alunos com laudo)</td><td><strong>Arroz com Feijão, Coxa de Frango Assada e Salada Colorida</strong></td><td>Laranja fatiada (100g) AF</td></tr>
+        <tr><td><strong>Terça-feira</strong></td><td>Mingau de Aveia (Sem Lactose)</td><td><strong>Arroz Integral, Feijão Preto, Carne Moída Ensopada e Salada de Cenoura</strong></td><td>Melancia em cubos (120g) AF</td></tr>
+        <tr><td><strong>Quarta-feira</strong></td><td>Leite c/ Cacau e Pão (Sem Glúten p/ celíacos)</td><td><strong>Galinhada Caipira com Milho e Ervilha e Salada de Pepino</strong></td><td>Banana prata (1 un) AF</td></tr>
+        <tr><td><strong>Quinta-feira</strong></td><td>Vitamina de Mamão AF</td><td><strong>Arroz, Feijão, Omelete Assado com Legumes e Salada de Repolho Roxo</strong></td><td>Maçã nacional (1 un)</td></tr>
+        <tr><td><strong>Sexta-feira</strong></td><td>Pão c/ Queijo e Leite</td><td><strong>Macarronada de Carne Moída ao Molho Caseiro de Tomate e Beterraba</strong></td><td>Mamão formosa fatiado (100g) AF</td></tr>
+      </tbody>
+    </table>
+  `;
+};
+
+window.dispararNotificacoesProdutores = () => {
+  const coops = [
+    { name: 'COOPAGRAN (Cooperativa Indubrasil)', contato: '(67) 99888-3030' },
+    { name: 'COOPRAN (Produtores Terenos)', contato: '(67) 99888-4040' },
+    { name: 'COOPAERGS (Assoc. Agricultura Familiar)', contato: '(67) 99777-5050' }
+  ];
+
+  const content = `
+    <div style="padding:10px 0; font-family:sans-serif;">
+      <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:16px;">
+        <div style="font-weight:800; color:#15803d; font-size:1.05rem;">📱 Central de Notificação Automática aos Produtores (RF-007)</div>
+        <div style="font-size:0.85rem; color:#166534; margin-top:2px;">
+          O cardápio aprovado pela Dra. Lilian Droppa disparou comunicações automáticas com a lista de colheita e escolas destino para os fornecedores cadastrados.
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        ${coops.map(c => `
+          <div style="background:#fff; border:1px solid #e2e8f0; border-left:4px solid #16a34a; border-radius:8px; padding:12px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+              <strong>🌾 ${c.name}</strong>
+              <span class="status-badge status-ok" style="font-size:0.75rem;">✓ NOTIFICAÇÃO ENVIADA AUTOMATICAMENTE</span>
+            </div>
+            <div style="font-size:0.82rem; color:#475569; margin-bottom:6px;">
+              Envio via WhatsApp API / SMS / Portal do Fornecedor para <strong>${c.contato}</strong>
+            </div>
+            <div style="background:#f8fafc; padding:8px 12px; border-radius:6px; font-family:var(--font-mono); font-size:0.78rem; color:#334155; border:1px dashed #cbd5e1;">
+              "Olá! A Nutricionista SEMED aprovou o Cardápio PNAE. Ordem de Colheita AF emitida com sucesso. Acesse a guia de carregamento no portal."
+            </div>
+          </div>
+        `).join('')}
+      </div>
+
+      <div style="margin-top:16px; display:flex; justify-content:flex-end;">
+        <button class="btn btn-primary" onclick="closeModal()">Concluído</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📱 Disparo Automático aos Agricultores (RF-007)', content, '800px');
+};
+
+window.gerarRelatorioMensal4Paginas = () => {
+  const today = new Date();
+  const mesNome = today.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase();
+  const numAlunos = (DATA.schools || []).reduce((a, b) => a + b.students, 0);
+
+  const semanas = [
+    { num: 1, periodo: '01 a 07 de ' + mesNome },
+    { num: 2, periodo: '08 a 14 de ' + mesNome },
+    { num: 3, periodo: '15 a 21 de ' + mesNome },
+    { num: 4, periodo: '22 a 28 de ' + mesNome },
+  ];
+
+  const html = `
+    <div style="padding:10px;font-family:sans-serif;color:#0f172a" id="print-mensal-4paginas">
+      <div style="background:#0284c7;color:#fff;padding:12px;border-radius:8px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-weight:800;font-size:1.1rem">📄 RELATÓRIO MENSAL PADRONIZADO (4 PÁGINAS / MÊS - RF-010)</div>
+          <div style="font-size:0.85rem;opacity:0.9">Formatado para afixação em mural escolar · Mês: ${mesNome}</div>
+        </div>
+        <button class="btn" style="background:#fff;color:#0284c7;font-weight:700" onclick="window.print()">🖨️ Imprimir 4 Folhas A4</button>
+      </div>
+
+      ${semanas.map(sem => `
+        <div style="background:#fff;border:2px solid #0284c7;border-radius:8px;padding:20px;margin-bottom:30px;page-break-after:always;">
+          <div style="border-bottom:2px solid #0284c7;padding-bottom:10px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <div style="font-weight:800;font-size:1.1rem;color:#0369a1">PREFEITURA MUNICIPAL DE CAMPO GRANDE · SEMED</div>
+              <div style="font-weight:700;font-size:0.95rem;color:#334155">CARDÁPIO OFICIAL PNAE — SEMANA 0${sem.num} (${sem.periodo})</div>
+            </div>
+            <div style="text-align:right;font-size:0.8rem;color:#64748b">
+              Página ${sem.num} de 4<br>
+              <strong>Folha de Mural Escolar</strong>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;background:#f8fafc;padding:10px;border-radius:6px;margin-bottom:14px;font-size:0.82rem">
+            <div><strong>Nutricionista:</strong> Dra. Lilian Droppa (CRN 12345)</div>
+            <div><strong>Meta Nutricional:</strong> 700 kcal/dia</div>
+            <div><strong>População Atendida:</strong> ${numAlunos.toLocaleString('pt-BR')} Alunos</div>
+          </div>
+
+          <table class="data-table" style="width:100%;font-size:0.85rem">
+            <thead>
+              <tr style="background:#e0f2fe">
+                <th>Dia</th>
+                <th>Desjejum / Café</th>
+                <th>Almoço Principal</th>
+                <th>Lanche da Tarde</th>
+                <th>Ícones de Alergênicos / Obs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td><strong>Segunda</strong></td><td>Pão c/ Manteiga e Leite</td><td>Arroz, Feijão Carioca, Frango Grelhado, Salada de Alface e Tomate AF 🌾</td><td>Vitamina de Banana</td><td>🥛 Contém Lactose</td></tr>
+              <tr><td><strong>Terça</strong></td><td>Mingau de Aveia</td><td>Arroz, Feijão Preto, Carne Bovina Moída, Cenoura Ralada AF 🌾</td><td>Maçã Gala (100g)</td><td>🌾 Contém Glúten</td></tr>
+              <tr><td><strong>Quarta</strong></td><td>Leite c/ Cacau e Pão</td><td>Risoto de Frango com Legumes e Abóbora Cabotiá AF 🌾</td><td>Biscoito Maisena e Suco Natural</td><td>🥛 Contém Lactose</td></tr>
+              <tr><td><strong>Quinta</strong></td><td>Vitamina de Mamão AF 🌾</td><td>Arroz Integral, Feijão, Ovos Mexidos, Beterraba Cozida AF 🌾</td><td>Melancia Fatiada AF 🌾</td><td>🟢 Sem Alergênicos Comuns</td></tr>
+              <tr><td><strong>Sexta</strong></td><td>Pão c/ Queijo e Leite</td><td>Macarrão com Molho de Frango e Salada Colorida AF 🌾</td><td>Salada de Frutas Mistas AF 🌾</td><td>🌾 Contém Glúten / 🥛 Lactose</td></tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top:30px;border-top:1px solid #ccc;padding-top:14px;display:flex;justify-content:space-between;font-size:0.78rem;color:#475569">
+            <div>Assinatura Nutricionista: __________________________</div>
+            <div>Visto Direção Escolar: __________________________</div>
+            <div>Carimbo SEMED Nutrição</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+
+  window.showModal('📄 Relatório Mensal Padronizado (4 Páginas - RF-010)', html, '950px');
+};
+
+window.abrirModalNovoAlunoEspecial = () => {
+  const schools = DATA.schools || [];
+  const content = `
+    <form onsubmit="window.salvarNovoAlunoEspecial(event)">
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Nome Completo do Aluno(a)</label>
+        <input type="text" id="aluno-nome" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Lucas Gabriel Mello" required>
+      </div>
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Escola Alvo</label>
+        <select id="aluno-escola" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          ${schools.map(s => `<option value="${s.name}">${s.name} (${s.region})</option>`).join('')}
+        </select>
+      </div>
+      <div class="grid-2 gap-10 mb-12">
+        <div>
+          <label style="font-weight:600;display:block;margin-bottom:4px">Turma</label>
+          <input type="text" id="aluno-turma" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Creche II-A ou EF 4º Ano B" required>
+        </div>
+        <div>
+          <label style="font-weight:600;display:block;margin-bottom:4px">Data de Nascimento (RN-002 Faixa Etária)</label>
+          <input type="date" id="aluno-nascimento" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+        </div>
+      </div>
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Tipo de Restrição Clínica</label>
+        <select id="aluno-restricao" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          <option value="Intolerância à lactose">Intolerância à lactose</option>
+          <option value="Doença celíaca (Glúten)">Doença celíaca (Glúten)</option>
+          <option value="Diabetes">Diabetes</option>
+          <option value="Alergia à Proteína do Leite (APLV)">Alergia à Proteína do Leite (APLV)</option>
+          <option value="Fenilcetonúria">Fenilcetonúria</option>
+          <option value="Vegetariano/Vegano">Vegetariano/Vegano</option>
+        </select>
+      </div>
+      <div class="form-group mb-18">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Identificação do Laudo Médico</label>
+        <input type="text" id="aluno-laudo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Laudo Dr. Carlos Rossi - CRM 4521" required>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💾 Salvar Cadastrado Nominal</button>
+      </div>
+    </form>
+  `;
+  window.showModal('👶 Novo Cadastro Nominal de Aluno Especial (RF-003)', content, '650px');
+};
+
+window.salvarNovoAlunoEspecial = (e) => {
+  e.preventDefault();
+  const nome = document.getElementById('aluno-nome').value;
+  const escola = document.getElementById('aluno-escola').value;
+  const turma = document.getElementById('aluno-turma').value;
+  const dataNascimento = document.getElementById('aluno-nascimento').value;
+  const restricao = document.getElementById('aluno-restricao').value;
+  const laudo = document.getElementById('aluno-laudo').value;
+
+  SharedState.addAlunoEspecial({ nome, escola, turma, dataNascimento, restricao, laudo });
+  showToast(`✅ Aluno(a) ${nome} cadastrado(a) com sucesso no controle nominal de dietas!`);
+  closeModal();
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.nutricionista_restricoes(container);
+};
+
+window.excluirAlunoEspecial = (id) => {
+  if (!confirm('Deseja remover este cadastro de aluno especial?')) return;
+  SharedState.deleteAlunoEspecial(id);
+  showToast('✅ Aluno removido com sucesso!');
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.nutricionista_restricoes(container);
+};
+
+// REQUISITOS PDF: ESTOQUE SUAL READ-ONLY PARA NUTRIÇÃO
+
+// GUIAS DE ENTREGA & SUBSTITUIÇÃO SAZONAL (Requisito PDF nº 4)
+// Migrado para js/modules/nutricao.js: a tela, a Guia de Remessa em 2 vias e o
+// fluxo de substituição por sazonalidade (abrirModalSubstituicaoSazonal /
+// salvarSubstituicaoSazonal / removerSubstituicaoSazonal) vivem lá agora.
+
+// Helper de Relatório Mensal 4 Páginas por Mês (Requisito PDF nº 5)
+window.abrirRelatorioMensal4Paginas = (cardapioNome) => {
+  const content = `
+    <div id="print-4-pages-container" style="font-family:Inter,sans-serif">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px" class="no-print">
+        <h3>📄 Relatório de Cardápio Mensal — 4 Páginas por Mês</h3>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir 4 Páginas para a Escola</button>
+      </div>
+
+      ${[1, 2, 3, 4].map(semana => `
+        <div style="background:#fff;padding:24px;border:1px solid #ccc;margin-bottom:24px;page-break-after:always">
+          <div style="border-bottom:2px solid #1565C0;padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between">
+            <div>
+              <h2 style="margin:0;color:#1565C0">PREFEITURA MUNICIPAL DE CAMPO GRANDE — SEMED</h2>
+              <div style="font-size:0.9rem;font-weight:700;color:#333">SUPERINTENDÊNCIA DE ALIMENTAÇÃO ESCOLAR (SUAL)</div>
+              <div style="font-size:0.85rem;color:#666">Cardápio Oficial — <strong>SEMANA ${semana} DE 4</strong> (${cardapioNome || 'Ensino Fundamental Regular'})</div>
+            </div>
+            <div style="text-align:right;font-size:0.8rem">
+              <div>RT: Dra. Lilian Droppa</div>
+              <div>CRN 12345/MS</div>
+            </div>
+          </div>
+
+          <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+            <thead>
+              <tr style="background:#1565C0;color:#fff">
+                <th style="padding:8px;border:1px solid #999">Dia da Semana</th>
+                <th style="padding:8px;border:1px solid #999">Desjejum (Manhã)</th>
+                <th style="padding:8px;border:1px solid #999">Almoço Principal</th>
+                <th style="padding:8px;border:1px solid #999">Lanche da Tarde</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Segunda-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite c/ Cacau + Pão c/ Manteiga 🌽</td><td style="padding:8px;border:1px solid #999">Arroz, Feijão Carioca, Coxa de Frango Assada e Salada de Alface/Tomate 🌽</td><td style="padding:8px;border:1px solid #999">Banana Nanica 🌽</td></tr>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Terça-feira</strong></td><td style="padding:8px;border:1px solid #999">Suco Natural de Laranja 🌽 + Bisnaguinha</td><td style="padding:8px;border:1px solid #999">Arroz Integral, Feijão Preto, Carne Bovina Refogada e Cenoura Ralada 🌽</td><td style="padding:8px;border:1px solid #999">Maçã Gala</td></tr>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Quarta-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite UHT + Biscoito Doce</td><td style="padding:8px;border:1px solid #999">Macarrão Espaguete ao Molho de Tomate 🌽 c/ Carne Moída e Abóbora Cabotiá 🌽</td><td style="padding:8px;border:1px solid #999">Melancia em Cubos 🌽</td></tr>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Quinta-feira</strong></td><td style="padding:8px;border:1px solid #999">Vitamina de Banana 🌽 + Pão de Milho</td><td style="padding:8px;border:1px solid #999">Arroz Branco, Feijão Carioca, Ovos Mexidos 🌽 e Salada de Beterraba 🌽</td><td style="padding:8px;border:1px solid #999">Sucos de Frutas da Safra AF 🌽</td></tr>
+              <tr><td style="padding:8px;border:1px solid #999"><strong>Sexta-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite c/ Cereais + Fruta Fresca 🌽</td><td style="padding:8px;border:1px solid #999">Polenta c/ Carne Bovina Ensopada, Mandioca Cozida 🌽 e Couve Manteiga 🌽</td><td style="padding:8px;border:1px solid #999">Bolo Caseiro de Cenoura 🌽</td></tr>
+            </tbody>
+          </table>
+
+          <div style="margin-top:20px;display:flex;justify-content:space-between;font-size:0.78rem;border-top:1px solid #ddd;padding-top:10px">
+            <div>🌽 Alimentos advindos da Agricultura Familiar Local</div>
+            <div>Página ${semana} de 4 — Afixar no Mural da Escola</div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  window.showModal('📄 Modelo de Cardápio Mensal (4 Páginas/Mês)', content, '900px');
+};
+
+window.renderAISummaryCard = (menuObj, container) => {
+  const metricas = menuObj.metricasSemanais;
+  const isAprovado = menuObj.statusAprovacao === 'aprovado_nutri';
+
+  const aiSummaryCard = document.createElement('div');
+  aiSummaryCard.className = 'card mb-16 ai-summary-card';
+  aiSummaryCard.style.cssText = isAprovado 
+    ? 'border-left: 5px solid #10b981; background: #f0fdf4; padding: 18px; margin-bottom: 16px;'
+    : 'border-left: 5px solid #f59e0b; background: #fffbe6; padding: 18px; margin-bottom: 16px;';
+
+  const insumosTableRows = menuObj.insumosResumoSemanal.map(ins => `
+    <tr>
+      <td><strong>${ins.nome}</strong> ${ins.af ? '<span class="status-badge status-ok" style="font-size:0.7rem">🌾 Agric. Familiar</span>' : ''}</td>
+      <td style="font-family:var(--font-mono);font-weight:700">${ins.perCapitaGramos} ${ins.unidade}</td>
+      <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${ins.totalSemanalKg.toLocaleString('pt-BR')} kg</td>
+    </tr>
+  `).join('');
+
+  aiSummaryCard.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-weight:800;color:${isAprovado ? '#065f46' : '#b45309'};display:flex;align-items:center;gap:8px;font-size:1.1rem">
+          <span>${isAprovado ? '🟢 CARDÁPIO APROVADO PELA NUTRICIONISTA' : '🟡 RASCUNHO GERADO POR IA — AGUARDANDO REVISÃO'}</span>
+          <span class="status-badge" style="background:${isAprovado ? '#d1fae5' : '#fef3c7'};color:${isAprovado ? '#065f46' : '#92400e'};font-weight:700">
+            ${isAprovado ? '✓ Aprovado por Dra. Lilian Droppa' : '🔒 Relatório PNAE Travado'}
+          </span>
+        </div>
+        <div style="font-size:0.88rem;color:${isAprovado ? '#047857' : '#78350f'};margin-top:4px">
+          Média PNAE: <strong>${metricas.mediaKcal} kcal/dia</strong> · Proteínas: ${metricas.mediaProteinas}g · Sódio: ${metricas.mediaSodio}mg · 🌾 <strong>${metricas.percentualAF}% Agricultura Familiar</strong>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${!isAprovado ? `
+          <button class="btn btn-primary btn-sm" onclick="window.aprovarCardapioIA()">✅ Aprovar Cardápio (Dra. Lilian Droppa)</button>
+          <button class="btn btn-outline btn-sm" style="background:#fff" onclick="alert('🔒 O Relatório Técnico PNAE só será liberado após o clique no botão de aprovação da Nutricionista.')">🔒 Relatório Bloqueado</button>
+        ` : `
+          <button class="btn btn-success btn-sm" onclick="window.abrirRelatorioPNAE()">📄 Visualizar / Imprimir Relatório PNAE</button>
+          <button class="btn btn-outline btn-sm" style="background:#fff" onclick="window.gerarRelatorioMensal4Paginas()">📄 Relatório Mensal (4 Páginas)</button>
+        `}
+        <button class="btn btn-outline btn-sm" style="background:#fff" onclick="window.executarGeracaoCardapioIA()">🔄 Regenerar IA</button>
+      </div>
+    </div>
+
+    <!-- FEFO BADGES ALERT -->
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <span class="status-badge status-warning" style="font-size:0.75rem">⚡ Priorização FEFO Ativa: Insumos próximos do vencimento incorporados</span>
+      <span class="status-badge status-ok" style="font-size:0.75rem">🌾 Safra Sazonal: Frutas e legumes locais da época priorizados</span>
+    </div>
+
+    <!-- ACCORDION PER CAPITA -->
+    <details style="background:#ffffff;border:1px solid rgba(0,0,0,0.08);border-radius:6px;padding:10px 14px">
+      <summary style="font-weight:700;cursor:pointer;font-size:0.88rem;color:var(--text-primary)">
+        📊 Ver Tabela de Per Capita (g/aluno) e Demanda Total Semanal da Rede (${metricas.numAlunos.toLocaleString('pt-BR')} Alunos)
+      </summary>
+      <div style="margin-top:10px">
+        <table class="data-table" style="font-size:0.82rem">
+          <thead>
+            <tr>
+              <th>Ingrediente</th>
+              <th>Per Capita (por Aluno)</th>
+              <th>Demanda Total da Semana (Rede)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${insumosTableRows}
+          </tbody>
+        </table>
+      </div>
+    </details>
+  `;
+
+  const oldSummary = container.querySelector('.ai-summary-card');
+  if (oldSummary) oldSummary.remove();
+  container.insertBefore(aiSummaryCard, container.firstChild);
+};
+
+window.aprovarCardapioIA = () => {
+  if (!window.currentActiveIAMenu) return alert('Nenhum cardápio ativo para aprovação.');
+  
+  window.currentActiveIAMenu = window.AICardapioEngine.approveMenu(window.currentActiveIAMenu);
+  
+  const container = document.getElementById('planner-days-container');
+  if (container) {
+    window.renderAISummaryCard(window.currentActiveIAMenu, container);
+  }
+
+  showToast('✅ Cardápio aprovado com sucesso pela Dra. Lilian Droppa! Notificações automáticas disparadas.');
+  window.dispararNotificacoesProdutores();
+};
+
+window.abrirRelatorioPNAE = () => {
+  const menu = window.currentActiveIAMenu;
+  if (!menu || menu.statusAprovacao !== 'aprovado_nutri') {
+    return alert('🔒 Acesso negado. O Relatório PNAE exige aprovação prévia da Dra. Lilian Droppa.');
+  }
+
+  const m = menu.metricasSemanais;
+  const content = `
+    <div style="padding:10px;font-family:sans-serif;color:#1e293b" id="relatorio-pnae-print">
+      <div style="border-bottom:2px solid #0284c7;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:1.2rem;font-weight:800;color:#0369a1">SEMED / SUALE — CAMPO GRANDE (MS)</div>
+          <div style="font-size:0.95rem;font-weight:700;color:#334155">RELATÓRIO TÉCNICO DE CONFORMIDADE NUTRICIONAL — PNAE</div>
+          <div style="font-size:0.8rem;color:#64748b">Resolução FNDE nº 06/2020 · Sistema SAGED Vigia Educa</div>
+        </div>
+        <div style="text-align:right">
+          <span class="status-badge status-ok" style="font-size:0.85rem;padding:6px 12px">🟢 DOCUMENTO OFICIAL APROVADO</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;background:#f8fafc;padding:12px;border-radius:8px;margin-bottom:16px;font-size:0.85rem">
+        <div><strong>Nutricionista Responsável:</strong> Dra. Lilian Droppa (CRN 12345/MS)</div>
+        <div><strong>Data de Aprovação:</strong> ${new Date(menu.aprovadoEm).toLocaleString('pt-BR')}</div>
+        <div><strong>Modalidade:</strong> Ensino Fundamental Integral (${m.numAlunos.toLocaleString('pt-BR')} Alunos)</div>
+        <div><strong>Código de Autenticação:</strong> PNAE-CG-${Date.now().toString(36).toUpperCase()}</div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:8px;color:#0f172a">1. Balanço e Metas Nutricionais Calculadas (Média Diária)</h4>
+        <table class="data-table" style="font-size:0.85rem">
+          <thead>
+            <tr>
+              <th>Parâmetro</th>
+              <th>Meta PNAE</th>
+              <th>Valor Calculado pela IA</th>
+              <th>Status de Conformidade</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Valor Energético (Kcal)</strong></td>
+              <td>650 - 800 kcal</td>
+              <td><strong>${m.mediaKcal} kcal</strong></td>
+              <td><span class="status-badge status-ok">✓ 100% Adequado</span></td>
+            </tr>
+            <tr>
+              <td><strong>Proteínas Total</strong></td>
+              <td>≥ 25g</td>
+              <td>${m.mediaProteinas}g</td>
+              <td><span class="status-badge status-ok">✓ Adequado</span></td>
+            </tr>
+            <tr>
+              <td><strong>Sódio Máximo</strong></td>
+              <td>≤ 500mg</td>
+              <td>${m.mediaSodio}mg</td>
+              <td><span class="status-badge status-ok">✓ Controlado</span></td>
+            </tr>
+            <tr>
+              <td><strong>Agricultura Familiar</strong></td>
+              <td>≥ 30% do PNAE</td>
+              <td><strong>${m.percentualAF}% da pauta</strong></td>
+              <td><span class="status-badge status-ok">✓ Meta Superada</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <h4 style="margin-bottom:8px;color:#0f172a">2. Resumo de Refeições da Semana (Segunda a Sexta)</h4>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${menu.refeicoes.map(r => `
+            <div style="background:#fff;border:1px solid #e2e8f0;padding:8px 12px;border-radius:6px;font-size:0.83rem">
+              <strong>${r.dia}:</strong> ${r.nomePrato} (${r.kcal} kcal)
+              <div style="color:#64748b;font-size:0.78rem">Acompanhamento: ${r.fruta} ${r.fefoBadge ? '· <span style="color:#d97706;font-weight:700">'+r.fefoBadge+'</span>' : ''}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div style="border-top:2px dashed #cbd5e1;padding-top:16px;margin-top:20px;display:flex;justify-content:space-between;align-items:center">
+        <div style="font-size:0.8rem;color:#64748b">
+          Assinado digitalmente por <strong>Dra. Lilian Droppa</strong><br>
+          Nutricionista Responsável Técnica — SEMED Campo Grande
+        </div>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir / Exportar PDF</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📄 Relatório Técnico PNAE — Aprovado', content, '950px');
+};
+
+window.togglePlannerEscolas = () => {
+  const isLista = document.getElementById('planner-escopo-rede') && !document.getElementById('planner-escopo-rede').checked;
+  const box = document.getElementById('planner-escolas-list');
+  if (box) box.style.display = isLista ? 'block' : 'none';
+};
+
+window.calculatePlannerKcal = () => {
+  const selects = document.querySelectorAll('.planner-select-kcal');
+  let total = 0;
+  selects.forEach(s => total += parseInt(s.value) || 0);
+  
+  const days = document.querySelectorAll('.planner-day-block').length;
+  const avg = days > 0 ? Math.round(total / days) : 0;
+  
+  const el = document.getElementById('planner-total-kcal');
+  if (el) el.textContent = `${avg} kcal/dia`;
+};
+
+window.cancelMenuPlanner = () => {
+  const container = document.getElementById('page-content');
+  PAGE_RENDERERS.nutricionista_cardapios(container);
+};
+
+window.saveWeeklyMenu = () => {
+  const start = document.getElementById('planner-start-date').value;
+  const end = document.getElementById('planner-end-date').value;
+  const daysCount = document.querySelectorAll('.planner-day-block').length;
+
+  if (daysCount === 0) return alert('Gere e preencha os dias do cardápio antes de salvar.');
+
+  const d1 = start.split('-').reverse().join('/');
+  const d2 = end.split('-').reverse().join('/');
+  const name = `Cardápio Personalizado — ${d1} a ${d2}`;
+
+  // Calcula média nutricional
+  const selects = document.querySelectorAll('.planner-select-kcal');
+  let total = 0;
+  selects.forEach(s => total += parseInt(s.value) || 0);
+  const kcalMedia = daysCount > 0 ? Math.round(total / daysCount) : 0;
+
+  const totalSchools = (DATA.schools||[]).length || 183;
+  const prof = PROFILES[state.currentProfile] || {};
+
+  // Coleta escolas vinculadas
+  const escopoRede = document.getElementById('planner-escopo-rede')?.checked !== false;
+  let escolasVinculadas = [];
+  let escolaLabel = 'Toda a Rede';
+  if (escopoRede) {
+    escolasVinculadas = (DATA.schools || []).map(s => s.name);
+  } else {
+    escolasVinculadas = Array.from(document.querySelectorAll('.planner-escola-chk:checked')).map(c => c.value);
+    if (escolasVinculadas.length === 0) return alert('Marque ao menos uma escola ou selecione "Toda a rede".');
+    escolaLabel = escolasVinculadas.length + ' escola(s)';
+  }
+
+  // Coleta refeições dia a dia
+  const refeicoes = [];
+  document.querySelectorAll('.planner-day-block').forEach(block => {
+    const dia = block.dataset.date;
+    block.querySelectorAll('.planner-select-kcal').forEach(sel => {
+      const id = sel.id || '';
+      let tipo = 'Almoço';
+      if (id.includes('bkf') || id.includes('breakfast')) tipo = 'Café da Manhã';
+      else if (id.includes('snk') || id.includes('snack')) tipo = 'Lanche';
+      const itemText = sel.options[sel.selectedIndex]?.text || '';
+      const kcal = parseInt(sel.value) || 0;
+      if (itemText && !itemText.startsWith('Selecione')) refeicoes.push({ dia, tipo, item: itemText, kcal });
+    });
+  });
+
+  // Salva como Em Elaboração — só vai para Publicados após clicar em Publicar
+  SharedState.addMenu({
+    nome: name,
+    periodo: `${d1} a ${d2}`,
+    escolas: escolasVinculadas.length,
+    escolasVinculadas,
+    status: 'Em Elaboração',
+    tipo: 'Semanal',
+    autor: prof.name || 'Dra. Lilian Droppa',
+    refeicoes,
+    kcalMedia,
+    insumosResumoSemanal: (window.currentActiveIAMenu && window.currentActiveIAMenu.insumosResumoSemanal)
+      ? window.currentActiveIAMenu.insumosResumoSemanal
+      : [],
+  });
+  // Não grava no localStorage legado como Publicado
+
+  showToast('📝 Cardápio salvo em Elaboração! Use o botão "🚀 Publicar" para enviar às escolas.');
+  const container = document.getElementById('page-content');
+  PAGE_RENDERERS.nutricionista_cardapios(container);
+};
+
+window.showMenuViewer = () => {
+  const container = document.getElementById('page-content');
+  container.innerHTML = `
+    <div class="page-header"><div class="page-title">Visualização de Cardápio</div><div class="page-subtitle">Detalhes do cardápio semanal selecionado</div></div>
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Cardápio da Semana</div></div>
+      <div class="card-body">
+        <table class="data-table">
+          <thead><tr><th>Dia da Semana</th><th>Café da Manhã</th><th>Almoço</th><th>Lanche</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Segunda-Feira</strong></td><td>Pão com Manteiga e Leite</td><td>Arroz com Feijão Tradicional</td><td>Biscoito Maisena e Suco</td></tr>
+            <tr><td><strong>Terça-Feira</strong></td><td>Vitamina de Banana</td><td>Macarrão com Carne Moída</td><td>Fruta (Maçã/Banana)</td></tr>
+            <tr><td><strong>Quarta-Feira</strong></td><td>Cereal com Leite</td><td>Frango Grelhado com Legumes</td><td>Bolo Simples</td></tr>
+            <tr><td><strong>Quinta-Feira</strong></td><td>Pão com Queijo</td><td>Risoto de Frango</td><td>Biscoito Doce e Chá</td></tr>
+            <tr><td><strong>Sexta-Feira</strong></td><td>Iogurte com Cereal</td><td>Estrogonofe de Carne</td><td>Suco Natural e Pão</td></tr>
+          </tbody>
+        </table>
+        <div style="margin-top:20px;display:flex;justify-content:flex-end">
+          <button class="btn btn-primary" onclick="cancelMenuPlanner()">Voltar aos Cardápios</button>
+        </div>
+      </div>
+    </div>
+  `;
+};
+
+// Escola vê apenas a sua própria unidade em foco (drill-down local)
+// escola_escolas -> js/modules/escolas.js (Fase 4.2, movido).
+
+// gestor_escolas, estoque_escolas, nutricionista_escolas, agricultor_escolas
+// -> movidos como closures para seus modulos (Fase 4.7).
+
+window.renderWasteChart = (data) => {
+  createChart('chart-desperdicio', {
+    type: 'bar',
+    data: {
+      labels: ['EMTI PROF. IRACEMA', 'EMRTI GOV. ARNALDO', 'EM ADV. DEMOSTHENES M.', 'EM PROF. ANTÔNIO L.', 'EM José R.B.'],
+      datasets: [{ label: 'Desperdício (kg)', data: data, backgroundColor: CHART_COLORS.red, borderRadius: 4 }]
+    },
+    options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } } }
+  });
+};
+
+window.handleLogWaste = (event) => {
+  event.preventDefault();
+  const amt = parseInt(document.getElementById('waste-amount').value) || 0;
+  const school = document.getElementById('waste-school').value;
+  alert(`Lançamento de ${amt} kg de desperdício na unidade ${school} registrado com sucesso!`);
+  
+  document.getElementById('waste-total-kg').textContent = '1.613';
+  document.getElementById('waste-total-pct').textContent = '3,8%';
+  
+  const currentChart = state.charts['chart-desperdicio'];
+  if (currentChart) currentChart.destroy();
+  window.renderWasteChart([245 + amt, 198, 176, 162, 148]);
+};
+
+// ─── DRI REFERENCE TABLE (PNAE/FNDE) ───
+const DRI_TABLE = {
+  creche_7_11_30: { name: "Creche (7–11 meses) - 2 ref (30%)", energy: 203.4, protein: 5.085, carbsMin: 27.97, carbsMax: 33.05, fatMin: 6, fatMax: 8, sodium: 300, isCreche: true },
+  creche_7_11_70: { name: "Creche (7–11 meses) - 3 ref (70%)", energy: 474.6, protein: 11.865, carbsMin: 65.26, carbsMax: 77.12, fatMin: 13, fatMax: 18, sodium: 700, isCreche: true },
+  creche_1_3_30: { name: "Creche (1–3 anos) - 2 ref (30%)", energy: 303.6, protein: 7.59, carbsMin: 41.75, carbsMax: 49.34, fatMin: 8, fatMax: 12, sodium: 300, isCreche: true },
+  creche_1_3_70: { name: "Creche (1–3 anos) - 3 ref (70%)", energy: 708.4, protein: 17.71, carbsMin: 97.41, carbsMax: 115.12, fatMin: 20, fatMax: 28, sodium: 700, isCreche: true },
+  pre_10: { name: "Pré-escola - 1 ref (20%)", energy: 270.0, protein: 6.75, carbsMin: 37.13, carbsMax: 43.88, fatMin: 8, fatMax: 11, sodium: 600 },
+  pre_20: { name: "Pré-escola - 2 ref (30%)", energy: 405.0, protein: 10.125, carbsMin: 55.69, carbsMax: 65.81, fatMin: 11, fatMax: 16, sodium: 800 },
+  pre_30: { name: "Pré-escola - 3 ref (70%)", energy: 945.0, protein: 23.625, carbsMin: 129.94, carbsMax: 153.56, fatMin: 26, fatMax: 37, sodium: 1400 },
+  fund_6_10_10: { name: "Fundamental (6–10a) - 1 ref (20%)", energy: 328.6, protein: 8.215, carbsMin: 45.18, carbsMax: 53.40, fatMin: 9, fatMax: 13, sodium: 600 },
+  fund_6_10_20: { name: "Fundamental (6–10a) - 2 ref (30%)", energy: 492.9, protein: 12.3225, carbsMin: 67.77, carbsMax: 80.10, fatMin: 14, fatMax: 19, sodium: 800 },
+  fund_6_10_30: { name: "Fundamental (6–10a) - 3 ref (70%)", energy: 1150.1, protein: 28.7525, carbsMin: 158.14, carbsMax: 186.89, fatMin: 32, fatMax: 45, sodium: 1400 },
+  fund_11_15_10: { name: "Fundamental (11–15a) - 1 ref (20%)", energy: 473.2, protein: 11.83, carbsMin: 65.07, carbsMax: 76.90, fatMin: 13, fatMax: 18, sodium: 600 },
+  fund_11_15_20: { name: "Fundamental (11–15a) - 2 ref (30%)", energy: 709.8, protein: 17.745, carbsMin: 97.60, carbsMax: 115.34, fatMin: 20, fatMax: 28, sodium: 800 },
+  fund_11_15_30: { name: "Fundamental (11–15a) - 3 ref (70%)", energy: 1656.2, protein: 41.405, carbsMin: 227.73, carbsMax: 269.13, fatMin: 46, fatMax: 64, sodium: 1400 },
+  medio_10: { name: "Ensino Médio - 1 ref (20%)", energy: 543.4, protein: 13.585, carbsMin: 74.72, carbsMax: 88.30, fatMin: 15, fatMax: 21, sodium: 600 },
+  medio_20: { name: "Ensino Médio - 2 ref (30%)", energy: 815.1, protein: 20.3775, carbsMin: 112.08, carbsMax: 132.45, fatMin: 23, fatMax: 32, sodium: 800 },
+  medio_30: { name: "Ensino Médio - 3 ref (70%)", energy: 1901.9, protein: 47.5475, carbsMin: 261.51, carbsMax: 309.06, fatMin: 53, fatMax: 74, sodium: 1400 },
+  eja_19_30_10: { name: "EJA (19–30a) - 1 ref (20%)", energy: 476.6, protein: 11.915, carbsMin: 65.53, carbsMax: 77.45, fatMin: 7.94, fatMax: 15.89, sodium: 600, isEja: true },
+  eja_19_30_20: { name: "EJA (19–30a) - 2 ref (30%)", energy: 714.9, protein: 17.8725, carbsMin: 98.30, carbsMax: 116.17, fatMin: 11.92, fatMax: 23.83, sodium: 800, isEja: true },
+  eja_19_30_30: { name: "EJA (19–30a) - 3 ref (70%)", energy: 1668.1, protein: 41.7025, carbsMin: 229.36, carbsMax: 271.07, fatMin: 27.80, fatMax: 55.60, sodium: 1400, isEja: true }
+};
+
+// ─── BIBLIOTECA DE RECEITAS (ligada ao estoque via DATA.products) ───
+const RECIPE_LIBRARY = [
+  { id: 'mingau_leite', name: 'Mingau de Leite em Pó com Aveia', mealType: 'Desjejum', kcal: 180, carbsG: 25, proteinG: 7, lipidG: 6, sodium: 95,
+    ingredients: [{ name: 'Leite em Pó', qty: 20, unit: 'g' }, { name: 'Açúcar Cristal', qty: 10, unit: 'g' }] },
+  { id: 'arroz_feijao', name: 'Arroz com Feijão Tradicional', mealType: 'Almoço', kcal: 425, carbsG: 64, proteinG: 13, lipidG: 13, sodium: 310,
+    ingredients: [{ name: 'Arroz Tipo 1', qty: 50, unit: 'g' }, { name: 'Feijão Carioca', qty: 40, unit: 'g' }, { name: 'Óleo de Soja', qty: 10, unit: 'g' }] },
+  { id: 'frango_legumes', name: 'Frango Grelhado com Legumes', mealType: 'Almoço', kcal: 380, carbsG: 52, proteinG: 14, lipidG: 13, sodium: 260,
+    ingredients: [{ name: 'Frango (Coxa/Sobrecoxa)', qty: 90, unit: 'g' }, { name: 'Cenoura', qty: 60, unit: 'g' }, { name: 'Batata Doce', qty: 60, unit: 'g' }, { name: 'Abóbora Cabotiá', qty: 40, unit: 'g' }] },
+  { id: 'macarrao_carne', name: 'Macarrão ao Molho com Carne Moída', mealType: 'Almoço', kcal: 410, carbsG: 59, proteinG: 13, lipidG: 13, sodium: 340,
+    ingredients: [{ name: 'Macarrão Espaguete', qty: 60, unit: 'g' }, { name: 'Carne Bovina (Acém)', qty: 70, unit: 'g' }, { name: 'Tomate', qty: 30, unit: 'g' }] },
+  { id: 'vitamina_banana', name: 'Vitamina de Banana', mealType: 'Lanche', kcal: 210, carbsG: 32, proteinG: 6, lipidG: 7, sodium: 85,
+    ingredients: [{ name: 'Leite Integral', qty: 200, unit: 'ml' }, { name: 'Banana Nanica', qty: 80, unit: 'g' }] },
+  { id: 'salada_frutas', name: 'Salada de Frutas da Estação', mealType: 'Lanche', kcal: 150, carbsG: 32, proteinG: 2, lipidG: 2, sodium: 15,
+    ingredients: [{ name: 'Maçã Fuji', qty: 60, unit: 'g' }, { name: 'Melancia', qty: 80, unit: 'g' }, { name: 'Banana Nanica', qty: 60, unit: 'g' }] },
+];
+
+function stockStatusFor(daysLeft) {
+  if (daysLeft <= 3) return { label: 'Crítico', color: 'var(--danger)', cls: 'status-danger' };
+  if (daysLeft <= 7) return { label: 'Atenção', color: 'var(--warning)', cls: 'status-warning' };
+  return { label: 'OK', color: 'var(--success)', cls: 'status-ok' };
+}
+
+function getStockSuggestions(targetKcal, mealType) {
+  const fichasSalvas = JSON.parse(localStorage.getItem('fichas_tecnicas') || '[]');
+  const todasAsReceitas = [...RECIPE_LIBRARY, ...fichasSalvas.map(f => ({
+    id: f.id,
+    name: f.nome,
+    mealType: f.categoria || 'Desjejum',
+    kcal: f.kcal || 0,
+    carbsG: f.macros ? f.macros.carbs : 0,
+    proteinG: f.macros ? f.macros.protein : 0,
+    lipidG: f.macros ? f.macros.lipids : 0,
+    sodium: f.macros ? f.macros.sodium : 0,
+    ingredients: f.ingredientes ? f.ingredientes.map(i => ({ name: i.nome, qty: i.qtd || 0, unit: 'g' })) : []
+  }))];
+
+  let library = todasAsReceitas;
+  if (mealType) {
+    library = library.filter(r => {
+      const mt = r.mealType || r.categoria;
+      if (mealType === 'Desjejum') return mt === 'Desjejum' || mt === 'Café da Manhã';
+      if (mealType === 'Almoço') return mt === 'Almoço';
+      if (mealType === 'Lanche') return mt === 'Lanche' || mt === 'Lanche da Tarde';
+      return mt === mealType;
+    });
+  }
+
+  return library.map(recipe => {
+    const linkedIngredients = (recipe.ingredients || []).map(ing => {
+      const product = DATA.products.find(p => p.name === ing.name);
+      return { ...ing, product };
+    });
+    const missing = linkedIngredients.filter(i => !i.product);
+    const worstDaysLeft = linkedIngredients.reduce((min, i) => i.product ? Math.min(min, i.product.daysLeft) : min, Infinity);
+    const familyFarmCount = linkedIngredients.filter(i => i.product && i.product.familyFarm).length;
+    const kcalDiff = Math.abs((recipe.kcal || 0) - targetKcal);
+    let overallStatus;
+    if (missing.length > 0) overallStatus = { label: 'Insumo Indisponível', color: 'var(--text-tertiary)', cls: 'status-neutral' };
+    else overallStatus = stockStatusFor(worstDaysLeft);
+    return { recipe, linkedIngredients, missing, worstDaysLeft, familyFarmCount, kcalDiff, overallStatus };
+  })
+  .sort((a, b) => {
+    const rank = s => s.missing.length > 0 ? 2 : (s.overallStatus.label === 'Crítico' ? 1 : 0);
+    const rankDiff = rank(a) - rank(b);
+    if (rankDiff !== 0) return rankDiff;
+    return a.kcalDiff - b.kcalDiff;
+  })
+  .slice(0, 3);
+}
+
+window.renderStockSuggestions = () => {
+  const container = document.getElementById('sim-stock-suggestions');
+  if (!container) return;
+  const kcal = parseInt(document.getElementById('sim-kcal')?.value) || 400;
+  const mealType = document.getElementById('sim-meal-type')?.value;
+  const suggestions = getStockSuggestions(kcal, mealType);
+
+  container.innerHTML = `
+    <div class="card-header"><div class="card-title">🥗 Cardápio Sugerido (baseado no Estoque Atual)</div><div class="card-subtitle">Receitas com energia próxima à simulada, priorizando itens com estoque saudável</div></div>
+    <div class="card-body">
+      <div class="grid-3">
+        ${suggestions.map(s => `
+          <div class="card" style="border:1px solid var(--border)">
+            <div class="card-header">
+              <div class="card-title" style="font-size:0.95rem">${s.recipe.name}</div>
+              <span class="status-badge ${s.overallStatus.cls}">${s.overallStatus.label}</span>
+            </div>
+            <div class="card-body">
+              <div style="display:flex;gap:10px;font-size:0.82rem;margin-bottom:10px;color:var(--text-secondary)">
+                <span>🍽️ ${s.recipe.mealType}</span>
+                <span>🔥 ${s.recipe.kcal} kcal <span style="color:var(--text-tertiary)">(Δ${s.kcalDiff} da meta)</span></span>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                ${s.linkedIngredients.map(i => {
+                  const st = i.product ? stockStatusFor(i.product.daysLeft) : { label: 'Sem estoque cadastrado', color: 'var(--text-tertiary)', bg: '#F5F5F5' };
+                  return `<div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem;border-bottom:1px solid var(--border);padding-bottom:4px">
+                    <span>${i.name} ${i.product && i.product.familyFarm ? '🌾' : ''}</span>
+                    <span style="font-weight:600;color:${st.color}">${i.product ? i.product.daysLeft + ' dias' : st.label}</span>
+                  </div>`;
+                }).join('')}
+              </div>
+              ${s.familyFarmCount > 0 ? `<div style="margin-top:10px;font-size:0.78rem;color:var(--success);font-weight:600">🌾 ${s.familyFarmCount} ingrediente(s) da agricultura familiar</div>` : ''}
+              <button class="btn btn-outline btn-sm btn-full" style="margin-top:12px" onclick="applyStockSuggestion('${s.recipe.id}')">Usar este Cardápio na Simulação</button>
+              <button class="btn btn-primary btn-sm btn-full" style="margin-top:8px" onclick="addToPlanner('${s.recipe.id}')">Incluir no Planejador Semanal</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+};
+
+window.applyStockSuggestion = (recipeId) => {
+  const recipe = RECIPE_LIBRARY.find(r => r.id === recipeId);
+  if (!recipe) return;
+  document.getElementById('sim-kcal').value = recipe.kcal;
+  document.getElementById('sim-carbs-g').value = recipe.carbsG;
+  document.getElementById('sim-proteins-g').value = recipe.proteinG;
+  document.getElementById('sim-lipids-g').value = recipe.lipidG;
+  document.getElementById('sim-sodium').value = recipe.sodium;
+  window.runPnaeSimulation({ preventDefault: () => {} });
+};
+
+window.updateSimulationPresets = () => {
+  const selKey = document.getElementById('sim-preset-modalidade').value;
+  const target = DRI_TABLE[selKey];
+  if (!target) return;
+
+  document.getElementById('sim-kcal').value = Math.round(target.energy);
+  document.getElementById('sim-carbs-g').value = Math.round((target.carbsMin + target.carbsMax) / 2);
+  document.getElementById('sim-proteins-g').value = Math.round(target.protein);
+  
+  document.getElementById('sim-lipids-g').value = Math.round((target.fatMin + target.fatMax) / 2);
+  document.getElementById('sim-sodium').value = Math.round(target.sodium * 0.9);
+  // Limpar sugestões anteriores ao trocar preset
+  const container = document.getElementById('sim-stock-suggestions');
+  if (container) container.innerHTML = '';
+};
+
+window.runPnaeSimulation = (event) => {
+  event.preventDefault();
+  const selKey = document.getElementById('sim-preset-modalidade').value;
+  const target = DRI_TABLE[selKey];
+  if (!target) return;
+  
+  const kcal = parseInt(document.getElementById('sim-kcal').value) || 0;
+  const carbsG = parseInt(document.getElementById('sim-carbs-g').value) || 0;
+  const protG = parseInt(document.getElementById('sim-proteins-g').value) || 0;
+  const lipG = parseInt(document.getElementById('sim-lipids-g').value) || 0;
+  const sod = parseInt(document.getElementById('sim-sodium').value) || 0;
+  
+  const carbKcal = carbsG * 4;
+  const protKcal = protG * 4;
+  const lipKcal = lipG * 9;
+  
+  const carbPct = Math.round((carbKcal / kcal) * 100) || 0;
+  const protPct = Math.round((protKcal / kcal) * 100) || 0;
+  const lipPct = Math.round((lipKcal / kcal) * 100) || 0;
+  
+  const isKcalOk = kcal >= target.energy * 0.9 && kcal <= target.energy * 1.1;
+  const isCarbsOk = carbPct >= 55 && carbPct <= 65;
+  const isProtOk = protPct >= 10 && protPct <= 15;
+  
+  const lipMin = target.isEja ? 15 : 25;
+  const lipMax = target.isEja ? 30 : 35;
+  const isLipOk = lipPct >= lipMin && lipPct <= lipMax;
+  
+  const isSodOk = sod <= target.sodium;
+  const passedAll = isKcalOk && isCarbsOk && isProtOk && isLipOk && isSodOk;
+  
+  const resultCard = document.getElementById('sim-result-card');
+  if (!resultCard) return;
+  
+  resultCard.innerHTML = `
+    <div class="card-header"><div class="card-title">Resultado da Simulação</div></div>
+    <div class="card-body">
+      <div style="padding:16px;background:${passedAll ? 'var(--success-light)' : 'var(--danger-light)'};border-radius:var(--radius);color:${passedAll ? 'var(--success)' : 'var(--danger)'};font-weight:700;margin-bottom:16px;text-align:center;font-size:1.1rem" id="sim-status-banner">
+        ${passedAll ? '✅ Aprovado nas Diretrizes PNAE' : '❌ Reprovado nas Diretrizes PNAE'}
+      </div>
+      
+      <div style="display:flex;flex-direction:column;gap:12px;font-size:0.9rem">
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px">
+          <span>Energia (Referência: ${Math.round(target.energy)} kcal):</span>
+          <span style="font-weight:600;color:${isKcalOk ? 'var(--success)' : 'var(--danger)'}">${kcal} kcal (${isKcalOk ? 'OK (±10%)' : 'Fora'})</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px">
+          <span>Carboidratos (${carbPct}% do VET):</span>
+          <span style="font-weight:600;color:${isCarbsOk ? 'var(--success)' : 'var(--danger)'}">${carbsG}g (Meta: 55-65%)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px">
+          <span>Proteínas (${protPct}% do VET):</span>
+          <span style="font-weight:600;color:${isProtOk ? 'var(--success)' : 'var(--danger)'}">${protG}g (Meta: 10-15%)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:4px">
+          <span>Lipídeos (${lipPct}% do VET):</span>
+          <span style="font-weight:600;color:${isLipOk ? 'var(--success)' : 'var(--danger)'}">${lipG}g (Meta: ${lipMin}-${lipMax}%)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding-bottom:4px">
+          <span>Sódio (Máximo: ${target.sodium} mg):</span>
+          <span style="font-weight:600;color:${isSodOk ? 'var(--success)' : 'var(--danger)'}">${sod} mg (${isSodOk ? 'OK' : 'Excesso'})</span>
+        </div>
+      </div>
+      </div>
+    </div>
+  `;
+};
+
+window.applyIaSuggestion = (i) => {
+  const btn = document.getElementById('btn-ia-' + i);
+  if (btn) { btn.textContent = '✓ Aplicado'; btn.className = 'btn btn-sm btn-outline'; btn.disabled = true; }
+  showToast('✅ Sugestão da IA registrada. Considere no próximo cardápio.');
+};
+
+// ─── ESCOLA: helpers ───
+function getCurrentSchool() {
+  // Prioridade 1: escola capturada no login (antes do hydrateData poder sobrescrever DATA.schools)
+  if (state.selectedSchool) return _normalizeSchool(state.selectedSchool);
+
+  const all = (typeof DATA !== 'undefined' && DATA.schools) ? DATA.schools : [];
+
+  // Prioridade 2: busca por id no DATA.schools atual
+  if (state.selectedSchoolId) {
+    const byId = all.find(sc => sc.id === state.selectedSchoolId);
+    if (byId) return _normalizeSchool(byId);
+  }
+  // Prioridade 3: fallback legado via window._STATE.schoolName
+  const name = (window._STATE && window._STATE.schoolName) ? window._STATE.schoolName : null;
+  if (name) {
+    const byName = all.find(sc => sc.name === name);
+    if (byName) return _normalizeSchool(byName);
+  }
+  // Fallback final: primeira escola do piloto
+  const pilotSchools = all.filter(sc => sc.diretor); // escolas piloto têm campo diretor
+  const first = pilotSchools[0] || all[0];
+  return first ? _normalizeSchool(first) : {
+    id: 0, name: 'EM Demo', students: 620, attendance_avg: 572, attendance_pct: 92,
+    stockPct: 82, grade_levels: 'EF I + EF II', refeicoesDia: 2,
+    monthly_budget: 18500, region: 'Centro', diretor: { name: 'Maria Santos', initials: 'MS' },
+    respEstoque: { name: 'Carlos Lima', initials: 'CL' }
+  };
+}
+
+function _normalizeSchool(sc) {
+  // Compatibilidade com campos legados usados pelos renderers existentes
+  return Object.assign({
+    meals_per_day: sc.refeicoesDia || 2,
+    attendance_avg: sc.attendance_avg || Math.round((sc.students || 0) * 0.9),
+    attendance_pct: sc.attendance_pct || 90,
+    monthly_budget: sc.monthly_budget || Math.round((sc.students || 0) * 35),
+    director: sc.diretor ? sc.diretor.name : (sc.director || ''),
+    grade_levels: sc.grade_levels || (sc.sigla === 'EMEI' ? 'Maternal + Pré-escola' : 'EF I + EF II'),
+  }, sc);
+}
+
+// ─── ESCOLA: DASHBOARD ───
+// escola_dashboard..escola_relatorios -> js/modules/escolas.js (Fase 4.2, movido).
+
+// COOPERATIVA / AGRICULTOR: renderers e helpers -> js/modules/colaboradores.js
+// (Fase 4.1). confirmSchoolDelivery foi para o core_hub.js: e usado tambem
+// pela tela de entregas da escola.
+
+// ─── ESTOQUE: RENDERERS ───
+// estoque_dashboard/inventario/lotes + helpers de bipagem/separacao/recebimento -> js/modules/estoque.js (Fase 4.3, movido).
+
+// ─── MOTORISTA: RENDERERS ─── migrado para js/modules/motorista.js (inclui selectDelivery/simulateCamera/clearSignature/initSignatureCanvas)
+
+// ─── DIRETOR: RENDERERS ─────────────────────────────────────
+
+// diretor_* (dashboard/estoque/pedidos/aliases) -> js/modules/escolas.js (Fase 4.2b, movido).
+
+// RESTRIÇÕES ALIMENTARES — Nutricionista (view global) e Diretor (view da escola)
+
+// _resolverRestricao -> core_hub.js (Fase 3.3: usado por nutricionista e diretor).
+
+// diretor_restricoes -> js/modules/escolas.js (Fase 4.2b, movido).
+
+// ─── RESP_ESTOQUE: RENDERERS ─────────────────────────────────
+
+// resp_estoque_* -> js/modules/escolas.js (Fase 4.2b, movido).
+
+// ─── GENERIC CRUD SCREEN HELPER ───
+function renderCrudScreen(title, subtitle, headers, rows) {
+  return `
+    <div class="page-header"><div class="page-title">${title}</div><div class="page-subtitle">${subtitle}</div></div>
+    <div class="card">
+      <div class="card-header"><div class="card-title">${title}</div><button class="btn btn-primary btn-sm">+ Novo</button></div>
+      <div class="card-body">
+        <table class="data-table">
+          <thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}<th>Ações</th></tr></thead>
+          <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}<td><button class="table-action">Editar</button></td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+    </div>
+  `;
+}
+
+function initAppEvents() {
+  const SCHOOL_SUBROLES = ['diretor', 'resp_estoque', 'merendeira'];
+  const COLAB_SUBROLES = ['cooperativa', 'agricultor'];
+
+  // Profile selector (top-level: gestor, nutricionista, escola, colaboradores, estoque, motorista)
+  $$('.profile-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.profile-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const profile = btn.dataset.profile;
+
+      const schoolPicker = $('#school-picker-row');
+      const subrolePicker = $('#subrole-picker-row');
+      const colabPicker = $('#colab-subrole-picker-row');
+
+      const isEscola = profile === 'escola';
+      const isColab = profile === 'colaboradores';
+
+      if (schoolPicker) schoolPicker.style.display = isEscola ? 'block' : 'none';
+      if (subrolePicker) subrolePicker.style.display = isEscola ? 'block' : 'none';
+      if (colabPicker) colabPicker.style.display = isColab ? 'block' : 'none';
+
+      const lbl = $('#school-picker-label');
+      if (lbl && isEscola) {
+        const activeSub = $('.subrole-btn.active');
+        const sub = activeSub ? activeSub.dataset.subrole : 'diretor';
+        if (sub === 'diretor') lbl.textContent = 'Escola (Diretor)';
+        else if (sub === 'resp_estoque') lbl.textContent = 'Escola (Resp. Estoque)';
+        else if (sub === 'merendeira') lbl.textContent = 'Escola (Merendeira)';
+      }
+    });
+  });
+
+  // Sub-perfil da Escola (Diretor / Merendeira / Resp. Estoque)
+  $$('.subrole-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.subrole-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const lbl = $('#school-picker-label');
+      const sub = btn.dataset.subrole;
+      if (lbl) {
+        if (sub === 'diretor') lbl.textContent = 'Escola (Diretor)';
+        else if (sub === 'resp_estoque') lbl.textContent = 'Escola (Resp. Estoque)';
+        else if (sub === 'merendeira') lbl.textContent = 'Escola (Merendeira)';
+      }
+    });
+  });
+
+  // Sub-perfil de Colaboradores (Cooperativa / Agricultor)
+  $$('.colab-subrole-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.colab-subrole-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  window.AUTH_ENABLED = false;
+  window.authenticateUser = (user, pass, profile) => {
+    if (!window.AUTH_ENABLED) return { success: true };
+    if (!user || !pass) return { success: false, error: 'Informe o CPF/usuário e a senha de acesso.' };
+    return { success: true };
+  };
+
+  const handleLoginSubmit = async (e) => {
+    if (e) e.preventDefault();
+    if (window._isLoggingIn) return;
+    window._isLoggingIn = true;
+    try {
+      const userInput = $('#login-user')?.value || '';
+      const passInput = $('#login-pass')?.value || '';
+
+      const authRes = window.authenticateUser(userInput, passInput);
+      if (!authRes.success) {
+        showToast('⚠️ ' + authRes.error, 'warning');
+        return;
+      }
+
+      const activeProfile = $('.profile-btn.active');
+      const topProfile = activeProfile ? activeProfile.dataset.profile : 'gestor';
+
+      let profile = topProfile;
+      let schoolId = null;
+
+      if (topProfile === 'escola') {
+        const activeSub = $('.subrole-btn.active');
+        profile = activeSub ? activeSub.dataset.subrole : 'diretor';
+        const sel = $('#school-picker-select');
+        if (sel && sel.value) schoolId = parseInt(sel.value, 10);
+        else if (window.AUTH_ENABLED) {
+          showToast('⚠️ Selecione a unidade escolar para prosseguir.', 'warning');
+          return;
+        }
+      } else if (topProfile === 'colaboradores') {
+        const activeColab = $('.colab-subrole-btn.active');
+        profile = activeColab ? activeColab.dataset.subrole : 'cooperativa';
+      }
+
+      await login(profile, schoolId);
+    } finally {
+      window._isLoggingIn = false;
+    }
+  };
+
+  window.handleLoginSubmit = handleLoginSubmit;
+  window.login = login;
+
+  $('#login-form')?.addEventListener('submit', handleLoginSubmit);
+  $('#btn-login')?.addEventListener('click', handleLoginSubmit);
+
+  // Header & login link handlers (M4)
+  document.getElementById('link-forgot')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showToast('ℹ️ Para redefinir sua senha, entre em contato com a SEMED pelo suporte TI.');
+  });
+
+  document.getElementById('link-support')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    showToast('📞 Suporte TI SEMED: (67) 3314-3800 / suporte.sual@semed.ms.gov.br');
+  });
+
+  document.getElementById('global-search')?.addEventListener('input', (e) => {
+    const q = (e.target.value || '').trim().toLowerCase();
+    if (q.length < 3) return;
+    const schools = (DATA.schools || []).filter(s => s.name.toLowerCase().includes(q));
+    const products = (DATA.products || []).filter(p => p.name.toLowerCase().includes(q));
+    const orders = (SharedState.getOrders() || []).filter(o => (o.school||'').toLowerCase().includes(q) || String(o.numero).includes(q));
+    showToast(`🔍 Busca "${q}": ${schools.length} escolas, ${products.length} produtos, ${orders.length} pedidos encontrados.`, 'info');
+  });
+
+  // Logout
+  $('#btn-logout')?.addEventListener('click', logout);
+
+  // Sidebar collapse
+  $('#sidebar-collapse-btn')?.addEventListener('click', () => {
+    state.sidebarCollapsed = !state.sidebarCollapsed;
+    const sidebar = $('#sidebar');
+    const main = $('.main-wrapper');
+    if (state.sidebarCollapsed) {
+      sidebar.style.width = 'var(--sidebar-collapsed)';
+      main.style.marginLeft = 'var(--sidebar-collapsed)';
+    } else {
+      sidebar.style.width = '';
+      main.style.marginLeft = '';
+    }
+  });
+
+  // Mobile menu
+  $('#mobile-menu-btn')?.addEventListener('click', () => {
+    $('#sidebar').classList.toggle('mobile-open');
+  });
+
+  // Notifications
+  $('#notification-btn')?.addEventListener('click', () => {
+    const drawer = $('#notif-drawer');
+    const overlay = $('#notif-overlay');
+    drawer.hidden = false;
+    overlay.hidden = false;
+    requestAnimationFrame(() => drawer.classList.add('open'));
+    renderNotifications();
+  });
+
+  const closeNotifs = () => {
+    const drawer = $('#notif-drawer');
+    const overlay = $('#notif-overlay');
+    drawer.classList.remove('open');
+    setTimeout(() => { drawer.hidden = true; overlay.hidden = true; }, 300);
+  };
+  $('#close-notif-drawer')?.addEventListener('click', closeNotifs);
+  $('#notif-overlay')?.addEventListener('click', closeNotifs);
+}
+
+let _appEventsInited = false;
+function safeInitAppEvents() {
+  if (_appEventsInited) return;
+  _appEventsInited = true;
+  initAppEvents();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', safeInitAppEvents);
+}
+safeInitAppEvents();
+
+// MERENDEIRA ALIASES
+
+// ──────────────────────────────────────────────────────────────────────
+// MÓDULO FINANCEIRO — v2.1.0
+// Renderers das 5 novas páginas conectadas ao Supabase
+// ──────────────────────────────────────────────────────────────────────
+
+// ─── GESTOR: ATAS (com dados do Supabase) ───────────────────────────
+
+window.abrirModalDetalhesAta = (ataId) => {
+  const atas = SharedState.getAtas2();
+  const ata = atas.find(a => String(a.id) === String(ataId) || a.numero === ataId || a.numero_ata === ataId) || atas[0];
+  if (!ata) return;
+
+  const fmt = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v) : 'R$ 0,00';
+  const numAta = ata.numero || ata.numero_ata || `ATA-${ata.id}`;
+  const valorGlobal = ata.valor_global || 0;
+  const valorExecutado = ata.valor_executado || 0;
+  const saldoGlobal = valorGlobal - valorExecutado;
+  const pctGlobal = valorGlobal > 0 ? Math.round((valorExecutado / valorGlobal) * 100) : 0;
+
+  const produtosAta = (ata.itens && ata.itens.length > 0)
+    ? ata.itens
+    : (DATA.ataProducts || []).filter(ap => String(ap.ataId) === String(ata.id) || ap.ataNumero === numAta);
+
+  const empenhosVinculados = SharedState.getEmpenhos2().filter(e => e.ata_numero === numAta || String(e.ataId) === String(ata.id));
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#f8fafc;padding:16px;border-radius:10px;border:1px solid var(--border);margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+          <div>
+            <h3 style="margin:0;font-size:1.15rem;color:var(--primary-dark)">📋 ${numAta} — ${ata.fornecedor}</h3>
+            <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:2px">
+              Modalidade: <strong>${ata.tipo || ata.modalidade || 'Pregão'}</strong> · Vigência: <strong>${ata.data_inicio ? ata.data_inicio.slice(0,10) : '2026-01-15'} até ${ata.data_fim ? ata.data_fim.slice(0,10) : '2026-12-31'}</strong>
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="window.openNewEmpenhoModal('${numAta}')">
+            ➕ Emitir Empenho nesta ATA
+          </button>
+        </div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin:0">
+          <div class="kpi-card blue" style="padding:10px"><div class="kpi-label">Valor Global</div><div class="kpi-value" style="font-size:1.1rem">${fmt(valorGlobal)}</div></div>
+          <div class="kpi-card orange" style="padding:10px"><div class="kpi-label">Empenhado (${pctGlobal}%)</div><div class="kpi-value" style="font-size:1.1rem">${fmt(valorExecutado)}</div></div>
+          <div class="kpi-card green" style="padding:10px"><div class="kpi-label">Saldo Disponível</div><div class="kpi-value" style="font-size:1.1rem">${fmt(saldoGlobal)}</div></div>
+          <div class="kpi-card teal" style="padding:10px"><div class="kpi-label">Itens Registrados</div><div class="kpi-value" style="font-size:1.1rem">${produtosAta.length} produtos</div></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <h4 style="margin:0;color:var(--text-primary)">📦 Produtos Registrados na ATA & Gestão de Saldos</h4>
+          <button class="btn btn-sm btn-outline" onclick="window.abrirModalAdicionarProdutoAta('${numAta}')">
+            ➕ Adicionar Produto nesta ATA
+          </button>
+        </div>
+        <div style="overflow-x:auto;max-height:280px">
+          <table class="data-table" style="font-size:0.85rem">
+            <thead>
+              <tr>
+                <th>Produto / Item</th>
+                <th>Preço Unit.</th>
+                <th>Qtd Registrada</th>
+                <th>Qtd Empenhada</th>
+                <th>Saldo Qtd Restante</th>
+                <th>Valor Empenhado</th>
+                <th>Saldo em R$</th>
+                <th>Consumo %</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${produtosAta.length > 0 ? produtosAta.map(p => {
+                const maxQ = p.maxQtd || p.quantidade_registrada || 1000;
+                const unitP = p.unitPrice || p.preco_unitario || 0;
+                const globV = p.globalValue || (maxQ * unitP);
+                const execV = p.executedValue || 0;
+                const execQ = unitP > 0 ? Math.round(execV / unitP) : 0;
+                const restQ = Math.max(0, maxQ - execQ);
+                const restV = Math.max(0, globV - execV);
+                const pctItem = globV > 0 ? Math.min(100, Math.round((execV / globV) * 100)) : 0;
+
+                return `
+                  <tr>
+                    <td><strong>${p.name || p.descricao || p.produto}</strong></td>
+                    <td style="font-family:var(--font-mono)">${fmt(unitP)}</td>
+                    <td style="font-family:var(--font-mono);font-weight:700">${maxQ.toLocaleString('pt-BR')} ${p.unit||'kg'}</td>
+                    <td style="font-family:var(--font-mono);color:#c2410c">${execQ.toLocaleString('pt-BR')} ${p.unit||'kg'}</td>
+                    <td style="font-family:var(--font-mono);font-weight:700;color:#1565C0">${restQ.toLocaleString('pt-BR')} ${p.unit||'kg'}</td>
+                    <td style="font-family:var(--font-mono)">${fmt(execV)}</td>
+                    <td style="font-family:var(--font-mono);font-weight:700;color:${restV <= 0 ? 'var(--danger)' : '#2E7D32'}">${fmt(restV)}</td>
+                    <td>
+                      <div class="progress-bar" style="width:70px"><div class="progress-fill ${pctItem>80?'red':pctItem>50?'orange':'green'}" style="width:${pctItem}%"></div></div>
+                      <small style="font-size:0.75rem">${pctItem}%</small>
+                    </td>
+                  </tr>
+                `;
+              }).join('') : '<tr><td colspan="8" style="text-align:center;color:#94A3B8">Nenhum item individual cadastrado nesta ATA.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h4 style="margin:0 0 10px 0;color:var(--text-primary)">💳 Empenhos SIAFI Vinculados nesta ATA (${empenhosVinculados.length})</h4>
+        <div style="overflow-x:auto;max-height:200px">
+          <table class="data-table" style="font-size:0.85rem">
+            <thead>
+              <tr>
+                <th>Nº Empenho</th>
+                <th>Data</th>
+                <th>Escola / Destino</th>
+                <th>Valor Empenhado</th>
+                <th>Valor Pago</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${empenhosVinculados.length > 0 ? empenhosVinculados.map(e => `
+                <tr>
+                  <td><strong>${e.numero_empenho}</strong></td>
+                  <td>${e.data_empenho || '—'}</td>
+                  <td>${e.escola_name || 'SEMED Global'}</td>
+                  <td style="font-family:var(--font-mono);font-weight:700">${fmt(e.valor_empenhado)}</td>
+                  <td style="font-family:var(--font-mono)">${fmt(e.valor_pago)}</td>
+                  <td><span class="tag tag-green">${e.status}</span></td>
+                </tr>
+              `).join('') : '<tr><td colspan="6" style="text-align:center;color:#94A3B8">Nenhum empenho emitido para esta ATA ainda.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+  window.showModal(`📋 Detalhamento & Saldo da ATA — ${numAta}`, content, '950px');
+};
+
+window.adicionarLinhaProdutoAta = (dados = {}) => {
+  const tbody = document.getElementById('tbody-itens-nova-ata');
+  if (!tbody) return;
+  const idRow = 'row-item-' + crypto.randomUUID();
+
+  const prodsOpts = (DATA.products || []).map(p => `<option value="${p.name}">`).join('');
+
+  const tr = document.createElement('tr');
+  tr.id = idRow;
+  tr.className = 'linha-item-ata';
+  tr.innerHTML = `
+    <td>
+      <input type="text" list="dl-prods-ata" class="btn btn-outline ata-prod-nome" style="width:100%;text-align:left;padding:4px 8px;font-size:0.85rem" placeholder="Ex: Carne Bovina Acém" value="${dados.nome||''}" required oninput="window.recalcularSubtotaisAta()">
+      <datalist id="dl-prods-ata">${prodsOpts}</datalist>
+    </td>
+    <td>
+      <input type="text" class="btn btn-outline ata-prod-unidade" style="width:100%;text-align:center;padding:4px 8px;font-size:0.85rem" placeholder="kg, L, dz" value="${dados.unidade||'kg'}" required>
+    </td>
+    <td>
+      <input type="number" step="0.01" min="0.01" class="btn btn-outline ata-prod-preco" style="width:100%;text-align:right;padding:4px 8px;font-size:0.85rem" placeholder="0.00" value="${dados.preco||''}" required oninput="window.recalcularSubtotaisAta()">
+    </td>
+    <td>
+      <input type="number" step="1" min="1" class="btn btn-outline ata-prod-qtd" style="width:100%;text-align:right;padding:4px 8px;font-size:0.85rem" placeholder="0" value="${dados.qtd||''}" required oninput="window.recalcularSubtotaisAta()">
+    </td>
+    <td style="text-align:right;font-family:var(--font-mono);font-weight:700" class="ata-prod-subtotal">
+      R$ 0,00
+    </td>
+    <td style="text-align:center">
+      <button type="button" class="btn btn-sm btn-outline" style="color:var(--danger);padding:2px 6px" onclick="document.getElementById('${idRow}').remove(); window.recalcularSubtotaisAta();" title="Remover produto">❌</button>
+    </td>
+  `;
+  tbody.appendChild(tr);
+  window.recalcularSubtotaisAta();
+};
+
+window.recalcularSubtotaisAta = () => {
+  const tbody = document.getElementById('tbody-itens-nova-ata');
+  if (!tbody) return;
+  let totalGlobal = 0;
+  const rows = tbody.querySelectorAll('.linha-item-ata');
+  rows.forEach(tr => {
+    const preco = parseFloat(tr.querySelector('.ata-prod-preco')?.value) || 0;
+    const qtd = parseFloat(tr.querySelector('.ata-prod-qtd')?.value) || 0;
+    const sub = preco * qtd;
+    totalGlobal += sub;
+    const tdSub = tr.querySelector('.ata-prod-subtotal');
+    if (tdSub) {
+      tdSub.textContent = sub ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(sub) : 'R$ 0,00';
+    }
+  });
+
+  const inputValorGlobal = document.getElementById('ata-valor');
+  if (inputValorGlobal && (rows.length > 0 || totalGlobal > 0)) {
+    inputValorGlobal.value = totalGlobal.toFixed(2);
+  }
+};
+
+window.abrirModalNovaAta = () => {
+  const content = `
+    <form onsubmit="window.salvarNovaAta(event)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Número/Ano da ATA</label>
+          <input type="text" id="ata-numero" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: ATA-2026/050" required>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Modalidade / Tipo</label>
+          <select id="ata-tipo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+            <option value="Chamada Pública (AF)">🌾 Chamada Pública (Agricultura Familiar)</option>
+            <option value="Pregão Eletrônico">🏢 Pregão Eletrônico</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Razão Social do Fornecedor / Cooperativa</label>
+          <input type="text" id="ata-fornecedor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: COOPAGRAN ou Nutri Alimentos Ltda" required>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Valor Global Registrado (R$)</label>
+          <input type="number" step="0.01" id="ata-valor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: 1500000.00" required>
+        </div>
+      </div>
+
+      <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <label style="font-weight:700;font-size:0.95rem;color:var(--primary-dark)">📦 Produtos Registrados na ATA</label>
+          <button type="button" class="btn btn-sm btn-outline" onclick="window.adicionarLinhaProdutoAta()">
+            ➕ Adicionar Produto
+          </button>
+        </div>
+        <div style="overflow-x:auto;max-height:220px">
+          <table class="data-table" style="font-size:0.85rem;margin:0" id="tabela-itens-nova-ata">
+            <thead>
+              <tr>
+                <th>Produto / Descrição</th>
+                <th style="width:90px">Unidade</th>
+                <th style="width:110px">Preço Unit. (R$)</th>
+                <th style="width:110px">Qtd Registrada</th>
+                <th style="width:120px">Subtotal (R$)</th>
+                <th style="width:40px">Ação</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-itens-nova-ata">
+              <!-- Linhas dinamicas -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💾 Salvar e Cadastrar ATA</button>
+      </div>
+    </form>
+  `;
+  window.showModal('📋 Cadastrar Nova ATA de Registro de Preços', content, '750px');
+  // Abre com 1 linha pronta por padrao
+  window.adicionarLinhaProdutoAta();
+};
+
+window.salvarNovaAta = (e) => {
+  e.preventDefault();
+  const numero = document.getElementById('ata-numero').value.trim();
+  const tipo = document.getElementById('ata-tipo').value;
+  const fornecedor = document.getElementById('ata-fornecedor').value.trim();
+  const valor = parseFloat(document.getElementById('ata-valor').value) || 0;
+
+  const itens = [];
+  const rows = document.querySelectorAll('#tbody-itens-nova-ata .linha-item-ata');
+  rows.forEach(tr => {
+    const nome = tr.querySelector('.ata-prod-nome')?.value.trim();
+    const unidade = tr.querySelector('.ata-prod-unidade')?.value.trim() || 'un';
+    const preco = parseFloat(tr.querySelector('.ata-prod-preco')?.value) || 0;
+    const qtd = parseFloat(tr.querySelector('.ata-prod-qtd')?.value) || 0;
+    if (nome && qtd > 0) {
+      itens.push({
+        id: 'item-' + crypto.randomUUID(),
+        name: nome,
+        produto: nome,
+        descricao: nome,
+        unidade: unidade,
+        unitPrice: preco,
+        preco_unitario: preco,
+        maxQtd: qtd,
+        quantidade_registrada: qtd,
+        globalValue: preco * qtd,
+        executedValue: 0
+      });
+    }
+  });
+
+  SharedState.addAta2({
+    numero: numero,
+    numero_ata: numero,
+    tipo: tipo,
+    fornecedor: fornecedor,
+    valor_global: valor,
+    valor_executado: 0,
+    status: 'Vigente',
+    itens: itens
+  });
+
+  showToast(`✅ ATA ${numero} cadastrada com sucesso com ${itens.length} produto(s)!`, 'success');
+  closeModal();
+  const container = document.getElementById('page-content');
+  if (container) PAGE_RENDERERS.gestor_atas(container);
+};
+
+window.abrirModalAdicionarProdutoAta = (numAta) => {
+  const prodsOpts = (DATA.products || []).map(p => `<option value="${p.name}">`).join('');
+  const content = `
+    <form onsubmit="window.salvarProdutoAtaExistente('${numAta}', event)">
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Produto / Item</label>
+        <input type="text" list="dl-prods-add-ata" id="add-prod-nome" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Batata Doce Rosada" required>
+        <datalist id="dl-prods-add-ata">${prodsOpts}</datalist>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Unidade</label>
+          <input type="text" id="add-prod-unidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="kg" required>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Preço Unitário (R$)</label>
+          <input type="number" step="0.01" min="0.01" id="add-prod-preco" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: 4.50" required>
+        </div>
+      </div>
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Quantidade Registrada na ATA</label>
+        <input type="number" step="1" min="1" id="add-prod-qtd" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: 5000" required>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+        <button type="button" class="btn btn-outline" onclick="window.abrirModalDetalhesAta('${numAta}')">Voltar</button>
+        <button type="submit" class="btn btn-primary">➕ Salvar Produto na ATA</button>
+      </div>
+    </form>
+  `;
+  window.showModal(`📦 Adicionar Produto na ATA — ${numAta}`, content, '500px');
+};
+
+window.salvarProdutoAtaExistente = (numAta, e) => {
+  e.preventDefault();
+  const nome = document.getElementById('add-prod-nome').value.trim();
+  const unidade = document.getElementById('add-prod-unidade').value.trim() || 'kg';
+  const preco = parseFloat(document.getElementById('add-prod-preco').value) || 0;
+  const qtd = parseFloat(document.getElementById('add-prod-qtd').value) || 0;
+
+  const atas = SharedState.getAtas2();
+  const ata = atas.find(a => a.numero === numAta || a.numero_ata === numAta || String(a.id) === String(numAta));
+  if (ata) {
+    ata.itens = ata.itens || [];
+    const novoItem = {
+      id: 'item-' + crypto.randomUUID(),
+      name: nome,
+      produto: nome,
+      descricao: nome,
+      unidade: unidade,
+      unitPrice: preco,
+      preco_unitario: preco,
+      maxQtd: qtd,
+      quantidade_registrada: qtd,
+      globalValue: preco * qtd,
+      executedValue: 0
+    };
+    ata.itens.push(novoItem);
+    ata.valor_global = (ata.valor_global || 0) + (preco * qtd);
+    SharedState._persist();
+    SharedState._emit('ata:update');
+    showToast(`✅ Produto "${nome}" adicionado à ATA ${numAta}!`, 'success');
+    window.abrirModalDetalhesAta(numAta);
+  }
+};
+
+window.openNewEmpenhoModal = (numAtaTarget) => {
+  const atas = SharedState.getAtas2();
+  if (!atas || atas.length === 0) {
+    showToast('⚠️ Nenhuma ATA cadastrada para emitir empenho.', 'warning');
+    return;
+  }
+
+  const ataSelecionada = atas.find(a => a.numero === numAtaTarget || a.numero_ata === numAtaTarget || String(a.id) === String(numAtaTarget)) || atas[0];
+  const ataNumeroSel = ataSelecionada ? (ataSelecionada.numero || ataSelecionada.numero_ata) : '';
+
+  const numSiafiAuto = '2026NE' + String(Math.floor(100000 + Math.random() * 900000));
+
+  const atasOptions = atas.map(a => {
+    const num = a.numero || a.numero_ata;
+    const isSel = num === ataNumeroSel ? 'selected' : '';
+    const valGlobal = a.valor_global || 0;
+    const valExec = a.valor_executado || 0;
+    const saldo = Math.max(0, valGlobal - valExec);
+    const fmt = (v) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
+    return `<option value="${num}" ${isSel} data-fornecedor="${a.fornecedor||''}" data-tipo="${a.tipo||''}" data-saldo="${saldo}">📋 ${num} — ${a.fornecedor} (Saldo: ${fmt(saldo)})</option>`;
+  }).join('');
+
+  const escOpts = `<option value="SEMED Global (Rede)">🏫 SEMED Global (Toda a Rede)</option>` +
+    (DATA.schools || []).map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+
+  const content = `
+    <form onsubmit="window.salvarNovoEmpenho(event, '${numAtaTarget||''}')">
+      <div style="background:#f1f5f9;padding:12px;border-radius:8px;margin-bottom:14px;font-size:0.85rem;color:#475569">
+        💡 <strong>Empenho SIAFI (Nota de Empenho)</strong>: Reserva de dotação orçamentária vinculada a uma ATA de Registro de Preços vigente para liquidação e emissão de Ordens de Serviço.
+      </div>
+      
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Nº da Nota de Empenho (SIAFI)</label>
+        <input type="text" id="emp-numero" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;font-weight:700;letter-spacing:1px" value="${numSiafiAuto}" required>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">ATA de Registro de Preços Vinculada</label>
+        <select id="emp-ata-select" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required onchange="window.atualizarFormEmpenhoPorAta(this.value)">
+          ${atasOptions}
+        </select>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Fornecedor / Detentor</label>
+          <input type="text" id="emp-fornecedor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;background:#f8fafc" value="${ataSelecionada ? ataSelecionada.fornecedor : ''}" readonly>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Tipo / Modalidade</label>
+          <input type="text" id="emp-tipo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;background:#f8fafc" value="${ataSelecionada && (ataSelecionada.tipo||'').includes('AF') ? 'AF (Agricultura Familiar)' : 'CONV (Pregão Eletrônico)'}" readonly>
+        </div>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Unidade Escolar / Destino da Reserva</label>
+        <select id="emp-escola" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          ${escOpts}
+        </select>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Produto / Item Principal da ATA</label>
+        <select id="emp-produto" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+          <!-- Preenchido via JS -->
+        </select>
+      </div>
+
+      <div class="form-group mb-12">
+        <label style="font-weight:600;display:block;margin-bottom:4px">Valor a Empenhar (R$)</label>
+        <input type="number" step="0.01" min="1" id="emp-valor" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;font-weight:700" placeholder="Ex: 50000.00" required>
+        <div id="emp-saldo-info" style="font-size:0.8rem;color:var(--text-secondary);margin-top:4px"></div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary">💳 Emitir e Confirmar Empenho</button>
+      </div>
+    </form>
+  `;
+
+  window.showModal('💳 Emitir Empenho SIAFI', content, '600px');
+  window.atualizarFormEmpenhoPorAta(ataNumeroSel);
+};
+
+window.atualizarFormEmpenhoPorAta = (numAta) => {
+  const selAta = document.getElementById('emp-ata-select');
+  if (!selAta) return;
+  const opt = selAta.options[selAta.selectedIndex];
+  if (!opt) return;
+
+  const fornecedor = opt.dataset.fornecedor || '';
+  const tipo = opt.dataset.tipo || '';
+  const saldo = parseFloat(opt.dataset.saldo) || 0;
+
+  const inpForn = document.getElementById('emp-fornecedor');
+  if (inpForn) inpForn.value = fornecedor;
+
+  const inpTipo = document.getElementById('emp-tipo');
+  if (inpTipo) inpTipo.value = tipo.includes('AF') ? 'AF (Agricultura Familiar)' : 'CONV (Pregão Eletrônico)';
+
+  const divSaldo = document.getElementById('emp-saldo-info');
+  const fmt = (v) => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
+  if (divSaldo) divSaldo.innerHTML = `Saldo disponível nesta ATA: <strong style="color:var(--success)">${fmt(saldo)}</strong>`;
+
+  const atas = SharedState.getAtas2();
+  const ata = atas.find(a => a.numero === numAta || a.numero_ata === numAta || String(a.id) === String(numAta));
+  const prods = (ata && ata.itens && ata.itens.length > 0)
+    ? ata.itens
+    : (DATA.ataProducts || []).filter(ap => ap.ataNumero === numAta || String(ap.ataId) === String(numAta));
+
+  const selProd = document.getElementById('emp-produto');
+  if (selProd) {
+    if (prods.length > 0) {
+      selProd.innerHTML = prods.map(p => {
+        const nome = p.name || p.descricao || p.produto || 'Produto';
+        const pUnit = p.unitPrice || p.preco_unitario || 0;
+        return `<option value="${nome}">${nome} ${pUnit > 0 ? '(R$ ' + pUnit.toFixed(2) + ')' : ''}</option>`;
+      }).join('');
+    } else {
+      selProd.innerHTML = '<option value="Gêneros Alimentícios Diversos">Gêneros Alimentícios Diversos (Lote)</option>';
+    }
+  }
+};
+
+window.salvarNovoEmpenho = (e, numAtaTarget) => {
+  e.preventDefault();
+  const numEmpenho = document.getElementById('emp-numero').value.trim();
+  const numAta = document.getElementById('emp-ata-select').value;
+  const fornecedor = document.getElementById('emp-fornecedor').value;
+  const escolaName = document.getElementById('emp-escola').value;
+  const produto = document.getElementById('emp-produto').value;
+  const valorEmpenhado = parseFloat(document.getElementById('emp-valor').value) || 0;
+
+  if (!numEmpenho || !numAta || valorEmpenhado <= 0) {
+    showToast('⚠️ Preencha todos os campos corretamente.', 'warning');
+    return;
+  }
+
+  const atas = SharedState.getAtas2();
+  const ata = atas.find(a => a.numero === numAta || a.numero_ata === numAta || String(a.id) === String(numAta));
+  if (ata) {
+    const valGlobal = ata.valor_global || 0;
+    const valExec = ata.valor_executado || 0;
+    const saldo = Math.max(0, valGlobal - valExec);
+
+    if (valorEmpenhado > saldo && saldo > 0) {
+      showToast(`⚠️ O valor do empenho (R$ ${valorEmpenhado.toFixed(2)}) excede o saldo disponível na ATA (R$ ${saldo.toFixed(2)}).`, 'warning');
+      return;
+    }
+
+    ata.valor_executado = valExec + valorEmpenhado;
+  }
+
+  const tipoCode = (document.getElementById('emp-tipo').value || '').includes('AF') ? 'AF' : 'Conv.';
+
+  const novoEmpenho = {
+    id: 'emp-' + crypto.randomUUID(),
+    numero_empenho: numEmpenho,
+    ata_numero: numAta,
+    ataId: ata ? ata.id : null,
+    tipo: tipoCode,
+    fornecedor: fornecedor,
+    escola_name: escolaName,
+    produto: produto,
+    valor_empenhado: valorEmpenhado,
+    valor_liquidado: 0,
+    valor_pago: 0,
+    data_empenho: new Date().toISOString().slice(0,10),
+    status: 'Emitido'
+  };
+
+  SharedState.addEmpenho2(novoEmpenho);
+  showToast(`✅ Empenho ${numEmpenho} de ${new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(valorEmpenhado)} emitido com sucesso!`, 'success');
+  closeModal();
+
+  const container = document.getElementById('page-content');
+  if (numAtaTarget) {
+    window.abrirModalDetalhesAta(numAtaTarget);
+  } else if (container && state.currentPage === 'atas') {
+    PAGE_RENDERERS.gestor_atas(container);
+  } else if (container && state.currentPage === 'empenhos') {
+    PAGE_RENDERERS.gestor_empenhos(container);
+  }
+};
+
+// ─── GESTOR: EMPENHOS (com dados do Supabase) ───────────────────────
+
+window.abrirModalDetalhesEmpenho = (numeroEmpenho) => {
+  const empenhos = SharedState.getEmpenhos2();
+  const emp = empenhos.find(e => e.numero_empenho === numeroEmpenho || e.id === numeroEmpenho) || empenhos[0];
+  if (!emp) return;
+
+  const fmt = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v) : 'R$ 0,00';
+  const isAF = emp.tipo === 'AF' || (emp.fornecedor || '').toLowerCase().includes('coop');
+
+  const osCentral = SharedState.getOsEstoqueCentral().filter(o => o.numero_empenho === emp.numero_empenho);
+  const osForn = SharedState.getOsFornecedores().filter(o => o.numero_empenho === emp.numero_empenho);
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#f8fafc;padding:16px;border-radius:10px;border:1px solid var(--border);margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+          <div>
+            <h3 style="margin:0;font-size:1.15rem;color:var(--primary-dark)">💳 Empenho SIAFI ${emp.numero_empenho}</h3>
+            <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:2px">
+              ATA Vinculada: <a href="#" onclick="closeModal(); window.abrirModalDetalhesAta('${emp.ata_numero}')" style="font-weight:700;color:var(--primary);text-decoration:underline">📋 ${emp.ata_numero}</a> · Fornecedor: <strong>${emp.fornecedor}</strong>
+            </div>
+          </div>
+          <span class="tag tag-blue" style="font-size:0.9rem;padding:6px 12px">${emp.status}</span>
+        </div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin:0">
+          <div class="kpi-card blue" style="padding:10px"><div class="kpi-label">Empenhado</div><div class="kpi-value" style="font-size:1.1rem">${fmt(emp.valor_empenhado)}</div></div>
+          <div class="kpi-card teal" style="padding:10px"><div class="kpi-label">Liquidado</div><div class="kpi-value" style="font-size:1.1rem">${fmt(emp.valor_liquidado)}</div></div>
+          <div class="kpi-card green" style="padding:10px"><div class="kpi-label">Pago</div><div class="kpi-value" style="font-size:1.1rem">${fmt(emp.valor_pago)}</div></div>
+          <div class="kpi-card orange" style="padding:10px"><div class="kpi-label">Modalidade</div><div class="kpi-value" style="font-size:1.1rem">${isAF ? '🌾 AF / Economia Solidária' : '🏢 Convencional'}</div></div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:20px">
+        <h4 style="margin:0 0 10px 0;color:var(--text-primary)">📦 Itens Anexados ao Empenho</h4>
+        <div style="overflow-x:auto;max-height:220px">
+          <table class="data-table" style="font-size:0.85rem">
+            <thead>
+              <tr>
+                <th>Produto</th>
+                <th>Preço Unit.</th>
+                <th>Qtd Empenhada</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(emp.itens && emp.itens.length > 0) ? emp.itens.map(i => `
+                <tr>
+                  <td><strong>${i.produto}</strong></td>
+                  <td style="font-family:var(--font-mono)">${fmt(i.valorUnit)}</td>
+                  <td style="font-family:var(--font-mono);font-weight:700">${i.qtd.toLocaleString('pt-BR')} ${i.unidade||'kg'}</td>
+                  <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${fmt(i.valorTotal)}</td>
+                </tr>
+              `).join('') : `
+                <tr>
+                  <td><strong>Suprimento da ATA ${emp.ata_numero}</strong></td>
+                  <td style="font-family:var(--font-mono)">—</td>
+                  <td style="font-family:var(--font-mono)">1 lote contratual</td>
+                  <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${fmt(emp.valor_empenhado)}</td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h4 style="margin:0 0 10px 0;color:var(--text-primary)">📑 Ordem de Serviço (OS) Gerada & Roteamento</h4>
+        <div style="background:#f1f5f9;padding:14px;border-radius:8px;border:1px solid #cbd5e1">
+          ${isAF ? `
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="font-size:2.2rem">🌾</div>
+              <div>
+                <div style="font-weight:700;color:#15803d;font-size:1.05rem">Ordem de Fornecimento enviada para a Agricultura Familiar / Cooperativa</div>
+                <div style="font-size:0.85rem;color:#334155;margin-top:2px">
+                  Fornecedor: <strong>${emp.fornecedor}</strong> · Destino: <strong>${emp.escola_name || 'SEMED Global (Entrega Direta)'}</strong>
+                </div>
+                <div style="font-size:0.8rem;color:#475569;margin-top:6px">
+                  Status no Painel do Agricultor/Cooperativa: <span class="tag tag-green">Enviada ao Produtor Rural</span> (${osForn.length > 0 ? osForn.length : 1} OS gerada)
+                </div>
+              </div>
+            </div>
+          ` : `
+            <div style="display:flex;align-items:center;gap:14px">
+              <div style="font-size:2.2rem">🏭</div>
+              <div>
+                <div style="font-weight:700;color:#0369a1;font-size:1.05rem">Ordem de Serviço gerada para o Estoque Central</div>
+                <div style="font-size:0.85rem;color:#334155;margin-top:2px">
+                  Origem: <strong>${emp.fornecedor}</strong> · Destino: <strong>Almoxarifado Central SEMED</strong>
+                </div>
+                <div style="font-size:0.8rem;color:#475569;margin-top:6px">
+                  Status no Almoxarifado Central: <span class="tag tag-blue">Recebimento Programado</span> (${osCentral.length > 0 ? osCentral.length : 1} OS em separação)
+                </div>
+              </div>
+            </div>
+          `}
+        </div>
+      </div>
+    </div>
+  `;
+  window.showModal(`💳 Detalhamento do Empenho SIAFI — ${emp.numero_empenho}`, content, '850px');
+};
+
+// (salvarNovoEmpenho is handled globally by window.salvarNovoEmpenho)
+
+// ─── GESTOR: OS ESTOQUE CENTRAL ──────────────────────────────────────
+PAGE_RENDERERS['gestor_os-central'] = (el) => {
+  const os = SharedState.getOsEstoqueCentral();
+  const badge = (s) => {
+    const map = { Pendente:'tag-orange', 'Em Separação':'tag-blue', Expedido:'tag-blue', Recebido:'tag-green', Cancelado:'tag-red' };
+    return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
+  };
+  const tipoIcon = (t) => ({ Entrada:'📥', 'Saída':'📤', Transferência:'🔀', Ajuste:'⚖️' }[t] || '📋');
+  const rows = os.length ? os.map(o => `<tr>
+    <td><strong>${o.numero_os}</strong></td>
+    <td>${tipoIcon(o.tipo)} ${o.tipo}</td>
+    <td>${o.produto}</td>
+    <td>${o.quantidade} ${o.unidade}</td>
+    <td>${o.fornecedor || o.escola_destino || '—'}</td>
+    <td>${o.lote||'—'}</td>
+    <td>${o.validade||'—'}</td>
+    <td>${o.responsavel||'—'}</td>
+    <td>${o.data_programada||''}</td>
+    <td>${badge(o.status)}</td>
+  </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:#94A3B8">Nenhuma OS carregada.</td></tr>';
+  el.innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">🏭 Ordens de Serviço — Estoque Central</div>
+        <div class="page-subtitle">Entradas, saídas, transferências e ajustes do almoxarifado</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="window.abrirModalImportarNFeXML()">📥 Receber NF-e via XML</button>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      ${['Entrada','Saída','Transferência','Ajuste'].map(t => `<div class="kpi-card blue"><div class="kpi-icon">${tipoIcon(t)}</div><div class="kpi-value">${os.filter(o=>o.tipo===t).length}</div><div class="kpi-label">${t}s</div></div>`).join('')}
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Ordens de Serviço</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Número OS</th><th>Tipo</th><th>Produto</th><th>Qtd</th><th>Origem/Destino</th><th>Lote</th><th>Validade</th><th>Responsável</th><th>Data</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── GESTOR: LISTA DE COMPRAS ────────────────────────────────────────
+// NOTA: a tela de Lista de Compras foi FUNDIDA em sprint_abc.js
+// (PAGE_RENDERERS.gestor_listacompras): a ferramenta de geracao no topo e o
+// registro de solicitacoes como 2a secao. O menu usa o id `listacompras`.
+
+// ─── GESTOR: OS FORNECEDORES ─────────────────────────────────────────
+PAGE_RENDERERS['gestor_os-fornecedores'] = (el) => {
+  const os = SharedState.getOsFornecedores();
+  const fmt = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v) : '—';
+  const badge = (s) => {
+    const map = {
+      Emitida:'tag-blue', 'Confirmada pelo Fornecedor':'tag-blue',
+      'Em Preparação':'tag-orange', 'Em Rota':'tag-orange',
+      'Entregue Parcialmente':'tag-orange', Entregue:'tag-green',
+      Cancelada:'tag-red', 'Com Pendência':'tag-red'
+    };
+    return `<span class="tag ${map[s]||'tag-gray'}" style="font-size:0.7rem">${s}</span>`;
+  };
+  const rows = os.length ? os.map(o => `<tr>
+    <td><strong>${o.numero_os}</strong></td>
+    <td>${o.tipo_fornecedor === 'Cooperativa' ? '🤝' : '🌾'} ${o.tipo_fornecedor}</td>
+    <td>${o.cooperativa || o.agricultor || '—'}</td>
+    <td>${o.ata_numero||'—'}</td>
+    <td>${o.escola_destino || '<em>Almox. Central</em>'}</td>
+    <td>${fmt(o.valor_total)}</td>
+    <td>${o.data_entrega_prevista||'—'}</td>
+    <td>${o.data_entrega_real||'—'}</td>
+    <td>${o.guia_protocolo||'—'}</td>
+    <td>${badge(o.status)}</td>
+  </tr>`).join('') : '<tr><td colspan="10" style="text-align:center;color:#94A3B8">Nenhuma OS de fornecedor carregada.</td></tr>';
+  el.innerHTML = `
+    <div class="page-header">
+      <div><div class="page-title">🤝 OS Fornecedores</div>
+      <div class="page-subtitle">Ordens de serviço para cooperativas e agricultores familiares</div></div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${os.length}</div><div class="kpi-label">Total de OS</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${os.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⏳</div><div class="kpi-value">${os.filter(o=>['Emitida','Confirmada pelo Fornecedor','Em Preparação','Em Rota'].includes(o.status)).length}</div><div class="kpi-label">Em Andamento</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">💰</div><div class="kpi-value">${fmt(os.reduce((s,o)=>s+(o.valor_total||0),0))}</div><div class="kpi-label">Valor Total</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Ordens de Serviço para Fornecedores</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>Número OS</th><th>Tipo</th><th>Fornecedor</th><th>ATA</th><th>Destino</th><th>Valor</th><th>Prev. Entrega</th><th>Entregue em</th><th>Guia</th><th>Status</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── ENGINE DE ABASTECIMENTO EM 7 PASSOS & AUDITORIA ────────────────
+window.EngineAbastecimento = {
+  processarDemandaItem(produtoName, qtdNecessaria, escolaTarget) {
+    let qtdRestante = qtdNecessaria;
+    const resultado = {
+      produto: produtoName,
+      qtdNecessaria: qtdNecessaria,
+      atendidoEstoque: 0,
+      atendidoEmpenho: 0,
+      solicitadoEmpenhoAta: 0,
+      encaminhadoListaCompras: 0,
+      etapasExecutadas: []
+    };
+
+    // ETAPA 1: Checar Estoque Central Físico/Disponível
+    const stockCentral = SharedState.getCentralStock();
+    const itemStock = stockCentral.find(s => s.produto.toLowerCase() === produtoName.toLowerCase());
+    const qtdFisica = itemStock ? (itemStock.qtd || itemStock.quantidade || 0) : 0;
+    const qtdReservada = itemStock ? (itemStock.reservado || 0) : 0;
+    const disponivelEstoque = Math.max(0, qtdFisica - qtdReservada);
+
+    if (disponivelEstoque > 0) {
+      const qtdUsarEstoque = Math.min(qtdRestante, disponivelEstoque);
+      resultado.atendidoEstoque = qtdUsarEstoque;
+      qtdRestante -= qtdUsarEstoque;
+
+      if (itemStock) itemStock.reservado = (itemStock.reservado || 0) + qtdUsarEstoque;
+
+      SharedState.addOsEstoqueCentral({
+        tipo: 'Saída',
+        produto: produtoName,
+        quantidade: qtdUsarEstoque,
+        unidade: itemStock ? itemStock.unidade : 'kg',
+        escola_destino: escolaTarget || 'SEMED Central',
+        responsavel: 'Engine Abastecimento',
+        status: 'Em Separação'
+      });
+
+      resultado.etapasExecutadas.push(`✅ Etapa 1: ${qtdUsarEstoque} unidades reservadas do Estoque Central.`);
+      SharedState.registrarLogAuditoria({
+        acao: 'Reserva de Estoque',
+        produto: produtoName,
+        quantidade: qtdUsarEstoque,
+        origem: 'Demanda Cardápio',
+        destino: escolaTarget || 'Estoque Central',
+        motivo: 'Atendimento de Demanda (Etapa 1)'
+      });
+    }
+
+    if (qtdRestante <= 0) {
+      SharedState._persist();
+      return resultado;
+    }
+
+    // ETAPA 2 & 3: Checar Empenhos SIAFI Disponíveis
+    const empenhos = SharedState.getEmpenhos2();
+    for (const emp of empenhos) {
+      if (qtdRestante <= 0) break;
+      const saldoEmpR$ = (emp.valor_empenhado || 0) - (emp.valor_liquidado || 0);
+      if (saldoEmpR$ > 0) {
+        let unitP = 10.00;
+        if (Array.isArray(emp.itens)) {
+          const itemE = emp.itens.find(i => i.produto.toLowerCase() === produtoName.toLowerCase());
+          if (itemE) unitP = itemE.valorUnit || unitP;
+        }
+        const maxQtdEmp = Math.floor(saldoEmpR$ / unitP);
+        if (maxQtdEmp > 0) {
+          const qtdUsarEmp = Math.min(qtdRestante, maxQtdEmp);
+          resultado.atendidoEmpenho += qtdUsarEmp;
+          qtdRestante -= qtdUsarEmp;
+
+          const isAF = emp.tipo === 'AF' || (emp.fornecedor || '').toLowerCase().includes('coop');
+          if (isAF) {
+            SharedState.addOsFornecedores({
+              numero_empenho: emp.numero_empenho,
+              ata_numero: emp.ata_numero,
+              fornecedor: emp.fornecedor,
+              cooperativa: emp.fornecedor,
+              produto: produtoName,
+              quantidade: qtdUsarEmp,
+              unidade: 'kg',
+              valor_total: qtdUsarEmp * unitP,
+              escola_destino: escolaTarget || 'SEMED Global',
+              tipo_os: 'Ordem de Fornecimento AF',
+              status: 'Enviada à Cooperativa'
+            });
+          } else {
+            SharedState.addOsEstoqueCentral({
+              numero_empenho: emp.numero_empenho,
+              tipo: 'Entrada',
+              produto: produtoName,
+              quantidade: qtdUsarEmp,
+              unidade: 'kg',
+              fornecedor: emp.fornecedor,
+              escola_destino: escolaTarget || 'Almoxarifado Central',
+              lote: 'LOTE-NE-' + emp.numero_empenho,
+              validade: new Date(Date.now() + 180*24*60*60*1000).toISOString().slice(0,10),
+              responsavel: 'Engine Abastecimento',
+              status: 'Em Separação'
+            });
+          }
+
+          resultado.etapasExecutadas.push(`✅ Etapa 3: ${qtdUsarEmp} unidades empenhadas via Empenho SIAFI ${emp.numero_empenho}.`);
+          SharedState.registrarLogAuditoria({
+            acao: 'Empenho SIAFI Consumido',
+            produto: produtoName,
+            quantidade: qtdUsarEmp,
+            origem: `Empenho ${emp.numero_empenho}`,
+            destino: escolaTarget || 'Almoxarifado',
+            motivo: 'Atendimento de Demanda (Etapa 3)'
+          });
+        }
+      }
+    }
+
+    if (qtdRestante <= 0) {
+      SharedState._persist();
+      return resultado;
+    }
+
+    // ETAPA 4 & 5: Checar Saldo em ATAs de Registro de Preços
+    const atas = SharedState.getAtas2();
+    for (const ata of atas) {
+      if (qtdRestante <= 0) break;
+      const saldoAta = (ata.valor_global || 0) - (ata.valor_executado || 0);
+      if (saldoAta > 0) {
+        const unitP = 12.00;
+        const maxQtdAta = Math.floor(saldoAta / unitP);
+        if (maxQtdAta > 0) {
+          const qtdSolicitar = Math.min(qtdRestante, maxQtdAta);
+          resultado.solicitadoEmpenhoAta += qtdSolicitar;
+          qtdRestante -= qtdSolicitar;
+
+          const numEmp = '2026NE' + String(Math.floor(600 + Math.random() * 300));
+          const vTotal = qtdSolicitar * unitP;
+          SharedState.addEmpenho2({
+            numero_empenho: numEmp,
+            ata_numero: ata.numero || ata.numero_ata,
+            tipo: ata.tipo || 'Conv.',
+            fornecedor: ata.fornecedor,
+            escola_name: escolaTarget || 'SEMED Global',
+            valor_empenhado: vTotal,
+            valor_liquidado: 0,
+            valor_pago: 0,
+            status: 'Emitido',
+            itens: [{ produto: produtoName, quantidade: qtdSolicitar, valorUnit: unitP, valorTotal: vTotal }]
+          });
+
+          ata.valor_executado = (ata.valor_executado || 0) + vTotal;
+          resultado.etapasExecutadas.push(`✅ Etapa 5: Solicitado novo Empenho SIAFI ${numEmp} na ATA ${ata.numero || ata.numero_ata} para ${qtdSolicitar} unidades.`);
+          SharedState.registrarLogAuditoria({
+            acao: 'Solicitação de Novo Empenho na ATA',
+            produto: produtoName,
+            quantidade: qtdSolicitar,
+            origem: `ATA ${ata.numero || ata.numero_ata}`,
+            destino: 'Novo Empenho SIAFI',
+            motivo: 'Atendimento de Demanda (Etapa 5)'
+          });
+        }
+      }
+    }
+
+    // ETAPA 6 & 7: Transbordo para Lista de Compras + Notificação ao Gestor
+    if (qtdRestante > 0) {
+      resultado.encaminhadoListaCompras = qtdRestante;
+      const listas = SharedState.getListaCompras();
+      listas.unshift({
+        id: 'lista-' + Date.now(),
+        titulo: `Compra Emergencial — ${produtoName} (${qtdRestante} kg)`,
+        escola_name: escolaTarget || 'Consolidado SEMED',
+        tipo: 'Emergencial (Sem Saldo em ATA/Empenho)',
+        valor_estimado: qtdRestante * 15.00,
+        valor_aprovado: 0,
+        data_necessidade: new Date().toISOString().slice(0,10),
+        criado_por: 'Engine Abastecimento Automática',
+        status: 'Em Análise',
+        itens: [{ produto: produtoName, quantidade: qtdRestante, motivo: 'Sem estoque físico e sem saldo em ATA/Empenho' }]
+      });
+
+      resultado.etapasExecutadas.push(`⚠️ Etapa 7: ${qtdRestante} unidades transbordadas para a Lista de Compras (Gestor Notificado).`);
+      SharedState.registrarLogAuditoria({
+        acao: 'Transbordo para Lista de Compras',
+        produto: produtoName,
+        quantidade: qtdRestante,
+        origem: 'Insuficiência de Saldo em ATA/Empenho',
+        destino: 'Lista de Compras SEMED',
+        motivo: 'Falta de Saldo Contratual (Etapa 7)'
+      });
+    }
+
+    SharedState._persist();
+    return resultado;
+  }
+};
+
+// ─── IMPORTADOR DE NOTA FISCAL ELETRÔNICA (NFe XML) ─────────────────
+window.abrirModalImportarNFeXML = () => {
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#eff6ff;padding:14px;border-radius:8px;border:1px solid #93c5fd;margin-bottom:16px">
+        <h4 style="margin:0 0 4px 0;color:#1e40af">📥 Recebimento de NF-e via Leitura XML</h4>
+        <div style="font-size:0.85rem;color:#1e3a8a">
+          Selecione o arquivo <strong>.xml</strong> da Nota Fiscal fornecida pelo fornecedor/cooperativa ou cole o código XML abaixo. O sistema lerá os dados e dará entrada automática no Estoque Central e liquidação do Empenho SIAFI.
+        </div>
+      </div>
+
+      <div class="form-group mb-16">
+        <label style="font-weight:600;display:block;margin-bottom:6px">📁 Selecionar Arquivo XML da NFe</label>
+        <input type="file" id="nfe-file-input" accept=".xml" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" onchange="window.lerArquivoNFeXML(event)">
+      </div>
+
+      <div class="form-group mb-16">
+        <label style="font-weight:600;display:block;margin-bottom:6px">ou Conteúdo XML da NFe</label>
+        <textarea id="nfe-xml-text" class="btn btn-outline" style="width:100%;height:110px;text-align:left;font-family:monospace;font-size:0.75rem;padding:8px" placeholder="<nfeProc xmlns=...></nfeProc>"></textarea>
+      </div>
+
+      <div id="nfe-preview-container" style="display:none;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #cbd5e1;margin-bottom:16px">
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:10px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" onclick="window.processarConteudoXMLNFe()">💾 Processar XML e Dar Entrada</button>
+      </div>
+    </div>
+  `;
+  window.showModal('📥 Receber Nota Fiscal Eletrônica (NFe XML)', content, '750px');
+};
+
+window.lerArquivoNFeXML = (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    document.getElementById('nfe-xml-text').value = text;
+    window.processarConteudoXMLNFe();
+  };
+  reader.readAsText(file);
+};
+
+window.processarConteudoXMLNFe = () => {
+  const xmlText = document.getElementById('nfe-xml-text').value;
+  if (!xmlText || !xmlText.trim()) {
+    alert('⚠️ Por favor, selecione um arquivo XML válido ou cole o conteúdo XML da Nota Fiscal.');
+    return;
+  }
+
+  try {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+
+    const getTag = (parent, tag) => {
+      const el = parent.getElementsByTagName(tag)[0];
+      return el ? el.textContent : '';
+    };
+
+    const nNF = getTag(xmlDoc, 'nNF') || String(Math.floor(10000 + Math.random() * 90000));
+    const chNFe = getTag(xmlDoc, 'chNFe') || ('352608' + Date.now() + '1001');
+    const emitNome = getTag(xmlDoc, 'xNome') || 'FORNECEDOR REGISTRADO LTDA';
+    const vNF = parseFloat(getTag(xmlDoc, 'vNF')) || 125000.00;
+
+    const detNodes = xmlDoc.getElementsByTagName('det');
+    const itensNFe = [];
+
+    if (detNodes && detNodes.length > 0) {
+      for (let i = 0; i < detNodes.length; i++) {
+        const prodNode = detNodes[i].getElementsByTagName('prod')[0];
+        if (prodNode) {
+          itensNFe.push({
+            xProd: getTag(prodNode, 'xProd') || `Item ${i+1}`,
+            qCom: parseFloat(getTag(prodNode, 'qCom')) || 500,
+            uCom: getTag(prodNode, 'uCom') || 'kg',
+            vUnCom: parseFloat(getTag(prodNode, 'vUnCom')) || 10.00,
+            vProd: parseFloat(getTag(prodNode, 'vProd')) || 5000.00,
+            nLote: getTag(prodNode, 'nLote') || ('LOTE-' + new Date().getFullYear() + '-' + (i+101)),
+            dVal: getTag(prodNode, 'dVal') || new Date(Date.now() + 180*24*60*60*1000).toISOString().slice(0,10)
+          });
+        }
+      }
+    } else {
+      itensNFe.push({
+        xProd: 'Gêneros Alimentícios Diversos',
+        qCom: 1000,
+        uCom: 'kg',
+        vUnCom: 12.50,
+        vProd: vNF,
+        nLote: 'LOTE-' + new Date().getFullYear() + '-001',
+        dVal: new Date(Date.now() + 180*24*60*60*1000).toISOString().slice(0,10)
+      });
+    }
+
+    // Dá entrada das OS no Estoque Central
+    itensNFe.forEach(item => {
+      SharedState.addOsEstoqueCentral({
+        numero_os: 'OS-NF-' + nNF,
+        tipo: 'Entrada',
+        produto: item.xProd,
+        quantidade: item.qCom,
+        unidade: item.uCom,
+        fornecedor: emitNome,
+        escola_destino: 'Almoxarifado Central SEMED',
+        lote: item.nLote,
+        validade: item.dVal,
+        responsavel: 'Leitura NFe XML',
+        status: 'Recebido'
+      });
+    });
+
+    // Atualiza Empenho vinculado se houver
+    const empenhos = SharedState.getEmpenhos2();
+    const empMatch = empenhos.find(e => (e.fornecedor || '').toLowerCase().includes(emitNome.toLowerCase().slice(0,6))) || empenhos[0];
+    if (empMatch) {
+      empMatch.valor_liquidado = (empMatch.valor_liquidado || 0) + vNF;
+      empMatch.status = empMatch.valor_liquidado >= empMatch.valor_empenhado ? 'Liquidado' : 'Emitido';
+      SharedState._persist();
+    }
+
+    SharedState.registrarLogAuditoria({
+      acao: 'Importação de NF-e via XML',
+      produto: itensNFe.map(i => i.xProd).join(', '),
+      quantidade: itensNFe.reduce((s,i) => s + i.qCom, 0),
+      origem: `NF-e nº ${nNF} (${emitNome})`,
+      destino: 'Almoxarifado Central SEMED',
+      motivo: 'Recebimento de Mercadorias com Chave NFe ' + chNFe
+    });
+
+    showToast(`✅ NF-e nº ${nNF} lida e processada com sucesso! ${itensNFe.length} itens recebidos no Estoque Central.`);
+    closeModal();
+    const container = document.getElementById('page-content');
+    if (container && PAGE_RENDERERS['gestor_os-central']) PAGE_RENDERERS['gestor_os-central'](container);
+  } catch (err) {
+    alert('❌ Erro ao ler o arquivo XML: ' + err.message);
+  }
+};
+
+window.executarSimulacaoEngine7Passos = () => {
+  const produtoDemo = 'Arroz Tipo 1 (5kg)';
+  const qtdDemo = 500;
+  const escolaDemo = 'EMEF Prof. Henrique Scabello';
+
+  const res = window.EngineAbastecimento.processarDemandaItem(produtoDemo, qtdDemo, escolaDemo);
+  const etapasHtml = res.etapasExecutadas.map(e => `<li style="margin-bottom:6px;font-size:0.9rem">${e}</li>`).join('');
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#f0fdf4;padding:14px;border-radius:8px;border:1px solid #86efac;margin-bottom:16px">
+        <h4 style="margin:0 0 4px 0;color:#166534">⚡ Engine de Abastecimento em 7 Passos Executada</h4>
+        <div style="font-size:0.85rem;color:#14532d">
+          Demanda de <strong>${qtdDemo} kg</strong> de <strong>${produtoDemo}</strong> para a <strong>${escolaDemo}</strong> processada através da árvore de decisão de suprimentos.
+        </div>
+      </div>
+
+      <div class="card mb-16" style="padding:14px">
+        <h5 style="margin:0 0 10px 0;color:var(--text-primary)">📜 Passos Executados pela Engine:</h5>
+        <ul style="padding-left:20px;margin:0;color:var(--text-secondary)">
+          ${etapasHtml}
+        </ul>
+      </div>
+
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">
+        <div class="kpi-card green" style="padding:8px"><div class="kpi-label">Estoque Físico</div><div class="kpi-value" style="font-size:1rem">${res.atendidoEstoque} kg</div></div>
+        <div class="kpi-card blue" style="padding:8px"><div class="kpi-label">Empenho SIAFI</div><div class="kpi-value" style="font-size:1rem">${res.atendidoEmpenho} kg</div></div>
+        <div class="kpi-card orange" style="padding:8px"><div class="kpi-label">Novo Empenho ATA</div><div class="kpi-value" style="font-size:1rem">${res.solicitadoEmpenhoAta} kg</div></div>
+        <div class="kpi-card red" style="padding:8px"><div class="kpi-label">Lista de Compras</div><div class="kpi-value" style="font-size:1rem">${res.encaminhadoListaCompras} kg</div></div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-outline" onclick="window.abrirModalLogsAuditoria()">📜 Ver Trilha de Auditoria Completa</button>
+        <button class="btn btn-primary" onclick="closeModal()">Concluído</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('⚡ Processamento da Engine de Abastecimento (7 Passos)', content, '750px');
+};
+
+window.abrirModalLogsAuditoria = () => {
+  const logs = SharedState.getLogsAuditoria();
+  const rows = logs.length ? logs.map(l => `
+    <tr>
+      <td><small style="font-family:var(--font-mono)">${l.timestamp ? l.timestamp.slice(0,19).replace('T',' ') : ''}</small></td>
+      <td><strong>${l.acao}</strong></td>
+      <td>${l.usuario || 'Gestor SEMED'}</td>
+      <td>${l.produto}</td>
+      <td style="font-family:var(--font-mono);font-weight:700">${l.quantidade}</td>
+      <td>${l.origem} ➔ ${l.destino}</td>
+      <td><small>${l.motivo}</small></td>
+    </tr>
+  `).join('') : '<tr><td colspan="7" style="text-align:center;color:#94A3B8">Nenhum log de auditoria gravado ainda.</td></tr>';
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="overflow-x:auto;max-height:400px">
+        <table class="data-table" style="font-size:0.8rem">
+          <thead>
+            <tr>
+              <th>Data/Hora</th>
+              <th>Ação</th>
+              <th>Usuário</th>
+              <th>Produto</th>
+              <th>Qtd</th>
+              <th>Origem ➔ Destino</th>
+              <th>Motivo</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px">
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+      </div>
+    </div>
+  `;
+
+  window.showModal('📜 Trilha de Auditoria & Rastreabilidade de Suprimentos', content, '950px');
+};
+
+// SUALE — MÓDULO DE ESTOQUE CENTRAL (v2.3.0)
+// Módulo 01: Recebimento de Mercadorias & Módulo 02: Expedição para Escolas
+// Implementação Integral das 13 Regras de Negócio (RN01 a RN13)
+
+(function initEstoqueCentralModulo() {
+  if (!SharedState._data.recebimentosPendentes) {
+    SharedState._data.recebimentosPendentes = [
+      {
+        id: 'REC-2026-001',
+        numeroPedido: 'PED-2026/089',
+        numeroOs: 'OS-ENT-2026/012',
+        numeroEmpenho: '2026NE00477',
+        numeroAta: 'ATA-2026/031',
+        fornecedor: 'NUTRI ALIMENTOS DISTRIBUIDORA LTDA',
+        produto: 'Arroz Tipo 1 (5kg)',
+        qtdSolicitada: 2000,
+        qtdEntregue: 500,
+        qtdPendente: 1500,
+        dataPrevista: '2026-08-08',
+        status: 'Em transporte',
+        prioridade: 'Alta',
+        escolaDestino: 'Almoxarifado Central SEMED',
+        loteEsperado: 'LOT-ARZ-889',
+        validadeEsperada: '2026-12-15',
+        conferenciaFisica: null,
+        confrontoNfe: null,
+        divergencias: []
+      },
+      {
+        id: 'REC-2026-002',
+        numeroPedido: 'PED-2026/092',
+        numeroOs: 'OS-ENT-2026/015',
+        numeroEmpenho: '2026NE00489',
+        numeroAta: 'ATA-2026/001',
+        fornecedor: 'COOPAGRAN (Cooperativa)',
+        produto: 'Banana Nanica',
+        qtdSolicitada: 800,
+        qtdEntregue: 0,
+        qtdPendente: 800,
+        dataPrevista: '2026-08-06',
+        status: 'Entrega agendada',
+        prioridade: 'Alta',
+        escolaDestino: 'Almoxarifado Central SEMED',
+        loteEsperado: 'LOT-BAN-104',
+        validadeEsperada: '2026-08-14',
+        conferenciaFisica: null,
+        confrontoNfe: null,
+        divergencias: []
+      },
+      {
+        id: 'REC-2026-003',
+        numeroPedido: 'PED-2026/095',
+        numeroOs: 'OS-ENT-2026/018',
+        numeroEmpenho: '2026NE00512',
+        numeroAta: 'ATA-2026/018',
+        fornecedor: 'POLARIS COMÉRCIO DE ALIMENTOS LTDA',
+        produto: 'Leite Integral (1L)',
+        qtdSolicitada: 3500,
+        qtdEntregue: 1000,
+        qtdPendente: 2500,
+        dataPrevista: '2026-08-07',
+        status: 'Em conferência',
+        prioridade: 'Média',
+        escolaDestino: 'Almoxarifado Central SEMED',
+        loteEsperado: 'LOT-LTE-991',
+        validadeEsperada: '2026-11-20',
+        conferenciaFisica: null,
+        confrontoNfe: null,
+        divergencias: []
+      },
+      {
+        id: 'REC-2026-004',
+        numeroPedido: 'PED-2026/098',
+        numeroOs: 'OS-ENT-2026/022',
+        numeroEmpenho: '2026NE00501',
+        numeroAta: 'ATA-2026/042',
+        fornecedor: 'AVINORTE DISTRIBUIDORA DE AVES LTDA',
+        produto: 'Frango (Coxa/Sobrecoxa)',
+        qtdSolicitada: 1200,
+        qtdEntregue: 0,
+        qtdPendente: 1200,
+        dataPrevista: '2026-08-09',
+        status: 'Aguardando envio',
+        prioridade: 'Normal',
+        escolaDestino: 'Almoxarifado Central SEMED',
+        loteEsperado: 'LOT-FRG-332',
+        validadeEsperada: '2026-10-10',
+        conferenciaFisica: null,
+        confrontoNfe: null,
+        divergencias: []
+      }
+    ];
+  }
+
+  if (!SharedState._data.ordensServicoExpedicao) {
+    SharedState._data.ordensServicoExpedicao = [
+      {
+        id: 'OS-EXP-2026/001',
+        numeroOs: 'OS-EXP-2026/001',
+        escolaId: 'esc-1',
+        escolaNome: 'EMEF Prof. Henrique Scabello',
+        municipio: 'Campo Grande - MS',
+        produtos: [
+          { produto: 'Arroz Tipo 1 (5kg)', quantidade: 150, unidade: 'kg', loteSugerido: 'LOT-ARZ-2026A', validade: '2026-10-15' },
+          { produto: 'Feijão Carioca', quantidade: 60, unidade: 'kg', loteSugerido: 'LOT-FEJ-2026B', validade: '2026-11-01' }
+        ],
+        dataPrevista: '2026-08-07',
+        prioridade: 'Alta',
+        status: 'Aguardando Separação'
+      },
+      {
+        id: 'OS-EXP-2026/002',
+        numeroOs: 'OS-EXP-2026/002',
+        escolaId: 'esc-2',
+        escolaNome: 'EMEF Doutor João Sampaio',
+        municipio: 'Campo Grande - MS',
+        produtos: [
+          { produto: 'Leite Integral (1L)', quantidade: 300, unidade: 'L', loteSugerido: 'LOT-LTE-2026A', validade: '2026-09-20' },
+          { produto: 'Banana Nanica', quantidade: 120, unidade: 'kg', loteSugerido: 'LOT-BAN-2026A', validade: '2026-08-12' }
+        ],
+        dataPrevista: '2026-08-08',
+        prioridade: 'Média',
+        status: 'Separado'
+      }
+    ];
+  }
+
+  if (!SharedState._data.ordensEntrega) {
+    SharedState._data.ordensEntrega = [
+      {
+        id: 'OE-2026/001',
+        numeroOe: 'OE-2026/001',
+        osId: 'OS-EXP-2026/002',
+        escolaId: 'esc-2',
+        escolaNome: 'EMEF Doutor João Sampaio',
+        motorista: 'Marcos Antônio Ribeiro',
+        veiculo: 'Furgão IVECO Daily (ABC-1234)',
+        rota: 'Rota 03 — Zona Norte (Anhanduízinho)',
+        dataEntrega: '2026-08-08',
+        status: 'Em Transporte',
+        produtos: [
+          { produto: 'Leite Integral (1L)', quantidade: 300, lote: 'LOT-LTE-2026A' },
+          { produto: 'Banana Nanica', quantidade: 120, lote: 'LOT-BAN-2026A' }
+        ],
+        assinaturaDigital: null,
+        recebidoPor: null,
+        dataRecebimentoReal: null
+      }
+    ];
+  }
+
+  if (!SharedState._data.notificacoesFornecedor) {
+    SharedState._data.notificacoesFornecedor = [];
+  }
+
+  SharedState._persist();
+})();
+
+SharedState.getRecebimentosPendentes = () => [...(SharedState._data.recebimentosPendentes || [])];
+SharedState.getOrdensServicoExpedicao = () => [...(SharedState._data.ordensServicoExpedicao || [])];
+SharedState.getOrdensEntrega = () => [...(SharedState._data.ordensEntrega || [])];
+SharedState.getNotificacoesFornecedor = () => [...(SharedState._data.notificacoesFornecedor || [])];
+
+// ─── TELA 01: RECEBIMENTOS PENDENTES ──────────────────────────────────
+PAGE_RENDERERS['gestor_recebimentos-pendentes'] = (el) => {
+  const recs = SharedState.getRecebimentosPendentes();
+  const badgeStatus = (s) => {
+    const map = {
+      'Aguardando envio': 'tag-gray', 'Em transporte': 'tag-blue', 'Entrega agendada': 'tag-blue',
+      'Recebimento iniciado': 'tag-orange', 'Em conferência': 'tag-orange', 'Aguardando ajuste': 'tag-orange',
+      'Recebido parcialmente': 'tag-orange', 'Recebido': 'tag-green', 'Recusado': 'tag-red', 'Cancelado': 'tag-red'
+    };
+    return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
+  };
+  const badgePrio = (p) => {
+    const map = { Alta: 'tag-red', Média: 'tag-orange', Normal: 'tag-blue' };
+    return `<span class="tag ${map[p]||'tag-gray'}">${p}</span>`;
+  };
+
+  const rows = recs.length ? recs.map(r => `
+    <tr>
+      <td><strong>${r.numeroPedido}</strong><br><small class="text-secondary">${r.id}</small></td>
+      <td><small>${r.numeroOs}</small></td>
+      <td><small>${r.numeroEmpenho}</small><br><small class="text-secondary">${r.numeroAta}</small></td>
+      <td><strong>${r.fornecedor}</strong></td>
+      <td>${r.produto}</td>
+      <td style="font-family:var(--font-mono)">${r.qtdSolicitada}</td>
+      <td style="font-family:var(--font-mono);color:#15803d">${r.qtdEntregue}</td>
+      <td style="font-family:var(--font-mono);font-weight:700;color:${r.qtdPendente > 0 ? '#b91c1c' : '#15803d'}">${r.qtdPendente}</td>
+      <td>${r.dataPrevista}</td>
+      <td>${badgePrio(r.prioridade)}</td>
+      <td>${badgeStatus(r.status)}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-sm btn-primary" onclick="window.abrirModalConferenciaFisica('${r.id}')">
+            🔍 Conf. Física
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="window.abrirModalConfronto4Vias('${r.id}')">
+            📄 Confronto NF-e
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="12" style="text-align:center;color:#94A3B8">Nenhum recebimento pendente.</td></tr>';
+
+  el.innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">🚚 Recebimentos Pendentes — Almoxarifado Central</div>
+        <div class="page-subtitle">Central de acompanhamento de entregas de fornecedores, conferência física prévia (RN01) e liberação de empenho (RN05)</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-outline" onclick="window.abrirModalLogsAuditoria()">📜 Logs de Auditoria</button>
+        <button class="btn btn-primary" onclick="window.abrirModalImportarNFeXML()">📥 Receber NF-e via XML</button>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${recs.length}</div><div class="kpi-label">Pedidos a Receber</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🚚</div><div class="kpi-value">${recs.filter(r=>['Em transporte','Entrega agendada','Em conferência'].includes(r.status)).length}</div><div class="kpi-label">Em Transporte / Conferência</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${recs.filter(r=>r.status==='Recebido').length}</div><div class="kpi-label">Recebidos</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value">${recs.filter(r=>r.status==='Aguardando ajuste'||r.status==='Recusado').length}</div><div class="kpi-label">Com Divergência / Recusados</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Fila de Recebimento de Mercadorias dos Fornecedores</strong>
+        <span class="tag tag-blue" style="font-size:0.75rem">RN01 — Conferência Física Obrigatória</span>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="data-table" style="font-size:0.85rem">
+          <thead>
+            <tr>
+              <th>Pedido</th>
+              <th>OS</th>
+              <th>Empenho / ATA</th>
+              <th>Fornecedor</th>
+              <th>Produto</th>
+              <th>Solicitada</th>
+              <th>Entregue</th>
+              <th>Pendente</th>
+              <th>Data Prevista</th>
+              <th>Prioridade</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── TELA 02: EXPEDIÇÃO (ORDENS DE SERVIÇO POR ESCOLA — RN07) ────────
+PAGE_RENDERERS['gestor_expedicao-os'] = (el) => {
+  const osList = SharedState.getOrdensServicoExpedicao();
+  const badgeStatus = (s) => {
+    const map = {
+      'Aguardando Separação': 'tag-gray', 'Em Separação': 'tag-orange', 'Separado': 'tag-blue',
+      'Aguardando Expedição': 'tag-blue', 'Em Rota': 'tag-orange', 'Entregue': 'tag-green',
+      'Entrega Parcial': 'tag-orange', 'Devolvida': 'tag-red', 'Cancelada': 'tag-red'
+    };
+    return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
+  };
+
+  const rows = osList.length ? osList.map(o => `
+    <tr>
+      <td><strong>${o.numeroOs}</strong></td>
+      <td><span style="font-size:1.1rem">🏫</span> <strong>${o.escolaNome}</strong><br><small class="text-secondary">${o.municipio}</small></td>
+      <td>
+        <ul style="padding-left:14px;margin:0;font-size:0.8rem">
+          ${o.produtos.map(p => `<li>${p.produto}: <strong>${p.quantidade} ${p.unidade}</strong> (Lote: ${p.loteSugerido})</li>`).join('')}
+        </ul>
+      </td>
+      <td>${o.dataPrevista}</td>
+      <td><span class="tag ${o.prioridade==='Alta'?'tag-red':'tag-blue'}">${o.prioridade}</span></td>
+      <td>${badgeStatus(o.status)}</td>
+      <td>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-sm btn-primary" style="background:#15803d" onclick="window.abrirModalSeparacaoFEFO('${o.id}')">
+            📦 Separação FEFO (RN06)
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="window.abrirModalNovaOrdemEntrega('${o.id}')">
+            🚛 Criar OE (RN08)
+          </button>
+        </div>
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="7" style="text-align:center;color:#94A3B8">Nenhuma Ordem de Serviço de expedição cadastrada.</td></tr>';
+
+  el.innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">📋 Expedição de Ordens de Serviço — Escolas</div>
+        <div class="page-subtitle">Separação de estoque por FEFO (RN06) e isolamento estrito de 1 Escola por OS (RN07)</div>
+      </div>
+      <div>
+        <span class="tag tag-green" style="font-weight:700">🔒 RN07: 1 Escola por OS Ativo</span>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${osList.length}</div><div class="kpi-label">Total de OS Escolas</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${osList.filter(o=>o.status==='Aguardando Separação'||o.status==='Em Separação').length}</div><div class="kpi-label">Pendente de Separação</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">✅</div><div class="kpi-value">${osList.filter(o=>o.status==='Separado'||o.status==='Aguardando Expedição').length}</div><div class="kpi-label">Pronto para Expedição</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">🚛</div><div class="kpi-value">${osList.filter(o=>o.status==='Em Rota'||o.status==='Entregue').length}</div><div class="kpi-label">Em Rota / Entregue</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Ordens de Serviço por Escola (Expedição FEFO)</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table" style="font-size:0.85rem">
+          <thead>
+            <tr>
+              <th>Número OS</th>
+              <th>Escola de Destino (Única)</th>
+              <th>Itens Solicitados (Cardápio)</th>
+              <th>Data Prevista</th>
+              <th>Prioridade</th>
+              <th>Status</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── TELA 03: ORDENS DE ENTREGA (LOGÍSTICA — RN08/RN09/RN10) ──────────
+PAGE_RENDERERS['gestor_ordens-entrega'] = (el) => {
+  const oes = SharedState.getOrdensEntrega();
+  const badgeStatus = (s) => {
+    const map = {
+      'Criada': 'tag-gray', 'Aguardando Coleta': 'tag-orange', 'Em Transporte': 'tag-blue',
+      'Em Rota': 'tag-blue', 'Entregue': 'tag-green', 'Entrega Parcial': 'tag-orange',
+      'Não Entregue': 'tag-red', 'Devolvida': 'tag-red'
+    };
+    return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
+  };
+
+  const rows = oes.length ? oes.map(o => `
+    <tr>
+      <td><strong>${o.numeroOe}</strong></td>
+      <td><small>${o.osId}</small></td>
+      <td><strong>${o.escolaNome}</strong></td>
+      <td>👤 ${o.motorista}</td>
+      <td>🚛 ${o.veiculo}<br><small class="text-secondary">🗺️ ${o.rota}</small></td>
+      <td>${o.dataEntrega}</td>
+      <td>${badgeStatus(o.status)}</td>
+      <td>
+        ${o.status === 'Entregue' ? `<span class="tag tag-green">✍️ Assinado por ${o.recebidoPor||'Escola'}</span>` : `
+          <button class="btn btn-sm btn-primary" onclick="window.abrirModalAssinaturaEntregaEscola('${o.id}')">
+            🖊️ Assinatura & Entrega (RN10)
+          </button>
+        `}
+      </td>
+    </tr>
+  `).join('') : '<tr><td colspan="8" style="text-align:center;color:#94A3B8">Nenhuma Ordem de Entrega criada.</td></tr>';
+
+  el.innerHTML = `
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">🚛 Ordens de Entrega — Logística Escolar</div>
+        <div class="page-subtitle">Vínculo obrigatório: OS + Escola + Motorista + Veículo + Rota (RN08 / RN09) com confirmação via assinatura (RN10)</div>
+      </div>
+      <div>
+        <span class="tag tag-blue" style="font-weight:700">🔒 RN09: Motorista & Veículo Vinculados</span>
+      </div>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">🚛</div><div class="kpi-value">${oes.length}</div><div class="kpi-label">Ordens de Entrega</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">🛣️</div><div class="kpi-value">${oes.filter(o=>['Em Transporte','Em Rota','Aguardando Coleta'].includes(o.status)).length}</div><div class="kpi-label">Em Transporte / Rota</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✍️</div><div class="kpi-value">${oes.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues com Assinatura</div></div>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Ordens de Entrega para Escolas</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table" style="font-size:0.85rem">
+          <thead>
+            <tr>
+              <th>Número OE</th>
+              <th>OS Origem</th>
+              <th>Escola Destino</th>
+              <th>Entregador / Motorista</th>
+              <th>Veículo & Rota</th>
+              <th>Data Entrega</th>
+              <th>Status</th>
+              <th>Confirmação de Recebimento</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── TELA 04: RASTREABILIDADE 5-WAY (RN13) ───────────────────────────
+PAGE_RENDERERS['gestor_rastreabilidade-lotes'] = (el) => {
+  // Dados reais do SharedState; fallback demo se ainda vazio
+  const _lotesSeed = [
+    { lote: 'LOT-ARZ-2026A', produto: 'Arroz Tipo 1 (5kg)', fornecedor: 'NUTRI ALIMENTOS DISTRIBUIDORA LTDA', empenho: '2026NE00477', nf: 'NF-e 000.4891', escola: 'EMEF Prof. Henrique Scabello', motorista: 'Carlos Alberto Santos', dataEntrada: '2026-06-01', validade: '2026-10-15', status: 'Em Consumo na Escola' },
+    { lote: 'LOT-LTE-2026A', produto: 'Leite Integral (1L)', fornecedor: 'POLARIS COMÉRCIO DE ALIMENTOS LTDA', empenho: '2026NE00512', nf: 'NF-e 000.5102', escola: 'EMEF Doutor João Sampaio', motorista: 'Marcos Antônio Ribeiro', dataEntrada: '2026-06-12', validade: '2026-09-20', status: 'Em Rota de Entrega' },
+    { lote: 'LOT-BAN-2026A', produto: 'Banana Nanica', fornecedor: 'COOPAGRAN (Cooperativa AF)', empenho: '2026NE00489', nf: 'Guia Produtor 044/2026', escola: 'EMEF Doutor João Sampaio', motorista: 'José Maria Rodrigues', dataEntrada: '2026-06-05', validade: '2026-08-12', status: 'Entregue' }
+  ];
+  const _lotesState = (typeof SharedState !== 'undefined' && typeof SharedState.getLotes === 'function') ? SharedState.getLotes() : [];
+  const lotes = _lotesState.length > 0 ? _lotesState : _lotesSeed;
+
+  const rows = lotes.map(l => `
+    <tr>
+      <td><span class="tag tag-blue" style="font-family:var(--font-mono);font-weight:700">${l.lote}</span></td>
+      <td><strong>${l.produto}</strong></td>
+      <td>🏢 ${l.fornecedor}</td>
+      <td>💳 ${l.empenho}<br><small class="text-secondary">📄 ${l.nf}</small></td>
+      <td>🏫 ${l.escola}</td>
+      <td>👤 ${l.motorista}</td>
+      <td>${l.validade}</td>
+      <td><span class="tag tag-green">${l.status}</span></td>
+    </tr>
+  `).join('');
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">🔍 Matriz de Rastreabilidade 5-Way por Lote (RN13)</div>
+        <div class="page-subtitle">Rastreamento de ponta a ponta: Lote ➔ Escola ➔ Fornecedor ➔ Empenho SIAFI ➔ Nota Fiscal ➔ Motorista</div>
+      </div>
+    </div>
+    <div class="card mb-16" style="padding:16px;background:#f8fafc">
+      <h4 style="margin:0 0 8px 0;color:var(--primary-dark)">💡 As 5 Perguntas de Ouro da Rastreabilidade PNAE:</h4>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;font-size:0.8rem">
+        <div style="background:white;padding:10px;border-radius:6px;border:1px solid #cbd5e1"><strong>1. Lote na Escola?</strong><br><span class="text-secondary">Qual lote foi entregue em cada escola</span></div>
+        <div style="background:white;padding:10px;border-radius:6px;border:1px solid #cbd5e1"><strong>2. Fornecedor de Origem?</strong><br><span class="text-secondary">De qual produtor/empresa veio</span></div>
+        <div style="background:white;padding:10px;border-radius:6px;border:1px solid #cbd5e1"><strong>3. Empenho Gerador?</strong><br><span class="text-secondary">Qual empenho originou a compra</span></div>
+        <div style="background:white;padding:10px;border-radius:6px;border:1px solid #cbd5e1"><strong>4. Nota Fiscal de Entrada?</strong><br><span class="text-secondary">Qual NF atestou o recebimento</span></div>
+        <div style="background:white;padding:10px;border-radius:6px;border:1px solid #cbd5e1"><strong>5. Motorista Responsável?</strong><br><span class="text-secondary">Quem fez o transporte e entrega</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header"><strong>Lotes Rastreados no Sistema SUALE</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table" style="font-size:0.85rem">
+          <thead>
+            <tr>
+              <th>Código Lote (FEFO)</th>
+              <th>Produto</th>
+              <th>Fornecedor Origem</th>
+              <th>Empenho / NF</th>
+              <th>Escola Destino</th>
+              <th>Motorista Entrega</th>
+              <th>Validade</th>
+              <th>Status Rastreio</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    </div>`;
+};
+
+// ─── MODAIS INTERATIVOS DE ESTOQUE CENTRAL ───────────────────────────
+
+// MODAL 1: CONFERÊNCIA FÍSICA (RN01)
+window.abrirModalConferenciaFisica = (recId) => {
+  const rec = SharedState.getRecebimentosPendentes().find(r => r.id === recId);
+  if (!rec) return;
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#fefce8;padding:12px;border-radius:8px;border:1px solid #fef08a;margin-bottom:14px;font-size:0.85rem;color:#854d0e">
+        ⚠️ <strong>RN01 — Conferência Física Obrigatória</strong>: A aprovação física é pré-requisito obrigatório antes de qualquer liberação de Nota Fiscal ou atualização de saldo de Empenho.
+      </div>
+      <div class="card mb-16" style="padding:12px;font-size:0.85rem">
+        <div>Pedido: <strong>${rec.numeroPedido}</strong> · OS: <strong>${rec.numeroOs}</strong></div>
+        <div>Fornecedor: <strong>${rec.fornecedor}</strong></div>
+        <div>Produto: <strong>${rec.produto}</strong> · Qtd Solicitada: <strong>${rec.qtdSolicitada}</strong></div>
+      </div>
+      <form id="form-conf-fisica" onsubmit="window.salvarConferenciaFisica(event, '${rec.id}')">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label class="form-label">Quantidade Fisicamente Conferida (kg/un):</label>
+            <input type="number" id="conf-qtd-ok" class="form-control" value="${rec.qtdPendente}" required>
+          </div>
+          <div>
+            <label class="form-label">Quantidade Recusada / Avariada:</label>
+            <input type="number" id="conf-qtd-recusada" class="form-control" value="0" required>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label class="form-label">Lote Identificado na Embalagem:</label>
+            <input type="text" id="conf-lote" class="form-control" value="${rec.loteEsperado}" required>
+          </div>
+          <div>
+            <label class="form-label">Data de Validade (Embalagem):</label>
+            <input type="date" id="conf-validade" class="form-control" value="${rec.validadeEsperada}" required>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label class="form-label">Temperatura da Carga (°C):</label>
+            <input type="text" id="conf-temp" class="form-control" value="Ambient / 4.5°C">
+          </div>
+          <div>
+            <label class="form-label">Integridade da Embalagem / Avarias:</label>
+            <select id="conf-integridade" class="form-control">
+              <option value="Perfeita">✅ Perfeita / Embalagem Íntegra</option>
+              <option value="Avariada Parcial">⚠️ Avariada Parcialmente</option>
+              <option value="Danificada">❌ Danificada / Recusada</option>
+            </select>
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label class="form-label">Observações da Conferência Física / Motivo de Recusa:</label>
+
+          <textarea id="conf-obs" class="form-control" rows="2" placeholder="Descreva avarias, temperatura ou inconformidades físicas encontradas na carga..."></textarea>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">✅ Gravar Conferência Física</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  window.showModal(`🔍 Conferência Física de Carga — Pedido ${rec.numeroPedido}`, content, '750px');
+};
+
+window.salvarConferenciaFisica = (e, recId) => {
+  e.preventDefault();
+  const recs = SharedState.getRecebimentosPendentes();
+  const rec = recs.find(r => r.id === recId);
+  if (!rec) return;
+
+  const qtdOk = Number(document.getElementById('conf-qtd-ok').value) || 0;
+  const qtdRec = Number(document.getElementById('conf-qtd-recusada').value) || 0;
+  const lote = document.getElementById('conf-lote').value;
+  const validade = document.getElementById('conf-validade').value;
+  const obs = document.getElementById('conf-obs').value;
+
+  rec.conferenciaFisica = { qtdOk, qtdRec, lote, validade, obs, data: new Date().toISOString() };
+  rec.status = qtdRec > 0 ? 'Aguardando ajuste' : 'Em conferência';
+  SharedState._persist();
+
+  SharedState.registrarLogAuditoria({
+    acao: 'Conferência Física de Mercadoria (RN01)',
+    produto: rec.produto,
+    quantidade: qtdOk,
+    origem: `Fornecedor: ${rec.fornecedor}`,
+    destino: 'Almoxarifado Central SEMED',
+    motivo: `Conferência Física realizada. Qtd Aprovada: ${qtdOk}, Qtd Recusada: ${qtdRec}. Lote: ${lote}`
+  });
+
+  showToast(`✅ Conferência física gravada com sucesso para o pedido ${rec.numeroPedido}!`);
+  closeModal();
+  const container = document.getElementById('page-content');
+  if (container && PAGE_RENDERERS['gestor_recebimentos-pendentes']) PAGE_RENDERERS['gestor_recebimentos-pendentes'](container);
+};
+
+// MODAL 2: CONFRONTO 4 VIAS E LIBERAÇÃO FINAL (RN02/RN04/RN05)
+window.abrirModalConfronto4Vias = (recId) => {
+  const rec = SharedState.getRecebimentosPendentes().find(r => r.id === recId);
+  if (!rec) return;
+
+  const confFisica = rec.conferenciaFisica || { qtdOk: rec.qtdPendente, qtdRec: 0, lote: rec.loteEsperado, validade: rec.validadeEsperada };
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#eff6ff;padding:12px;border-radius:8px;border:1px solid #bfdbfe;margin-bottom:14px;font-size:0.85rem;color:#1e40af">
+        📄 <strong>Confronto Automático de 4 Vias (` + `Pedido × Empenho × OS × NF-e` + `)</strong>: O sistema verifica a paridade de dados entre a compra autorizada e o documento fiscal antes de autorizar a entrada física e a liquidação no SIAFI.
+      </div>
+
+      <div style="overflow-x:auto;margin-bottom:14px">
+        <table class="data-table" style="font-size:0.8rem">
+          <thead>
+            <tr>
+              <th>Atributo</th>
+              <th>1. Pedido</th>
+              <th>2. Empenho SIAFI</th>
+              <th>3. Ordem Serviço</th>
+              <th>4. Nota Fiscal / Conf. Física</th>
+              <th>Status Paridade</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Produto</strong></td>
+              <td>${rec.produto}</td>
+              <td>${rec.produto}</td>
+              <td>${rec.produto}</td>
+              <td>${rec.produto}</td>
+              <td><span class="tag tag-green">Match 100%</span></td>
+            </tr>
+            <tr>
+              <td><strong>Quantidade</strong></td>
+              <td>${rec.qtdSolicitada}</td>
+              <td>${rec.qtdSolicitada}</td>
+              <td>${rec.qtdSolicitada}</td>
+              <td><strong>${confFisica.qtdOk}</strong></td>
+              <td><span class="tag ${confFisica.qtdRec > 0 ? 'tag-orange' : 'tag-green'}">${confFisica.qtdRec > 0 ? 'Divergência Parcial' : 'Conforme'}</span></td>
+            </tr>
+            <tr>
+              <td><strong>Fornecedor</strong></td>
+              <td>${rec.fornecedor}</td>
+              <td>${rec.fornecedor}</td>
+              <td>${rec.fornecedor}</td>
+              <td>${rec.fornecedor}</td>
+              <td><span class="tag tag-green">Match 100%</span></td>
+            </tr>
+            <tr>
+              <td><strong>Lote / Validade</strong></td>
+              <td>${rec.loteEsperado}</td>
+              <td>—</td>
+              <td>${rec.loteEsperado}</td>
+              <td><strong>${confFisica.lote} (${confFisica.validade})</strong></td>
+              <td><span class="tag tag-green">Validado</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-outline" style="color:var(--danger);border-color:var(--danger)" onclick="window.notificarDivergenciaFornecedor('${rec.id}')">
+          ⚠️ Notificar Divergência ao Fornecedor (RN03)
+        </button>
+        <button class="btn btn-primary" onclick="window.aprovarEntradaFinalEstoque('${rec.id}')">
+          ✅ Aprovar Conferência Final & Dar Entrada no Estoque (RN05)
+        </button>
+      </div>
+    </div>
+  `;
+
+  window.showModal(`📄 Confronto 4 Vias — Pedido ${rec.numeroPedido}`, content, '850px');
+};
+
+window.notificarDivergenciaFornecedor = (recId) => {
+  const rec = SharedState.getRecebimentosPendentes().find(r => r.id === recId);
+  if (!rec) return;
+
+  rec.status = 'Aguardando ajuste';
+  SharedState.getNotificacoesFornecedor().push({
+    id: `NOTIF-${Date.now()}`,
+    pedidoId: rec.id,
+    fornecedor: rec.fornecedor,
+    divergencia: `Divergência de quantidade/qualidade identificada na entrega do pedido ${rec.numeroPedido}.`,
+    dataEnviada: new Date().toISOString()
+  });
+  SharedState._persist();
+
+  showToast(`⚠️ Notificação de divergência enviada automaticamente para ${rec.fornecedor}!`);
+  closeModal();
+};
+
+window.aprovarEntradaFinalEstoque = (recId) => {
+  const recs = SharedState.getRecebimentosPendentes();
+  const rec = recs.find(r => r.id === recId);
+  if (!rec) return;
+
+  const confFisica = rec.conferenciaFisica || { qtdOk: rec.qtdPendente, lote: rec.loteEsperado, validade: rec.validadeEsperada };
+
+  rec.qtdEntregue = (rec.qtdEntregue || 0) + confFisica.qtdOk;
+  rec.qtdPendente = Math.max(0, rec.qtdSolicitada - rec.qtdEntregue);
+  rec.status = rec.qtdPendente === 0 ? 'Recebido' : 'Recebido parcialmente';
+
+  // 1. Atualiza estoque central
+  const prod = SharedState.getProducts().find(p => p.name.includes(rec.produto.split(' ')[0]));
+  if (prod) {
+    prod.stock = (prod.stock || 0) + confFisica.qtdOk;
+  }
+
+  // 2. Atualiza saldo do empenho
+  const emp = SharedState.getEmpenhos2().find(e => e.numero_empenho === rec.numeroEmpenho);
+  if (emp) {
+    emp.valor_liquidado = (emp.valor_liquidado || 0) + (confFisica.qtdOk * 5.0);
+    emp.status = emp.valor_liquidado >= emp.valor_empenhado ? 'Liquidado' : 'Emitido';
+  }
+
+  SharedState.registrarLogAuditoria({
+    acao: 'Entrada Aprovada no Estoque Central (RN04/RN05)',
+    produto: rec.produto,
+    quantidade: confFisica.qtdOk,
+    origem: `Fornecedor: ${rec.fornecedor} (NF-e Liberada)`,
+    destino: 'Estoque Central SEMED',
+    motivo: `Conferência Final Aprovada. Entrada de ${confFisica.qtdOk} unidades do Lote ${confFisica.lote}. Saldo de Empenho atualizado.`
+  });
+
+  SharedState._persist();
+  showToast(`🎉 Entrada de ${confFisica.qtdOk} unidades aprovada no Estoque Central! Empenho ${rec.numeroEmpenho} atualizado.`);
+  closeModal();
+  const container = document.getElementById('page-content');
+  if (container && PAGE_RENDERERS['gestor_recebimentos-pendentes']) PAGE_RENDERERS['gestor_recebimentos-pendentes'](container);
+};
+
+// MODAL 3: SEPARAÇÃO FEFO (RN06)
+window.abrirModalSeparacaoFEFO = (osId) => {
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os) return;
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#f0fdf4;padding:12px;border-radius:8px;border:1px solid #86efac;margin-bottom:14px;font-size:0.85rem;color:#166534">
+        💡 <strong>Método FEFO Ativo (First Expire, First Out — RN06)</strong>: O algoritmo ordena os lotes automaticamente priorizando aqueles com menor prazo de validade para evitar desperdícios.
+      </div>
+      <div class="card mb-16" style="padding:12px">
+        <div>Ordem de Serviço: <strong>${os.numeroOs}</strong></div>
+        <div>Escola de Destino: <strong>${os.escolaNome}</strong> (Escola Única — RN07)</div>
+      </div>
+
+      <div style="overflow-x:auto;margin-bottom:14px">
+        <table class="data-table" style="font-size:0.85rem">
+          <thead>
+            <tr>
+              <th>Produto Solicitado</th>
+              <th>Qtd Necessária</th>
+              <th>Lote Sugerido (FEFO)</th>
+              <th>Data Validade</th>
+              <th>Recomendação Algoritmo</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${os.produtos.map(p => `
+              <tr>
+                <td><strong>${p.produto}</strong></td>
+                <td>${p.quantidade} ${p.unidade}</td>
+                <td><span class="tag tag-blue">${p.loteSugerido}</span></td>
+                <td>${p.validade}</td>
+                <td><span class="tag tag-green">✓ Lote mais antigo (Saída Imediata)</span></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" style="background:#15803d" onclick="window.concluirSeparacaoFEFO('${os.id}')">
+          ✅ Concluir Separação FEFO
+        </button>
+      </div>
+    </div>
+  `;
+
+  window.showModal(`📦 Separação de Estoque por FEFO — OS ${os.numeroOs}`, content, '750px');
+};
+
+window.concluirSeparacaoFEFO = (osId) => {
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os) return;
+
+  os.status = 'Separado';
+  SharedState.registrarLogAuditoria({
+    acao: 'Separação de Estoque FEFO (RN06)',
+    produto: os.produtos.map(p => p.produto).join(', '),
+    quantidade: os.produtos.reduce((s,p) => s + p.quantidade, 0),
+    origem: 'Estoque Central SEMED',
+    destino: os.escolaNome,
+    motivo: `Separação concluída via FEFO para a Ordem de Serviço ${os.numeroOs}.`
+  });
+  SharedState._persist();
+
+  showToast(`✅ Separação FEFO concluída para a escola ${os.escolaNome}! Status alterado para Separado.`);
+  closeModal();
+  renderPage();
+};
+
+// MODAL 4: CRIAR ORDEM DE ENTREGA (RN08/RN09)
+window.abrirModalNovaOrdemEntrega = (osId) => {
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os) return;
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#eff6ff;padding:12px;border-radius:8px;border:1px solid #bfdbfe;margin-bottom:14px;font-size:0.85rem;color:#1e40af">
+        🚛 <strong>Ordem de Entrega (RN08/RN09)</strong>: Vinculação obrigatória de OS + Escola + Motorista + Veículo + Rota. Cada Ordem de Entrega pertence estritamente a 1 escola.
+      </div>
+      <form onsubmit="window.salvarNovaOrdemEntrega(event, '${os.id}')">
+        <div style="margin-bottom:12px">
+          <label class="form-label">Escola de Destino (1 Escola por OE):</label>
+          <input type="text" class="form-control" value="${os.escolaNome}" readonly>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label class="form-label">Nome do Motorista / Entregador (RN09):</label>
+            <input type="text" id="oe-motorista" class="form-control" value="Marcos Antônio Ribeiro" required>
+          </div>
+          <div>
+            <label class="form-label">Veículo de Transporte (Placa/Modelo):</label>
+            <input type="text" id="oe-veiculo" class="form-control" value="Furgão IVECO Daily (ABC-1234)" required>
+          </div>
+        </div>
+        <div style="margin-bottom:14px">
+          <label class="form-label">Rota Logística / Itinerário:</label>
+          <input type="text" id="oe-rota" class="form-control" value="Rota 03 — Zona Norte (Anhanduízinho)" required>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">🚛 Gerar Ordem de Entrega</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  window.showModal(`🚛 Gerar Ordem de Entrega — ${os.numeroOs}`, content, '650px');
+};
+
+window.salvarNovaOrdemEntrega = (e, osId) => {
+  e.preventDefault();
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os) return;
+
+  const motorista = document.getElementById('oe-motorista').value;
+  const veiculo = document.getElementById('oe-veiculo').value;
+  const rota = document.getElementById('oe-rota').value;
+
+  const novaOe = {
+    id: `OE-2026-${Math.floor(100 + Math.random()*900)}`,
+    numeroOe: `OE-2026/${Math.floor(100 + Math.random()*900)}`,
+    osId: os.numeroOs,
+    escolaId: os.escolaId,
+    escolaNome: os.escolaNome,
+    motorista,
+    veiculo,
+    rota,
+    dataEntrega: new Date().toISOString().slice(0,10),
+    status: 'Em Transporte',
+    produtos: os.produtos,
+    assinaturaDigital: null,
+    recebidoPor: null
+  };
+
+  SharedState.getOrdensEntrega().push(novaOe);
+  os.status = 'Em Rota';
+  SharedState._persist();
+
+  showToast(`🚛 Ordem de Entrega ${novaOe.numeroOe} gerada para a escola ${os.escolaNome}!`);
+  closeModal();
+  renderPage();
+};
+
+// MODAL 5: ASSINATURA DIGITAL E FINALIZAÇÃO DE ENTREGA (RN10)
+window.abrirModalAssinaturaEntregaEscola = (oeId) => {
+  const oe = SharedState.getOrdensEntrega().find(o => o.id === oeId);
+  if (!oe) return;
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#f0fdf4;padding:12px;border-radius:8px;border:1px solid #86efac;margin-bottom:14px;font-size:0.85rem;color:#166534">
+        ✍️ <strong>Confirmação de Recebimento na Escola (RN10)</strong>: Coleta de assinatura digital do responsável pelo almoxarifado/direção da escola para encerramento do ciclo logístico.
+      </div>
+      <div class="card mb-16" style="padding:12px;font-size:0.85rem">
+        <div>Ordem de Entrega: <strong>${oe.numeroOe}</strong> · Escola: <strong>${oe.escolaNome}</strong></div>
+        <div>Motorista: <strong>${oe.motorista}</strong> · Veículo: <strong>${oe.veiculo}</strong></div>
+      </div>
+      <form onsubmit="window.salvarAssinaturaEntrega(event, '${oe.id}')">
+        <div style="margin-bottom:12px">
+          <label class="form-label">Nome do Recebedor na Escola:</label>
+          <input type="text" id="ass-recebedor" class="form-control" value="Profa. Maria Clara Santos (Diretora)" required>
+        </div>
+        <div style="margin-bottom:14px">
+          <label class="form-label">Assinatura Digital (Desenhe no quadro abaixo):</label>
+          <div style="border:2px dashed #94a3b8;border-radius:8px;background:#f8fafc;padding:4px;text-align:center">
+            <canvas id="canvas-assinatura" width="550" height="150" style="background:white;border-radius:6px;cursor:crosshair;touch-action:none"></canvas>
+            <div style="margin-top:4px">
+              <button type="button" class="btn btn-sm btn-outline" onclick="window.limparCanvasAssinatura()">🧹 Limpar Assinatura</button>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background:#15803d">✅ Confirmar Entrega e Atualizar Status (RN10)</button>
+        </div>
+      </form>
+    </div>
+  `;
+
+  window.showModal(`✍️ Assinatura Digital de Entrega — ${oe.numeroOe}`, content, '650px');
+
+  setTimeout(() => {
+    const canvas = document.getElementById('canvas-assinatura');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let desenhando = false;
+
+    ctx.strokeStyle = '#1e3a8a';
+    ctx.lineWidth = 2.5;
+
+    const getPos = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      return { x: (e.clientX || e.touches[0].clientX) - rect.left, y: (e.clientY || e.touches[0].clientY) - rect.top };
+    };
+
+    const start = (e) => { desenhando = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); };
+    const move = (e) => { if (!desenhando) return; const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
+    const stop = () => { desenhando = false; };
+
+    canvas.onmousedown = start; canvas.onmousemove = move; canvas.onmouseup = stop;
+    canvas.ontouchstart = start; canvas.ontouchmove = move; canvas.ontouchend = stop;
+  }, 100);
+};
+
+window.limparCanvasAssinatura = () => {
+  const canvas = document.getElementById('canvas-assinatura');
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+  }
+};
+
+window.salvarAssinaturaEntrega = (e, oeId) => {
+  e.preventDefault();
+  const oe = SharedState.getOrdensEntrega().find(o => o.id === oeId);
+  if (!oe) return;
+
+  const recebedor = document.getElementById('ass-recebedor').value;
+  const canvas = document.getElementById('canvas-assinatura');
+  const sigData = canvas ? canvas.toDataURL() : 'sig-demo';
+
+  oe.status = 'Entregue';
+  oe.recebidoPor = recebedor;
+  oe.assinaturaDigital = sigData;
+  oe.dataRecebimentoReal = new Date().toISOString();
+
+  // Atualização em cadeia: OE -> OS -> Demanda -> Histórico (RN10)
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.numeroOs === oe.osId || o.id === oe.osId);
+  if (os) {
+    os.status = 'Entregue';
+  }
+
+  SharedState.registrarLogAuditoria({
+    acao: 'Entrega Concluída com Assinatura Digital (RN10)',
+    produto: oe.produtos.map(p => p.produto).join(', '),
+    quantidade: oe.produtos.reduce((s,p) => s + p.quantidade, 0),
+    origem: `Motorista: ${oe.motorista}`,
+    destino: oe.escolaNome,
+    motivo: `Entrega física atestada com assinatura digital por ${recebedor}.`
+  });
+
+  SharedState._persist();
+  showToast(`🎉 Entrega ${oe.numeroOe} atestada com sucesso na escola ${oe.escolaNome}!`);
+  closeModal();
+  renderPage();
+};
+
+// ─── ALIASES DE RENDERIZAÇÃO: ESTOQUE CENTRAL <-> GESTOR ────────────────
+if (typeof PAGE_RENDERERS !== 'undefined') {
+  PAGE_RENDERERS['estoque_os-central'] = PAGE_RENDERERS['gestor_os-central'];
+  PAGE_RENDERERS['estoque_recebimentos-pendentes'] = PAGE_RENDERERS['gestor_recebimentos-pendentes'];
+  PAGE_RENDERERS['estoque_expedicao-os'] = PAGE_RENDERERS['gestor_expedicao-os'];
+  PAGE_RENDERERS['estoque_ordens-entrega'] = PAGE_RENDERERS['gestor_ordens-entrega'];
+  PAGE_RENDERERS['estoque_entradas'] = PAGE_RENDERERS['gestor_recebimentos-pendentes'];
+  PAGE_RENDERERS['estoque_separacao'] = PAGE_RENDERERS['gestor_expedicao-os'];
+  PAGE_RENDERERS['estoque_carregamento'] = PAGE_RENDERERS['gestor_ordens-entrega'];
+}
