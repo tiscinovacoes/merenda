@@ -28,6 +28,25 @@ O estado descrito acima foi **corrigido** (validado com smoke test das 100 telas
 
 **Portanto a Fase 4 pode prosseguir com segurança**, um módulo por vez: a tarefa agora não é *criar* os arquivos (já existem), é **elevar cada função do módulo ao nível da versão do `app.js`** e só então registrar a chave e remover o bloco correspondente do `app.js`.
 
+### ✅ CONCLUÍDO — Fases 4, 5 e 6 (2026-08-19)
+
+Todo o restante do plano foi executado e validado (suíte Playwright 82/82 + smoke das 111 telas, 0 falhas, **com `app.js` removido do `index.html`**):
+
+- **Fase 4 concluída** (todas as telas migradas por código real, Regra 6):
+  - `fase4.4` — 12 telas do Nutricionista → `nutricao.js`.
+  - `fase4.5` — Merendeira + `escola_restricoes` → `escolas.js`.
+  - `fase4.6` — 11 telas do Gestor → `gestor.js` (antes o módulo registrava 0 chaves).
+  - `fase4.7` — cluster cross-perfil `*_escolas`: `cooperativa_escolas`→`colaboradores.js`, `motorista_escolas`→`motorista.js`, demais aliases viram **closures** (imunes à ordem de carga).
+  - Marco: `app.js` deixou de registrar qualquer chave de `PAGE_RENDERERS`.
+- **Fase 5/6 concluída** (`fase5`):
+  - Corpo remanescente do `app.js` (helpers, engines, handlers cross-perfil, `renderPage`, bootstrap) **absorvido em `js/core_hub.js`**; removidas do Hub as definições inertes/incompatíveis (helpers com assinatura antiga e o `renderPage` que retornava string).
+  - `app.js` e `docs/app.js` **removidos** (recuperáveis via histórico).
+  - `core_hub.js` passou a carregar **por último** (posição do antigo `app.js`) para preservar a semântica de produção — ver nota abaixo.
+  - Esqueleto morto do `gestor.js` removido.
+  - Adicionado `tests/smoke-renderers.spec.js` (itera todas as chaves de `PAGE_RENDERERS`).
+
+**Nota de ordem de carga (importante):** o Hub carrega **depois** dos 6 módulos, não antes como no rascunho da Fase 5 abaixo. Motivo: `estoque.js` e `nutricao.js` ainda têm handlers `window.*` duplicados que, se carregados por último, sombreariam as versões reais do ex-`app.js`. Com o Hub por último, as funções reais prevalecem (paridade com produção). Limpeza desses handlers duplicados nos módulos fica como refinamento futuro (hoje são dead code corretamente sombreado).
+
 ---
 
 ## 1. 🎯 Visão Geral & Diretrizes
