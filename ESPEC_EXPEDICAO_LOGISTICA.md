@@ -52,11 +52,13 @@
 - **AC:** CRUD de caminhões com `placa, modelo, capacidadeKg, refrigerado, motoristaPadrao, status`. Lista com ocupação atual quando em viagem.
 
 **A2 — Montagem de Carga (MODAL)**
-- Abre **popup de Montagem de Carga**. Mostra **ocupação atualizada de cada caminhão** (ex.: barra `4.900/5.400 kg · 6 escolas`).
-- **Motor de sugestão** por capacidade restante:
-  - Caminhão A com 4.900 kg (rest. 500): OS de **700 kg → bloqueia A**, sugere outro; OS de **500 kg → sugere A** (fecha 5.400) **e** outros com espaço.
-- **Operador escolhe** o caminhão. **1 escola = 1 OE**; a **carga agrupa várias OEs**.
-- **AC:** cada escola mantém sua OE/comprovante; a carga soma o peso e respeita a trava; sugestão destaca o(s) caminhão(ões) viável(is).
+- **Pré-requisito (gating):** a Montagem de Carga só opera sobre **Ordens de Entrega (O.E.) já criadas**. A **O.E. só existe após "Criar O.E."** (que ocorre depois da Separação). **Não é possível montar carga com uma O.E. que não foi criada** — O.S. ainda em separação / sem O.E. **não entram** na montagem.
+- **Sequência oficial:** Separação FEFO → **Criar O.E.** → O.E. fica **"liberada para carga"** → **Montagem de Carga** (aloca a O.E. a um caminhão) → despacho ao Motorista **quando a carga é montada/despachada** (não na criação da O.E.).
+- Abre **popup de Montagem de Carga**. Lista **apenas O.E. liberadas** (criadas e ainda **sem carga**). Mostra **ocupação atualizada de cada caminhão** (ex.: barra `4.900/5.400 kg · 6 escolas`).
+- **Motor de sugestão** por capacidade restante (sobre O.E. liberadas):
+  - Caminhão A com 4.900 kg (rest. 500): O.E. de **700 kg → bloqueia A**, sugere outro; O.E. de **500 kg → sugere A** (fecha 5.400) **e** outros com espaço.
+- **Operador escolhe** o caminhão. **1 escola = 1 O.E.**; a **carga agrupa várias O.E.**
+- **AC:** o pool da montagem contém **só O.E. criadas e sem carga**; cada escola mantém sua O.E./comprovante; a carga soma o peso e respeita a trava; sugestão destaca o(s) caminhão(ões) viável(is). Uma O.E. já em carga não aparece para nova alocação.
 
 **A3 — Roteirização (SÓ A TELA agora, ORS-ready)**
 - Tela que ordena as paradas da carga, **ajustável por prioridade, exigências e janela de horário** da escola.
