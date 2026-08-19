@@ -4513,7 +4513,6 @@ window.gerarRelatorioMensal4Paginas = () => {
   window.showModal('📄 Relatório Mensal Padronizado (4 Páginas - RF-010)', html, '950px');
 };
 
-PAGE_RENDERERS.escola_restricoes = (el) => PAGE_RENDERERS.nutricionista_restricoes(el);
 PAGE_RENDERERS.gestor_restricoes = (el) => PAGE_RENDERERS.nutricionista_restricoes(el);
 
 window.abrirModalNovoAlunoEspecial = () => {
@@ -5574,11 +5573,6 @@ if (document.readyState === 'loading') {
 safeInitAppEvents();
 
 // MERENDEIRA ALIASES
-PAGE_RENDERERS.merendeira_dashboard = PAGE_RENDERERS.escola_dashboard;
-PAGE_RENDERERS.merendeira_consumo = PAGE_RENDERERS.escola_consumo;
-PAGE_RENDERERS.merendeira_cardapios = PAGE_RENDERERS.escola_cardapios;
-PAGE_RENDERERS.merendeira_estoque = PAGE_RENDERERS.escola_estoque;
-PAGE_RENDERERS.merendeira_entregas = PAGE_RENDERERS.escola_entregas;
 
 // ──────────────────────────────────────────────────────────────────────
 // MÓDULO FINANCEIRO — v2.1.0

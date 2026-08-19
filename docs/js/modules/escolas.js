@@ -1638,4 +1638,18 @@ PAGE_RENDERERS.resp_estoque_relatorios = (el) => {
     </div>`;
 };
 
+
+  // === Migrado do app.js (Fase 4) ===
+  PAGE_RENDERERS.escola_restricoes = (el) => PAGE_RENDERERS.nutricionista_restricoes(el);
+
+  PAGE_RENDERERS.merendeira_dashboard = PAGE_RENDERERS.escola_dashboard;
+
+  PAGE_RENDERERS.merendeira_consumo = PAGE_RENDERERS.escola_consumo;
+
+  PAGE_RENDERERS.merendeira_cardapios = PAGE_RENDERERS.escola_cardapios;
+
+  PAGE_RENDERERS.merendeira_estoque = PAGE_RENDERERS.escola_estoque;
+
+  PAGE_RENDERERS.merendeira_entregas = PAGE_RENDERERS.escola_entregas;
+
 })();
