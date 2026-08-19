@@ -325,7 +325,6 @@
   // 8. GUIAS DE ENTREGA
   function renderNutricionistaGuiasEntrega(el) {
     const pre = window._guiaFiltroPreSelect || null;
-    window._guiaFiltroPreSelect = null;
     const modoInicial = pre ? pre.modo : 'escola';
 
     el.innerHTML = `
@@ -398,77 +397,6 @@
       </div>
     `;
   }
-
-  // EXPORTAÇÕES GLOBAIS DE HELPER
-  window.abrirModalNovoAlunoEspecial = () => {
-    const schools = DATA.schools || [];
-    const content = `
-      <form onsubmit="window.salvarNovoAlunoEspecial(event)">
-        <div class="form-group mb-12">
-          <label style="font-weight:600;display:block;margin-bottom:4px">Nome Completo do Aluno(a)</label>
-          <input type="text" id="aluno-nome" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Lucas Gabriel Mello" required>
-        </div>
-        <div class="form-group mb-12">
-          <label style="font-weight:600;display:block;margin-bottom:4px">Escola Alvo</label>
-          <select id="aluno-escola" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
-            ${schools.map(s => `<option value="${s.name}">${s.name} (${s.region})</option>`).join('')}
-          </select>
-        </div>
-        <div class="grid-2 gap-10 mb-12">
-          <div>
-            <label style="font-weight:600;display:block;margin-bottom:4px">Turma</label>
-            <input type="text" id="aluno-turma" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Creche II-A ou EF 4º Ano B" required>
-          </div>
-          <div>
-            <label style="font-weight:600;display:block;margin-bottom:4px">Data de Nascimento (RN-002)</label>
-            <input type="date" id="aluno-nascimento" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
-          </div>
-        </div>
-        <div class="form-group mb-12">
-          <label style="font-weight:600;display:block;margin-bottom:4px">Tipo de Restrição Clínica</label>
-          <select id="aluno-restricao" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
-            <option value="Intolerância à lactose">Intolerância à lactose</option>
-            <option value="Doença celíaca (Glúten)">Doença celíaca (Glúten)</option>
-            <option value="Diabetes">Diabetes</option>
-            <option value="Alergia à Proteína do Leite (APLV)">Alergia à Proteína do Leite (APLV)</option>
-          </select>
-        </div>
-        <div class="form-group mb-18">
-          <label style="font-weight:600;display:block;margin-bottom:4px">Identificação do Laudo Médico</label>
-          <input type="text" id="aluno-laudo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Laudo Dr. Carlos Rossi - CRM 4521" required>
-        </div>
-        <div style="display:flex;justify-content:flex-end;gap:10px">
-          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary">💾 Salvar Aluno Especial</button>
-        </div>
-      </form>
-    `;
-    window.showModal('👶 Novo Cadastro Nominal de Aluno Especial (RF-003)', content, '650px');
-  };
-
-  window.salvarNovoAlunoEspecial = (e) => {
-    e.preventDefault();
-    const nome = document.getElementById('aluno-nome').value;
-    const escola = document.getElementById('aluno-escola').value;
-    const turma = document.getElementById('aluno-turma').value;
-    const dataNascimento = document.getElementById('aluno-nascimento').value;
-    const restricao = document.getElementById('aluno-restricao').value;
-    const laudo = document.getElementById('aluno-laudo').value;
-
-    SharedState.addAlunoEspecial({ nome, escola, turma, dataNascimento, restricao, laudo });
-    showToast(`✅ Aluno(a) ${nome} cadastrado(a) com sucesso!`);
-    closeModal();
-    const container = document.getElementById('page-content');
-    if (container) renderNutricionistaRestricoes(container);
-  };
-
-  window.excluirAlunoEspecial = (id) => {
-    if (!confirm('Deseja remover este cadastro de aluno especial?')) return;
-    SharedState.deleteAlunoEspecial(id);
-    showToast('✅ Aluno removido com sucesso!');
-    const container = document.getElementById('page-content');
-    if (container) renderNutricionistaRestricoes(container);
-  };
 
   window.trocarAbaGuiaEntrega = (modo, preSelect) => {
     ['escola', 'colaborador', 'produto'].forEach(m => {
@@ -814,43 +742,6 @@
     `;
     window.showModal(`📬 Guia de Remessa — ${g.numeroGuia}`, html, '900px');
   };
-
-  window.gerarRelatorioMensal4Paginas = () => {
-    const html = `
-      <div style="padding:16px">
-        <h2>📄 Relatório Mensal Padronizado — 4 Páginas por Mês (RF-010)</h2>
-        <p>Documento oficial formatado para afixação no mural escolar.</p>
-        <div style="border:1px solid #ccc;padding:16px;margin-top:16px">
-          <h3>MÊS VIGENTE — PAUTA PNAE</h3>
-          <p>Dra. Lilian Droppa — CRN 12345/MS</p>
-        </div>
-        <div style="margin-top:20px;display:flex;justify-content:flex-end">
-          <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir 4 Folhas A4</button>
-        </div>
-      </div>
-    `;
-    window.showModal('📄 Relatório Mensal Padronizado PNAE', html, '850px');
-  };
-
-  window.abrirRelatorioPNAE = () => {
-    showToast('📄 Relatório Técnico PNAE gerado com sucesso.', 'info');
-  };
-
-  window.visualizarEImprimirCardapio = (menuName) => {
-    const html = `
-      <div style="padding:16px">
-        <h3>🍱 Visualização de Cardápio — ${menuName || 'Semanal'}</h3>
-        <p>Cardápio oficial aprovado pela Nutrição.</p>
-        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir</button>
-      </div>
-    `;
-    window.showModal('🍱 Visualização de Cardápio', html, '800px');
-  };
-
-  window.abrirModalDisparoManualOS = () => {
-    showToast('📱 Notificações de Ordens de Serviço disparadas com sucesso.', 'success');
-  };
-
 
   // === Migrado do app.js (Fase 4) ===
   PAGE_RENDERERS.nutricionista_dashboard = (el) => {
