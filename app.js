@@ -931,6 +931,40 @@ const SharedState = {
 
   getListaCompras(escoId) { const all = this._data.lista_compras || []; return escoId ? all.filter(l => l.escola_id === escoId) : [...all]; },
   getOsFornecedores(status) { const all = this._data.os_fornecedores || []; return status ? all.filter(o => o.status === status) : [...all]; },
+  addGuiaEntrega(guia) {
+    this._data.guiaSeq = (this._data.guiaSeq || 0) + 1;
+    const g = {
+      id: 'guia-' + crypto.randomUUID(),
+      numeroGuia: `GUIA-2026/${String(this._data.guiaSeq).padStart(4, '0')}`,
+      status: 'Pendente de Emissão',
+      criadoEm: new Date().toISOString(),
+      ...guia
+    };
+    (this._data.guiasEntrega = this._data.guiasEntrega || []).unshift(g);
+    this._persist(); this._emit('guia:add');
+    return g;
+  },
+  getGuiasEntrega(filtro) {
+    const all = this._data.guiasEntrega || [];
+    if (!filtro) return [...all];
+    return all.filter(g =>
+      (!filtro.escolaId || String(g.escolaId) === String(filtro.escolaId)) &&
+      (!filtro.colaborador || g.entregador === filtro.colaborador) &&
+      (!filtro.produto || (g.produtos || []).some(p => p.produto === filtro.produto))
+    );
+  },
+  marcarGuiaEmitida(guiaId) {
+    const g = (this._data.guiasEntrega || []).find(x => x.id === guiaId);
+    if (!g) return null;
+    g.status = 'Emitida';
+    g.dataEmissao = new Date().toISOString();
+    if (g.osFornecedorId) {
+      const osf = (this._data.os_fornecedores || []).find(o => o.id === g.osFornecedorId);
+      if (osf) osf.guia_protocolo = g.numeroGuia;
+    }
+    this._persist(); this._emit('guia:emitida');
+    return g;
+  },
   getSchoolStock(school) {
     const s = (this._data.schoolStocks || {})[school] || {};
     return Object.entries(s).map(([produto, info]) => ({ produto, ...info }));
@@ -2071,7 +2105,9 @@ function renderMap() {
   ];
 
   const schoolDots = DATA.schools.map(s => {
-    const reg = regions.find(r => r.name === s.region);
+    // Fallback: escolas com região fora das 7 do mapa (ex.: 'Rural') caem numa
+    // posição neutra em vez de estourar `reg.cx` e derrubar o mapa inteiro.
+    const reg = regions.find(r => r.name === s.region) || { cx: 220, cy: 285 };
     const offsetX = (Math.random() - 0.5) * 40;
     const offsetY = (Math.random() - 0.5) * 30;
     const color = s.stockStatus === 'ok' ? '#2E7D32' : s.stockStatus === 'warning' ? '#F57F17' : '#C62828';
@@ -2098,89 +2134,7 @@ function renderMap() {
   `;
 }
 
-// ─── GESTOR: ESCOLAS ───
-PAGE_RENDERERS.gestor_escolas = (el) => {
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Escolas</div><div class="page-subtitle">${DATA.schools.length} unidades escolares na rede municipal</div></div>
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">Listagem de Escolas</div>
-        <div class="filter-bar" style="margin:0;display:flex;gap:8px;flex-wrap:wrap">
-          <input type="search" id="filter-school-nome" placeholder="Buscar escola ou diretor..." style="padding:7px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem;min-width:200px">
-          <select id="filter-region"><option value="">Todas as Regiões</option>${[...new Set(DATA.schools.map(s => s.region))].sort().map(r => `<option>${r}</option>`).join('')}</select>
-          <select id="filter-status">
-            <option value="">Todos os Status</option>
-            <option value="ok">Abastecida</option>
-            <option value="warning">Atenção</option>
-            <option value="danger">Risco</option>
-          </select>
-        </div>
-      </div>
-      <div class="card-body">
-        <div class="table-wrapper">
-          <table class="data-table" id="table-escolas">
-            <thead><tr><th>Escola</th><th>Região</th><th>Diretor(a)</th><th>Alunos</th><th style="text-align:center">Freq. Média</th><th>Estoque</th><th>Status</th><th>Ações</th></tr></thead>
-            <tbody>
-              ${DATA.schools.map(s => {
-                const attPct = s.attendance_pct || Math.round(72+Math.random()*24);
-                return `
-                <tr class="clickable-row" data-school-id="${s.id}">
-                  <td><strong>${s.name}</strong></td>
-                  <td><span class="tag tag-blue">${s.region}</span></td>
-                  <td>${s.director}</td>
-                  <td style="font-family:var(--font-mono)">${s.students}</td>
-                  <td style="text-align:center">
-                    <span style="font-weight:700;color:${attPct>=90?'var(--success)':attPct>=80?'var(--warning)':'var(--danger)'}">${attPct}%</span>
-                    <div style="background:var(--border);border-radius:3px;height:4px;margin-top:3px;width:64px;margin:3px auto 0">
-                      <div style="width:${attPct}%;height:100%;background:${attPct>=90?'var(--success)':attPct>=80?'var(--warning)':'var(--danger)'};border-radius:3px"></div>
-                    </div>
-                  </td>
-                  <td><div style="display:flex;align-items:center;gap:8px"><div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct > 60 ? 'green' : s.stockPct > 30 ? 'orange' : 'red'}" style="width:${s.stockPct}%"></div></div><span style="font-family:var(--font-mono);font-size:0.78rem">${s.stockPct}%</span></div></td>
-                  <td><span class="status-badge ${statusClass(s.stockStatus)}">${statusLabel(s.stockStatus)}</span></td>
-                  <td>
-                    ${state.currentProfile === 'nutricionista' ? '' : `<button class="table-action" onclick="window._STATE=window._STATE||{};window._STATE.schoolName='${s.name}';navigateTo('escola','dashboard')">Acessar como →</button>`}
-                  </td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-          <div id="escolas-vazio" style="display:none;padding:32px;text-align:center;color:var(--text-secondary)">Nenhuma escola encontrada com esses filtros.</div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  // Filtros da listagem de escolas
-  const aplicarFiltrosEscolas = () => {
-    const nome   = (document.getElementById('filter-school-nome').value || '').toLowerCase().trim();
-    const region = document.getElementById('filter-region').value;
-    const status = document.getElementById('filter-status').value;
-    let visiveis = 0;
-
-    el.querySelectorAll('#table-escolas tbody tr').forEach(tr => {
-      const s = DATA.schools.find(x => String(x.id) === tr.dataset.schoolId);
-      if (!s) return;
-      const okNome   = !nome || s.name.toLowerCase().includes(nome) || (s.director || '').toLowerCase().includes(nome);
-      const okRegion = !region || s.region === region;
-      const okStatus = !status || s.stockStatus === status;
-      const mostrar  = okNome && okRegion && okStatus;
-      tr.style.display = mostrar ? '' : 'none';
-      if (mostrar) visiveis++;
-    });
-
-    document.getElementById('escolas-vazio').style.display = visiveis ? 'none' : 'block';
-    const sub = el.querySelector('.page-subtitle');
-    if (sub) sub.textContent = visiveis === DATA.schools.length
-      ? `${DATA.schools.length} unidades escolares na rede municipal`
-      : `${visiveis} de ${DATA.schools.length} unidades escolares`;
-  };
-
-  ['filter-school-nome', 'filter-region', 'filter-status'].forEach(id => {
-    const elx = document.getElementById(id);
-    if (elx) elx.addEventListener(id === 'filter-school-nome' ? 'input' : 'change', aplicarFiltrosEscolas);
-  });
-};
-
+// NOTA: gestor_escolas/nutricionista_escolas usam a tela de cooperativa_escolas (ver aliases mais abaixo).
 // TOTAIS DERIVADOS — atas, empenhos e estoque
 // ------------------------------------------------------------
 // Nada aqui lê campo estático (ata.executedValue etc). Tudo é somado a partir
@@ -2695,101 +2649,6 @@ window.saveNFAta = (empenhoId) => {
   closeModal();
   window.showToast('NF registrada e estoque incrementado!', 'success');
   window.openAtaDetalhe(emp.ataId);
-};
-
-PAGE_RENDERERS.gestor_atas = (el) => {
-  const sharedEmpenhos = SharedState.getEmpenhos();
-  const nfs = SharedState.getNFs();
-  // Todos os totais saem de ataTotais() — mudam sozinhos quando um empenho é gravado.
-  const tot = DATA.contracts.map(c => ({ c, t: ataTotais(c.id) }));
-  const somaGlobal    = tot.reduce((a, x) => a + x.t.global, 0);
-  const somaEmpenhado = tot.reduce((a, x) => a + x.t.empenhado, 0);
-  const somaLiquidado = tot.reduce((a, x) => a + x.t.liquidado, 0);
-  const totalNEs      = DATA.empenhos.length;
-  const valorAF       = tot.filter(x => x.c.modalidade === 'chamada_publica').reduce((a, x) => a + x.t.global, 0);
-  const pctAF         = somaGlobal ? Math.round(valorAF / somaGlobal * 100) : 0;
-
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Atas e Contratos</div><div class="page-subtitle">Gestão dos instrumentos contratuais vigentes · Empenhos e NFs sincronizados com Estoque Central</div></div>
-    <div class="kpi-grid">
-      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${formatCurrency(somaGlobal)}</div><div class="kpi-label">Valor Global · ${DATA.contracts.length} atas</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">📝</div><div class="kpi-value">${formatCurrency(somaEmpenhado)}</div><div class="kpi-label">Empenhado · ${totalNEs} NE</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${formatCurrency(somaLiquidado)}</div><div class="kpi-label">Liquidado (NF recebida)</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value">${formatCurrency(somaGlobal - somaEmpenhado)}</div><div class="kpi-label">Saldo a Empenhar</div></div>
-      <div class="kpi-card ${pctAF >= 45 ? 'green' : 'red'}"><div class="kpi-icon">🌾</div><div class="kpi-value">${pctAF}%</div><div class="kpi-label">Agricultura Familiar${pctAF >= 45 ? ' · meta ok' : ' · mín. legal 45%'}</div></div>
-    </div>
-    <div class="card mb-24">
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Nº da Ata</th><th>Vigência</th><th>Fornecedor</th><th>Valor Global</th><th>Executado</th><th>Saldo</th><th>Execução</th><th>Status</th><th>Ação</th></tr></thead>
-          <tbody>
-            ${tot.map(({ c, t }) => {
-              const pct = t.global ? Math.round(t.empenhado / t.global * 100) : 0;
-              return `<tr style="cursor:pointer" onclick="window.openAtaDetalhe(${c.id})">
-                <td><strong>${c.number}</strong><br><small style="color:var(--text-secondary)">${c.modalidade === 'chamada_publica' ? '🌾 Chamada Pública' : '📋 Pregão'} · ${t.prods.length} itens · ${t.emps.length} NE</small></td>
-                <td>${formatDate(c.start)} a ${formatDate(c.end)}</td>
-                <td>${c.supplier}</td>
-                <td style="font-family:var(--font-mono)">${formatCurrency(t.global)}</td>
-                <td style="font-family:var(--font-mono)">${formatCurrency(t.empenhado)}</td>
-                <td style="font-family:var(--font-mono);font-weight:600;color:var(--primary)">${formatCurrency(t.saldo)}</td>
-                <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="width:80px"><div class="progress-fill ${pct > 80 ? 'orange' : 'blue'}" style="width:${Math.min(100, pct)}%"></div></div><span style="font-size:0.75rem;font-family:var(--font-mono)">${pct}%</span></div></td>
-                <td><span class="status-badge ${c.status === 'Vigente' ? 'status-ok' : 'status-info'}">${c.status}</span></td>
-                <td><button class="btn btn-outline" style="padding:4px 8px;font-size:0.75rem">Detalhes</button></td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    ${sharedEmpenhos.length > 0 ? `
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">💼 Empenhos Vinculados (Sincronizados)</div><span class="status-badge status-info">${sharedEmpenhos.length}</span></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Nº Empenho</th><th>Ata</th><th>Produto</th><th>Qtd Total</th><th>Consumido</th><th>Saldo</th><th>Valor Unit.</th><th>Status</th></tr></thead>
-          <tbody>
-            ${sharedEmpenhos.map(e => {
-              const saldo = (e.qtdTotal||0) - (e.qtdConsumida||0);
-              const pctConsumido = e.qtdTotal ? Math.round((e.qtdConsumida||0) / e.qtdTotal * 100) : 0;
-              return `<tr>
-                <td><strong>${e.numero}</strong></td>
-                <td>${e.ataNumero}</td>
-                <td>${e.produto}</td>
-                <td style="font-family:var(--font-mono)">${(e.qtdTotal||0).toLocaleString('pt-BR')} ${e.unidade}</td>
-                <td style="font-family:var(--font-mono);color:var(--success)">${(e.qtdConsumida||0).toLocaleString('pt-BR')} (${pctConsumido}%)</td>
-                <td style="font-family:var(--font-mono);font-weight:700;color:${saldo > 0 ? 'var(--primary)' : 'var(--text-tertiary)'}">${saldo.toLocaleString('pt-BR')} ${e.unidade}</td>
-                <td style="font-family:var(--font-mono)">${formatCurrency(e.valorUnit || 0)}</td>
-                <td><span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : e.status === 'Parcial' ? 'status-warning' : 'status-info'}">${e.status}</span></td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>` : ''}
-
-    ${nfs.length > 0 ? `
-    <div class="card">
-      <div class="card-header"><div class="card-title">📄 Notas Fiscais Recebidas</div><span class="status-badge status-ok">${nfs.length}</span></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>NF</th><th>Empenho</th><th>Qtd</th><th>Valor</th><th>Data Recebimento</th><th>Lote</th></tr></thead>
-          <tbody>
-            ${nfs.slice(0, 8).map(nf => `
-              <tr>
-                <td><strong>${nf.numero}</strong></td>
-                <td>${nf.empenhoNumero || nf.empenhoId}</td>
-                <td style="font-family:var(--font-mono)">${(nf.qtd||0).toLocaleString('pt-BR')}</td>
-                <td style="font-family:var(--font-mono)">${formatCurrency(nf.valor || 0)}</td>
-                <td>${nf.dataRec}</td>
-                <td><code>${nf.lote}</code></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>` : ''}
-  `;
 };
 
 // ─── GESTOR: PEDIDOS (R1 — Triagem Contratual) ───────────────────────
@@ -5684,6 +5543,29 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
   }
 };
 
+window.resolverColaboradorParaProduto = (nomeProduto) => {
+  const nome = (nomeProduto || '').toLowerCase();
+  const farmers = (typeof DATA !== 'undefined' && DATA.farmers) || [];
+  const viaFarmer = farmers.find(f => (f.products || []).some(p => nome.includes(p.toLowerCase()) || p.toLowerCase().includes(nome)));
+  if (viaFarmer) return viaFarmer.coop || viaFarmer.name;
+  const coops = (typeof DATA !== 'undefined' && DATA.cooperatives) || [];
+  if (!coops.length) return 'Cooperativa Parceira';
+  const hash = nome.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  return coops[hash % coops.length].name;
+};
+
+window.abrirGuiaEntregaParaEscola = (escolaId) => {
+  window._guiaFiltroPreSelect = { modo: 'escola', escolaId };
+  closeModal();
+  navigateTo('nutricionista', 'guiasentrega');
+};
+
+window.abrirGuiaEntregaParaColaborador = (nomeColaborador) => {
+  window._guiaFiltroPreSelect = { modo: 'colaborador', colaborador: nomeColaborador };
+  closeModal();
+  navigateTo('nutricionista', 'guiasentrega');
+};
+
 window.gerarOrdensDeServicoPorEscola = (menuObj) => {
   menuObj = menuObj || window.currentActiveIAMenu || window.tempIAMenuPreview;
   if (!menuObj || !window.AICardapioEngine) {
@@ -5708,7 +5590,10 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
     
     // Registra pedido e entrega no SharedState para a escola
     if (window.SharedState) {
-      const orderItens = demandaInsumos.map(i => ({ produto: i.nome, qtd: i.qtdEnviadaKg, unidade: 'kg', regra: i.detalheRegra }));
+      const orderItens = demandaInsumos.map(i => ({
+        produto: i.nome, qtd: i.qtdEnviadaKg, unidade: 'kg', regra: i.detalheRegra,
+        af: !!i.af, colaborador: i.af ? window.resolverColaboradorParaProduto(i.nome) : null
+      }));
       const order = {
         escolaId: sc.id,
         escolaCodigo: escCodigo,
@@ -5734,6 +5619,39 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
           status: 'Pendente'
         });
       }
+
+      // Guia de Remessa — Estoque Central / Pregão (itens não-AF)
+      const itensPregao = orderItens.filter(i => !i.af);
+      if (itensPregao.length > 0 && typeof SharedState.addGuiaEntrega === 'function') {
+        SharedState.addGuiaEntrega({
+          tipo: 'Estoque Central', entregador: 'Estoque Central SEMED',
+          escolaId: sc.id, escolaNome: sc.name, escolaCodigo: escCodigo,
+          classificacaoGrupo: sc.tipo, linhaEntrega: sc.region,
+          cardapioCodigo: cardapioCod, produtos: itensPregao
+        });
+      }
+
+      // Guia de Remessa — por Colaborador (Cooperativa/Agricultor), itens AF agrupados por colaborador resolvido
+      const itensAF = orderItens.filter(i => i.af);
+      const colaboradoresDoGrupo = [...new Set(itensAF.map(i => i.colaborador))];
+      colaboradoresDoGrupo.forEach(colaborador => {
+        const itensDoColaborador = itensAF.filter(i => i.colaborador === colaborador);
+        const osForn = (typeof SharedState.addOsFornecedores === 'function') ? SharedState.addOsFornecedores({
+          tipo_fornecedor: 'Cooperativa', cooperativa: colaborador,
+          escola_destino: sc.name, escolaId: sc.id,
+          tipo_os: 'Ordem de Fornecimento AF', status: 'Enviada à Cooperativa',
+          itens: itensDoColaborador
+        }) : null;
+        if (typeof SharedState.addGuiaEntrega === 'function') {
+          SharedState.addGuiaEntrega({
+            tipo: 'Colaborador', entregador: colaborador,
+            escolaId: sc.id, escolaNome: sc.name, escolaCodigo: escCodigo,
+            classificacaoGrupo: sc.tipo, linhaEntrega: sc.region,
+            cardapioCodigo: cardapioCod, produtos: itensDoColaborador,
+            osFornecedorId: osForn ? osForn.id : null
+          });
+        }
+      });
     }
 
     return {
@@ -5814,7 +5732,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
       <!-- SELEÇÃO DE VISÃO / ABAS -->
       <div style="display:flex; gap:10px; margin-bottom:16px; border-bottom:2px solid #e2e8f0; padding-bottom:8px;">
         <button class="btn btn-primary btn-sm" id="tab-os-escolas-btn" onclick="window.alternarAbasOS('escolas')">🏫 Ordens de Serviço por Escola (${ordensPorEscola.length} unidades)</button>
-        <button class="btn btn-outline btn-sm" id="tab-os-coop-btn" onclick="window.alternarAbasOS('coop')">🌾 Ordens de Produção & Colheita AF (${ordensAgricultores.length} Cooperativas)</button>
+        <button class="btn btn-outline btn-sm" id="tab-os-coop-btn" onclick="window.alternarAbasOS('coop')">🤝 Ordem de Serviço Colaboradores (${ordensAgricultores.length})</button>
       </div>
 
       <!-- SEÇÃO 1: ORDENS DE SERVIÇO POR ESCOLA -->
@@ -5838,7 +5756,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
                 <div style="display:flex;align-items:center;gap:8px">
                   <span class="status-badge" style="background:#e0f2fe; color:#0369a1; font-weight:700; font-size:0.78rem;">OS nº OS-2026/${o.escola.id}08</span>
                   <span class="status-badge" style="background:#fef3c7; color:#b45309; font-weight:700; font-size:0.78rem;">📜 Ref. Cardápio: ${o.cardapioCodigo}</span>
-                  <button class="btn btn-outline btn-sm" style="font-size:0.78rem;" onclick="window.imprimirOSIndividualEscola('${o.escola.name.replace(/'/g,"\\'")}', 'OS-2026/${o.escola.id}08')">🖨️ Imprimir Guia OS</button>
+                  <button class="btn btn-outline btn-sm" style="font-size:0.78rem;" onclick="window.abrirGuiaEntregaParaEscola(${o.escola.id})">📬 Ver Guia em Guias de Entrega</button>
                 </div>
               </div>
 
@@ -5885,7 +5803,7 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
                 </div>
                 <div style="display:flex;align-items:center;gap:8px">
                   <span class="status-badge status-ok" style="font-weight:700; font-size:0.78rem;">🟢 ORDEM DE COLHEITA EMITIDA</span>
-                  <button class="btn btn-outline btn-sm" style="font-size:0.78rem; border-color:#16a34a; color:#15803d;" onclick="window.imprimirGuiaCooperativaAF('${c.cooperativa.replace(/'/g,"\\'")}')">🖨️ Imprimir Guia AF</button>
+                  <button class="btn btn-outline btn-sm" style="font-size:0.78rem; border-color:#16a34a; color:#15803d;" onclick="window.abrirGuiaEntregaParaColaborador('${c.cooperativa.replace(/'/g,"\\'")}')">📬 Ver Guia em Guias de Entrega</button>
                 </div>
               </div>
 
@@ -6427,104 +6345,8 @@ window.gerarRelatorioMensal4Paginas = () => {
   window.showModal('📄 Relatório Mensal Padronizado (4 Páginas - RF-010)', html, '950px');
 };
 
-PAGE_RENDERERS.nutricionista_restricoes = (el) => {
-  const restricoesAgrupadas = SharedState.getRestricoes();
-  const alunosEspeciais = SharedState.getAlunosEspeciais();
-  const totalAlunosComRestricao = alunosEspeciais.length > 0
-    ? alunosEspeciais.length
-    : restricoesAgrupadas.reduce((a, b) => a + (b.quantidade || 1), 0);
-
-  const htmlAlunos = alunosEspeciais.map(a => {
-    const subInfo = window.AICardapioEngine
-      ? window.AICardapioEngine.determinarSubstitutoRestricao(a.restricao, a.dataNascimento)
-      : null;
-
-    let dobFormatted = a.dataNascimento ? a.dataNascimento.split('-').reverse().join('/') : '—';
-    return `
-      <tr>
-        <td><strong>${a.nome}</strong></td>
-        <td>${a.escola}</td>
-        <td><span class="tag tag-blue">${a.turma || 'Geral'}</span></td>
-        <td style="font-size:0.82rem">${dobFormatted}</td>
-        <td><span class="status-badge status-warning">${a.restricao}</span></td>
-        <td style="font-size:0.8rem;color:#0284c7">
-          ${subInfo ? subInfo.regraEtaria : 'Alimento Adaptado'}
-        </td>
-        <td style="font-size:0.78rem">${a.laudo || 'Laudo Anexado'}</td>
-        <td>
-          <button class="table-action btn-sm" style="color:var(--danger)" onclick="window.excluirAlunoEspecial('${a.id}')">🗑️ Excluir</button>
-        </td>
-      </tr>
-    `;
-  }).join('');
-
-  el.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Gestão de Restrições Alimentares & Dietas Especiais</div>
-      <div class="page-subtitle">Cadastro nominal de alunos (RF-003), laudos clínicos e motor de substituição por faixa etária (RN-002)</div>
-    </div>
-
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-      <div class="kpi-card orange"><div class="kpi-icon">🛡️</div><div class="kpi-value">${totalAlunosComRestricao}</div><div class="kpi-label">Alunos c/ Dieta Especial</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">🍼</div><div class="kpi-value">${alunosEspeciais.filter(a => { const d = new Date(a.dataNascimento); return !isNaN(d) && ((Date.now()-d)/(365.25*86400000)) < 2; }).length}</div><div class="kpi-label">Creche / 0-2 anos (Fórmula)</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">🥛</div><div class="kpi-value">${alunosEspeciais.filter(a => { const d = new Date(a.dataNascimento); return !isNaN(d) && ((Date.now()-d)/(365.25*86400000)) >= 2; }).length}</div><div class="kpi-label">Fundamental (Zero Lactose)</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">📄</div><div class="kpi-value">100%</div><div class="kpi-label">Laudos Médicos Auditados</div></div>
-    </div>
-
-    <div class="card mb-24">
-      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-        <div class="card-title">👶 Cadastro Nominal de Alunos com Restrição Clínica (RF-003 & RN-002)</div>
-        <button class="btn btn-primary btn-sm" onclick="window.abrirModalNovoAlunoEspecial()">+ Cadastrar Aluno Especial</button>
-      </div>
-      <div class="card-body" style="padding:0">
-        <div style="overflow-x:auto">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Aluno(a)</th>
-                <th>Escola Destino</th>
-                <th>Turma</th>
-                <th>Data Nasc.</th>
-                <th>Restrição Clínica</th>
-                <th>Substituição Automática IA (RN-002)</th>
-                <th>Laudo Médico</th>
-                <th>Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${htmlAlunos}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">
-        <div class="card-title">🏫 Resumo por Unidade Escolar & Categoria de Restrição</div>
-      </div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Unidade Escolar</th><th>Tipo de Restrição</th><th>Alunos Afetados</th><th>Observações Nutricionais</th><th>Status</th></tr></thead>
-          <tbody>
-            ${restricoesAgrupadas.map(r => `
-              <tr>
-                <td><strong>${r.schoolName}</strong></td>
-                <td><span class="status-badge status-warning">${r.tipo}</span></td>
-                <td style="font-family:var(--font-mono);font-weight:700">${r.quantidade} alunos</td>
-                <td style="font-size:0.82rem">${r.observacao}</td>
-                <td><span class="status-badge status-ok">${r.status}</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-};
-
-PAGE_RENDERERS.escola_restricoes = PAGE_RENDERERS.nutricionista_restricoes;
-PAGE_RENDERERS.gestor_restricoes = PAGE_RENDERERS.nutricionista_restricoes;
+PAGE_RENDERERS.escola_restricoes = (el) => PAGE_RENDERERS.nutricionista_restricoes(el);
+PAGE_RENDERERS.gestor_restricoes = (el) => PAGE_RENDERERS.nutricionista_restricoes(el);
 
 window.abrirModalNovoAlunoEspecial = () => {
   const schools = DATA.schools || [];
@@ -6672,189 +6494,10 @@ PAGE_RENDERERS.nutricionista_estoquesual = (el) => {
   `;
 };
 
-// REQUISITOS PDF: GUIAS DE ENTREGA, FRACIONAMENTO E SAZONALIDADE
-
-PAGE_RENDERERS.nutricionista_guiasentrega = (el) => {
-  const schools = (DATA && DATA.schools && DATA.schools.length) ? DATA.schools : (window._PILOT_SCHOOLS || [{ id: 1, name: 'EMEF Prof. Arlene Marques', students: 540, region: 'Birbiriuçu' }]);
-  const menus = SharedState.getCardapios();
-  const cardapioAtivo = menus.find(m => m.statusAprovacao === 'aprovado_nutri') || menus[0];
-
-  const trocasSazionais = SharedState._data.trocasSazionais || [];
-
-  el.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">🚚 Guias de Entrega & Distribuição Parcelada</div>
-      <div class="page-subtitle">Emissão de ordens de fornecimento fracionadas por per capita, frequências e trocas por sazonalidade</div>
-    </div>
-
-    <div class="card mb-24">
-      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-        <div>
-          <div class="card-title">📋 Emissão de Guia por Unidade Escolar</div>
-          <div style="font-size:0.82rem;color:var(--text-secondary)">Selecione a rota/escola para gerar o cálculo automático de remessa</div>
-        </div>
-        <div style="display:flex;gap:10px;align-items:center">
-          <select id="guia-filtro-rota" class="btn btn-outline" style="padding:6px 12px;font-size:0.85rem" onchange="window.filtrarEscolasPorRotaGuia(this.value)">
-            <option value="todas">📍 Todas as Rotas</option>
-            <option value="Birbiriuçu">📍 Rota 1 - Birbiriuçu (Rural)</option>
-            <option value="Anhanduí">📍 Rota 2 - Anhanduí (Distrito)</option>
-            <option value="Urbana Leste">📍 Rota 3 - Urbana Leste</option>
-            <option value="Urbana Oeste">📍 Rota 4 - Urbana Oeste</option>
-          </select>
-          <select id="guia-escola-select" class="btn btn-outline" style="padding:6px 12px;font-size:0.85rem" onchange="window.renderizarGuiaEscola(this.value)">
-            ${schools.map(s => `<option value="${s.id}">${s.name} (${s.students} alunos)</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="card-body">
-        <div id="guia-detalhes-container"></div>
-      </div>
-    </div>
-  `;
-
-  setTimeout(() => {
-    if (schools.length) window.renderizarGuiaEscola(schools[0].id);
-  }, 50);
-};
-
-window.filtrarEscolasPorRotaGuia = (rota) => {
-  const sel = document.getElementById('guia-escola-select');
-  if (!sel) return;
-  const schools = DATA.schools || [];
-  const filtradas = rota === 'todas' ? schools : schools.filter(s => (s.region || '').includes(rota) || (s.name || '').includes(rota));
-  sel.innerHTML = filtradas.map(s => `<option value="${s.id}">${s.name} (${s.students} alunos)</option>`).join('');
-  if (filtradas.length) window.renderizarGuiaEscola(filtradas[0].id);
-};
-
-window.renderizarGuiaEscola = (escolaId) => {
-  const container = document.getElementById('guia-detalhes-container');
-  if (!container) return;
-
-  const school = (DATA.schools || []).find(s => String(s.id) === String(escolaId)) || DATA.schools[0];
-  const qtdAlunos = school.students || 400;
-  const trocas = SharedState._data.trocasSazionais || {};
-
-  const itensGuia = [
-    { id: 'g1', nome: 'Banana Nanica', categoria: 'Hortifrúti', perCapita: 100, uni: 'g', freq: 'Semanal (4x/mês)', af: true },
-    { id: 'g2', nome: 'Tomate Fresco', categoria: 'Hortifrúti', perCapita: 40, uni: 'g', freq: 'Semanal (4x/mês)', af: true },
-    { id: 'g3', nome: 'Alface Crespa', categoria: 'Hortifrúti', perCapita: 30, uni: 'g', freq: 'Semanal (4x/mês)', af: true },
-    { id: 'g4', nome: 'Ovos de Galinha', categoria: 'Proteína Perecível', perCapita: 1, uni: 'unid', freq: 'Quinzenal (2x/mês)', af: true },
-    { id: 'g5', nome: 'Pão Francês / Bisnaguinha', categoria: 'Panificação', perCapita: 50, uni: 'g', freq: 'Quinzenal (2x/mês)', af: false },
-    { id: 'g6', nome: 'Arroz Tipo 1', categoria: 'Estoque Seco', perCapita: 60, uni: 'g', freq: 'Mensal (1x/mês)', af: false },
-    { id: 'g7', nome: 'Feijão Carioca', categoria: 'Estoque Seco', perCapita: 40, uni: 'g', freq: 'Mensal (1x/mês)', af: false },
-  ];
-
-  container.innerHTML = `
-    <div style="background:#f8fafc;padding:16px;border-radius:10px;border:1px solid var(--border);margin-bottom:16px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-        <div>
-          <h3 style="margin:0;font-size:1.05rem;color:var(--primary-dark)">🏫 ${school.name}</h3>
-          <div style="font-size:0.83rem;color:var(--text-secondary);margin-top:2px">
-            Rota: <strong>${school.region || 'Urbana'}</strong> · Total de Alunos Matriculados: <strong>${qtdAlunos}</strong>
-          </div>
-        </div>
-        <button class="btn btn-primary" onclick="window.printGuiaEscola('${school.name}')">🖨️ Imprimir Guia de Entrega Físico</button>
-      </div>
-    </div>
-
-    <div style="overflow-x:auto">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th>Gênero Alimentício</th>
-            <th>Origem</th>
-            <th>Per Capita Técnico</th>
-            <th>Cálculo p/ Remessa (${qtdAlunos} alunos)</th>
-            <th>Frequência de Entrega</th>
-            <th>Substituição por Sazonalidade</th>
-            <th>Ação</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itensGuia.map(item => {
-            const trocaKey = `${school.id}_${item.id}`;
-            const trocaObj = trocas[trocaKey];
-            const nomeExibido = trocaObj ? trocaObj.substituto : item.nome;
-
-            let qtdCalculada = item.uni === 'unid'
-              ? Math.round(item.perCapita * qtdAlunos) + ' unid'
-              : ((item.perCapita * qtdAlunos) / 1000).toFixed(1) + ' kg';
-
-            return `
-              <tr style="${trocaObj ? 'background:#fffbe6' : ''}">
-                <td>
-                  <strong>${nomeExibido}</strong>
-                  ${trocaObj ? `<div style="font-size:0.75rem;color:#b45309">⚠️ Substituído: de ${item.nome} (${trocaObj.justificativa})</div>` : ''}
-                </td>
-                <td>${item.af ? '<span style="color:#2E7D32;font-weight:700">🌽 Agric. Familiar</span>' : 'Pregão'}</td>
-                <td style="font-family:var(--font-mono)">${item.perCapita} ${item.uni}</td>
-                <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${qtdCalculada}</td>
-                <td><span class="tag tag-blue">${item.freq}</span></td>
-                <td style="font-size:0.8rem">
-                  ${trocaObj ? `<span class="status-badge status-warning">Alterado: ${trocaObj.substituto}</span>` : '<span style="color:var(--text-secondary)">Sem troca</span>'}
-                </td>
-                <td>
-                  <button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#b45309" onclick="window.abrirModalSubstituicaoSazonal('${school.id}', '${item.id}', '${item.nome}')">
-                    🔄 Substituir
-                  </button>
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-  `;
-};
-
-window.abrirModalSubstituicaoSazonal = (escolaId, itemId, itemOriginal) => {
-  const content = `
-    <form onsubmit="window.salvarSubstituicaoSazonal(event, '${escolaId}', '${itemId}')">
-      <div class="form-group mb-12">
-        <label style="font-weight:600;display:block;margin-bottom:4px">Item Original Programado</label>
-        <input type="text" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${itemOriginal}" readonly>
-      </div>
-      <div class="form-group mb-12">
-        <label style="font-weight:600;display:block;margin-bottom:4px">Produto Substituto de Hortifrúti (Sazonalidade)</label>
-        <select id="subst-produto" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
-          <option value="Pepino Japonês">Pepino Japonês</option>
-          <option value="Mamão Formosa">Mamão Formosa</option>
-          <option value="Abobrinha Menina">Abobrinha Menina</option>
-          <option value="Repolho Verde">Repolho Verde</option>
-          <option value="Chuchu">Chuchu</option>
-          <option value="Laranja Pera">Laranja Pera</option>
-        </select>
-      </div>
-      <div class="form-group mb-18">
-        <label style="font-weight:600;display:block;margin-bottom:4px">Campo Obrigatório de Observação / Justificativa na Guia</label>
-        <textarea id="subst-justificativa" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;height:80px" placeholder="Ex: Substituição autorizada devido à indisponibilidade de colheita provocada pelas chuvas na região." required></textarea>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:10px">
-        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-        <button type="submit" class="btn btn-primary">💾 Registrar Substituição na Guia</button>
-      </div>
-    </form>
-  `;
-  window.showModal('🔄 Substituição por Sazonalidade (Requisito PDF nº 4)', content, '550px');
-};
-
-window.salvarSubstituicaoSazonal = (e, escolaId, itemId) => {
-  e.preventDefault();
-  const substituto = document.getElementById('subst-produto').value;
-  const justificativa = document.getElementById('subst-justificativa').value;
-
-  SharedState._data.trocasSazionais = SharedState._data.trocasSazionais || {};
-  SharedState._data.trocasSazionais[`${escolaId}_${itemId}`] = { substituto, justificativa, data: new Date().toISOString() };
-  SharedState._persist();
-
-  showToast(`✅ Substituição para ${substituto} registrada com sucesso na guia!`);
-  closeModal();
-  window.renderizarGuiaEscola(escolaId);
-};
-
-window.printGuiaEscola = (escolaNome) => {
-  window.print();
-};
+// GUIAS DE ENTREGA & SUBSTITUIÇÃO SAZONAL (Requisito PDF nº 4)
+// Migrado para js/modules/nutricao.js: a tela, a Guia de Remessa em 2 vias e o
+// fluxo de substituição por sazonalidade (abrirModalSubstituicaoSazonal /
+// salvarSubstituicaoSazonal / removerSubstituicaoSazonal) vivem lá agora.
 
 // Helper de Relatório Mensal 4 Páginas por Mês (Requisito PDF nº 5)
 window.abrirRelatorioMensal4Paginas = (cardapioNome) => {
@@ -7214,19 +6857,6 @@ PAGE_RENDERERS.nutricionista_planejamento = (el) => {
     header.insertAdjacentHTML('afterend', `<div style="background:var(--warning-light);border:1px solid var(--warning);padding:12px;border-radius:var(--radius-md);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;"><div><strong>⚠️ Área em Validação:</strong> Esta tela de planejamento está em fase de testes e co-criação com a equipe de nutrição.</div><button class="btn btn-primary btn-sm" onclick="alert('Formulário de feedback da Nutricionista aberto!')">Dar Feedback</button></div>`);
   }
 };
-// Nutricionista tem visão consultiva das escolas (sem edição)
-PAGE_RENDERERS.nutricionista_escolas = (el) => {
-  PAGE_RENDERERS.gestor_escolas(el);
-  const header = el.querySelector('.page-header');
-  if (header) {
-    header.insertAdjacentHTML('afterend', '<div style="background:var(--surface-2);border-left:4px solid var(--primary);padding:12px;border-radius:0 8px 8px 0;margin-bottom:16px;font-size:0.85rem"><strong>ℹ️ Modo consulta:</strong> Nutricionista tem acesso somente-leitura às escolas para elaborar cardápios e planejamento nutricional.</div>');
-  }
-  // Remove qualquer botão de ação/edição
-  el.querySelectorAll('button.table-action, .btn-primary').forEach(b => {
-    if (b.textContent.includes('Editar') || b.textContent.includes('Novo') || b.textContent.includes('Excluir')) b.remove();
-  });
-};
-
 // Escola vê apenas a sua própria unidade em foco (drill-down local)
 PAGE_RENDERERS.escola_escolas = (el) => {
   const sc = getCurrentSchool();
@@ -9483,85 +9113,7 @@ PAGE_RENDERERS.estoque_inventario = (el) => {
   `;
 };
 
-PAGE_RENDERERS.estoque_entradas = (el) => {
-  // Simular pedidos aprovados que aguardam NF (legacy)
-  const pedidosNF = DATA.ata_pedidos.filter(p => true);
-  // Empenhos do SharedState (novos, criados pelo Gestor)
-  const empenhosSaldo = SharedState.getEmpenhos().filter(e => (e.qtdConsumida || 0) < e.qtdTotal);
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Recebimento de Mercadorias (NF)</div><div class="page-subtitle">Entrada física e baixa de empenhos · Ateste de qualidade obrigatório</div></div>
-
-    ${empenhosSaldo.length > 0 ? `
-    <div class="card mb-24" style="border-left:4px solid var(--primary)">
-      <div class="card-header"><div class="card-title">📋 Empenhos com Saldo (Gestor SEMED)</div><span class="status-badge status-ok">${empenhosSaldo.length}</span></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Empenho</th><th>Ata</th><th>Produto</th><th>Qtd Total</th><th>Consumido</th><th>Saldo</th><th>Ação</th></tr></thead><tbody>
-          ${empenhosSaldo.map(e => {
-            const saldo = (e.qtdTotal||0) - (e.qtdConsumida||0);
-            return `<tr>
-              <td><strong>${e.numero}</strong></td>
-              <td>${e.ataNumero}</td>
-              <td>${e.produto}</td>
-              <td style="font-family:var(--font-mono)">${(e.qtdTotal||0).toLocaleString('pt-BR')} ${e.unidade}</td>
-              <td style="font-family:var(--font-mono);color:var(--success)">${(e.qtdConsumida||0).toLocaleString('pt-BR')}</td>
-              <td style="font-family:var(--font-mono);font-weight:bold;color:var(--danger)">${saldo.toLocaleString('pt-BR')} ${e.unidade}</td>
-              <td><button class="btn btn-sm btn-primary" onclick="openReceiveNFModal('${e.id}')">Receber NF</button></td>
-            </tr>`;
-          }).join('')}
-        </tbody></table>
-      </div>
-    </div>` : ''}
-
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Aguardando Recebimento (Legacy)</div></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Data Pedido</th><th>Ata / Empenho</th><th>Produto</th><th>Solicitado</th><th>Recebido</th><th>Saldo</th><th>Status</th><th>Ação</th></tr></thead><tbody>
-          ${pedidosNF.map(p => {
-            const emp = DATA.empenhos.find(e => e.id === p.empenhoId);
-            if (!emp) return '';
-            const prodId = emp.items[0].productId;
-            const prod = DATA.ataProducts.find(a => a.id === prodId);
-            const recebido = p.delivered || 0;
-            const saldo = p.qtd - recebido;
-            if (saldo <= 0) return '';
-
-            return `<tr>
-              <td>${formatDate(p.date)}</td>
-              <td><strong>${emp.numero}</strong><br><small>Ata #${emp.ataId}</small></td>
-              <td>${prod.name}</td>
-              <td style="font-family:var(--font-mono)">${p.qtd}</td>
-              <td style="font-family:var(--font-mono);color:var(--success)">${recebido}</td>
-              <td style="font-family:var(--font-mono);font-weight:bold;color:var(--danger)">${saldo} ${prod.unit}</td>
-              <td><span class="status-badge ${recebido > 0 ? 'status-warning' : 'status-danger'}">${recebido > 0 ? 'Pendente (Parcial)' : 'Aguardando'}</span></td>
-              <td><button class="btn btn-sm btn-primary" onclick="openRecebimentoModal(${p.id})">Registrar NF / Conferência</button></td>
-            </tr>`;
-          }).join('')}
-        </tbody></table>
-      </div>
-    </div>
-
-    ${SharedState.getNFs().length > 0 ? `
-    <div class="card">
-      <div class="card-header"><div class="card-title">📄 Histórico de NFs Recebidas</div></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>NF</th><th>Empenho</th><th>Qtd</th><th>Valor</th><th>Data</th><th>Lote</th><th>Ateste</th></tr></thead><tbody>
-          ${SharedState.getNFs().slice(0, 8).map(nf => `
-            <tr>
-              <td><strong>${nf.numero}</strong></td>
-              <td>${nf.empenhoNumero || nf.empenhoId}</td>
-              <td style="font-family:var(--font-mono)">${(nf.qtd||0).toLocaleString('pt-BR')}</td>
-              <td style="font-family:var(--font-mono)">${formatCurrency(nf.valor || 0)}</td>
-              <td>${nf.dataRec}</td>
-              <td><code>${nf.lote}</code></td>
-              <td><span class="status-badge status-ok">${nf.ateste || 'Conforme'}</span></td>
-            </tr>
-          `).join('')}
-        </tbody></table>
-      </div>
-    </div>` : ''}
-  `;
-};
-
+// NOTA: estoque_entradas/separacao/carregamento sao servidos pelos modulos do Gestor (ver ALIASES no fim do arquivo). Os helpers abaixo seguem em uso.
 window.openReceiveNFModal = (empenhoId) => {
   const e = SharedState.getEmpenho(empenhoId);
   if (!e) return;
@@ -9705,105 +9257,6 @@ window.confirmRecebimento = (pedidoId, empenhoId, prodId) => {
   if (el && PAGE_RENDERERS.estoque_entradas) PAGE_RENDERERS.estoque_entradas(el);
 };
 
-PAGE_RENDERERS.estoque_separacao = (el) => {
-  const legacyOrders = DATA.separation_orders || [];
-  const sharedOrders = SharedState.getOrders().filter(o => o.status === 'Pendente' || o.status === 'Em separação');
-  // OS geradas automaticamente pelo motor de triagem R1
-  const osAutomaticas = SharedState.getOsEstoqueCentral().filter(o => o.origem && o.origem.startsWith('Pedido Escola'));
-  const osPendentes = osAutomaticas.filter(o => o.status === 'Pendente');
-  const osExecucao  = osAutomaticas.filter(o => o.status === 'Em Separação');
-
-  el.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">📦 Ordens de Separação (Picking)</div>
-      <div class="page-subtitle">FIFO aplicado automaticamente · OS manuais e automáticas do motor de triagem SUALE</div>
-    </div>
-
-    <!-- KPIs -->
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-      <div class="kpi-card red"><div class="kpi-icon">⏳</div><div class="kpi-value">${osPendentes.length + sharedOrders.filter(o=>o.status==='Pendente').length}</div><div class="kpi-label">Aguardando Separação</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">🔄</div><div class="kpi-value">${osExecucao.length + sharedOrders.filter(o=>o.status==='Em separação').length}</div><div class="kpi-label">Em Separação</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">🏭</div><div class="kpi-value">${osAutomaticas.length}</div><div class="kpi-label">OS Automáticas</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${osAutomaticas.filter(o=>o.status==='Recebido').length}</div><div class="kpi-label">Concluídas</div></div>
-    </div>
-
-    ${osAutomaticas.length > 0 ? `
-    <!-- OS Automáticas do Motor de Triagem R1 -->
-    <div class="card mb-24">
-      <div class="card-header">
-        <div class="card-title">🤖 OS Geradas pelo Motor de Triagem (R1)</div>
-        <span class="status-badge status-ok">${osAutomaticas.length} OS automática(s)</span>
-      </div>
-      <div style="overflow-x:auto">
-        <table class="data-table">
-          <thead><tr><th>OS</th><th>Origem (Pedido)</th><th>Escola Destino</th><th>Itens</th><th>Data Programada</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody>
-            ${osAutomaticas.map(os => {
-              const itensStr = (os.itens||[]).map(i => `${i.produto} (${i.quantidade}${i.unidade||'kg'})`).join(', ');
-              const itensResume = itensStr.length > 60 ? itensStr.slice(0,60)+'...' : itensStr;
-              return `<tr>
-                <td><strong style="color:var(--primary)">${os.numero_os}</strong></td>
-                <td><span class="tag tag-blue">${os.origem}</span></td>
-                <td><strong>${os.escola_destino}</strong></td>
-                <td style="font-size:0.78rem" title="${itensStr}">${itensResume}</td>
-                <td>${os.data_programada||'—'}</td>
-                <td><span class="status-badge ${os.status==='Recebido'?'status-ok':os.status==='Em Separação'?'status-warning':'status-danger'}">${os.status}</span></td>
-                <td>
-                  ${os.status === 'Pendente'
-                    ? `<button class="btn btn-sm btn-primary" onclick="window._iniciarOsAuto('${os.id}')">📦 Iniciar Separação</button>`
-                    : os.status === 'Em Separação'
-                    ? `<button class="btn btn-sm btn-warning" onclick="window._concluirOsAuto('${os.id}')">✅ Concluir</button>`
-                    : `<button class="btn btn-sm btn-outline" disabled>Concluído</button>`}
-                </td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>` : ''}
-
-    <!-- Fila de Separação Manual (pedidos diretos das escolas) -->
-    <div class="card mb-24">
-      <div class="card-header">
-        <div class="card-title">Fila de Separação (Pedidos Diretos)</div>
-        ${sharedOrders.length ? `<span class="status-badge status-ok">${sharedOrders.length} pedido(s) de escola</span>` : ''}
-      </div>
-      <div style="overflow-x:auto">
-        <table class="data-table">
-          <thead><tr><th>Ordem</th><th>Escola Destino</th><th>Itens</th><th>Status</th><th>Ações</th></tr></thead>
-          <tbody>
-            ${sharedOrders.map(o => {
-              const itensStr = (o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ');
-              return `<tr>
-                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">
-                  #${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span>
-                  <div style="font-size:0.72rem; color:#0369a1; font-weight:600; margin-top:2px;">📜 Ref: ${o.cardapioCodigo || 'CARD-2026/08-101'}</div>
-                </td>
-                <td><strong>${o.school}</strong></td>
-                <td style="font-size:0.82rem">${itensStr}</td>
-                <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
-                <td>${o.status === 'Pendente'
-                  ? `<button class="btn btn-sm btn-primary" onclick="sharedStartSeparacao('${o.id}')">Iniciar Separação (FIFO)</button>`
-                  : `<button class="btn btn-sm btn-warning" onclick="sharedFinishSeparacao('${o.id}')">Concluir</button>`}</td>
-              </tr>`;
-            }).join('')}
-            ${legacyOrders.map(o => `<tr>
-              <td style="font-family:var(--font-mono);font-weight:700">#ORD-${o.id}</td>
-              <td><strong>${o.school}</strong></td>
-              <td style="font-size:0.85rem">${o.items.length} produto(s)</td>
-              <td><span class="status-badge ${o.status==='Separado'?'status-ok':'status-warning'}">${o.status}</span></td>
-              <td>${o.status === 'Pendente'
-                ? `<button class="btn btn-sm btn-primary" onclick="startSeparacao(${o.id})">Iniciar Separação</button>`
-                : `<button class="btn btn-sm btn-outline" disabled>Separado</button>`}</td>
-            </tr>`).join('')}
-            ${sharedOrders.length === 0 && legacyOrders.length === 0 ? '<tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:24px">Nenhum pedido aguardando separação manual</td></tr>' : ''}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
-};
-
 window._iniciarOsAuto = (osId) => {
   const os = SharedState.getOsEstoqueCentral().find(o => o.id === osId);
   if (!os) return;
@@ -9843,46 +9296,6 @@ window.startSeparacao = (orderId) => {
   if (o) o.status = 'Separado';
   showToast('Separação concluída via FIFO! Lotes vinculados.', 'success');
   navigateTo(state.currentProfile, 'carregamento');
-};
-
-PAGE_RENDERERS.estoque_carregamento = (el) => {
-  const separated = DATA.separation_orders.filter(o => o.status === 'Separado');
-  const sharedInTransit = SharedState.getOrders().filter(o => o.status === 'Separado' || o.status === 'Em transporte');
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Carregamento e Bipagem (Check-out)</div><div class="page-subtitle">Validação de caixas no caminhão · Pedidos prontos aparecem em tempo real</div></div>
-    <div class="grid-2">
-      <div class="card"><div class="card-header"><div class="card-title">Cargas Aguardando Embarque</div>${sharedInTransit.length ? '<span class="status-badge status-ok">'+sharedInTransit.length+' pronto(s)</span>' : ''}</div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Ordem</th><th>Destino</th><th>Itens</th><th>Ação</th></tr></thead><tbody>
-          ${sharedInTransit.map(o => `<tr>
-            <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">
-              #${String(o.numero).padStart(3,'0')}
-              <div style="font-size:0.72rem; color:#0369a1; font-weight:600; margin-top:2px;">📜 Ref: ${o.cardapioCodigo || 'CARD-2026/08-101'}</div>
-            </td>
-            <td><strong>${o.school}</strong></td>
-            <td style="font-size:0.82rem">${(o.itens||[]).length} itens</td>
-            <td>
-              <div style="display:flex;gap:4px">
-                <button class="btn btn-sm btn-primary" onclick="openSharedBipagem('${o.id}')">📦 Bipar Carga</button>
-                <button class="btn btn-sm btn-success" onclick="sharedLiberarCaminhao('${o.id}')">✅ Liberar</button>
-              </div>
-            </td>
-          </tr>`).join('')}
-          ${separated.map(o => `<tr>
-            <td><strong>#ORD-${o.id}</strong></td>
-            <td>${o.school}</td>
-            <td style="font-size:0.82rem">${o.items?.length || 0} itens</td>
-            <td><button class="btn btn-sm btn-primary" onclick="openBipagem(${o.id})">Bipar Carga</button></td>
-          </tr>`).join('')}
-          ${(sharedInTransit.length + separated.length) === 0 ? '<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma carga pronta — aguardando separação</td></tr>' : ''}
-        </tbody></table>
-      </div></div>
-      <div class="card"><div class="card-header"><div class="card-title">Simulador de Bipagem</div></div>
-      <div class="card-body" id="bipagem-area">
-        <div style="color:var(--text-tertiary);text-align:center;padding:40px">Selecione uma carga à esquerda para iniciar a bipagem.</div>
-      </div></div>
-    </div>
-  `;
 };
 
 window.openSharedBipagem = (orderId) => {
@@ -10000,351 +9413,7 @@ PAGE_RENDERERS.estoque_lotes = (el) => {
   `;
 };
 
-// ─── MOTORISTA: RENDERERS ───
-PAGE_RENDERERS.motorista_dashboard = (el) => {
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Minha Rota Diária</div><div class="page-subtitle">Veículo: ABC-1234 · Rota: Anhanduizinho · Data: 10/07/2026</div></div>
-    
-    <div class="grid-3 mb-24">
-      <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--primary);background:var(--primary-light)">🏫</div>
-        <div class="stat-info"><div class="stat-num">3</div><div class="stat-name">Escolas na Rota</div></div>
-      </div></div>
-      <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--success);background:var(--success-light)">✓</div>
-        <div class="stat-info"><div class="stat-num" id="driver-delivered-count">1</div><div class="stat-name">Entregas Realizadas</div></div>
-      </div></div>
-      <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--warning);background:var(--warning-light)">⏳</div>
-        <div class="stat-info"><div class="stat-num" id="driver-pending-count">2</div><div class="stat-name">Entregas Pendentes</div></div>
-      </div></div>
-    </div>
-
-    <div class="grid-2 mb-24">
-      <div class="card"><div class="card-header"><div class="card-title">Sequência de Paradas da Rota</div></div><div class="card-body">
-        <div style="display:flex;flex-direction:column;gap:16px;position:relative">
-          <div style="position:absolute;left:20px;top:20px;bottom:20px;width:2px;background:var(--border);z-index:0"></div>
-          
-          <div style="display:flex;gap:16px;align-items:center;position:relative;z-index:1">
-            <div style="width:40px;height:40px;border-radius:50%;background:var(--success);color:white;display:flex;align-items:center;justify-content:center;font-weight:700">1</div>
-            <div style="flex:1">
-              <div style="font-weight:700">EM ADV. DEMOSTHENES MARTINS</div>
-              <div style="font-size:0.8rem;color:var(--text-secondary)">Rua Pedro Celestino, 1234 — Centro</div>
-            </div>
-            <div><span class="status-badge status-ok">Entregue (08:32)</span></div>
-          </div>
-          
-          <div style="display:flex;gap:16px;align-items:center;position:relative;z-index:1">
-            <div style="width:40px;height:40px;border-radius:50%;background:var(--warning);color:white;display:flex;align-items:center;justify-content:center;font-weight:700">2</div>
-            <div style="flex:1">
-              <div style="font-weight:700">EM PROF. ANTÔNIO LOPES LINS</div>
-              <div style="font-size:0.8rem;color:var(--text-secondary)">Rua Barão do Rio Branco, 456 — Centro</div>
-            </div>
-            <div><button class="btn btn-sm btn-primary" onclick="navigateTo(null, 'entregas')">Realizar Entrega</button></div>
-          </div>
-
-          <div style="display:flex;gap:16px;align-items:center;position:relative;z-index:1">
-            <div style="width:40px;height:40px;border-radius:50%;background:var(--text-tertiary);color:white;display:flex;align-items:center;justify-content:center;font-weight:700">3</div>
-            <div style="flex:1">
-              <div style="font-weight:700">EMTI PROFª IRACEMA MARIA VICENTE</div>
-              <div style="font-size:0.8rem;color:var(--text-secondary)">Av. Eduardo Elias Zahran, 200 — Itanhangá</div>
-            </div>
-            <div><span class="status-badge status-danger">Aguardando</span></div>
-          </div>
-        </div>
-      </div></div>
-      
-      <div class="card"><div class="card-header"><div class="card-title">Mapa de Navegação</div></div><div class="card-body" style="display:flex;align-items:center;justify-content:center;background:#E2E8F0;min-height:250px;border-radius:var(--radius)">
-        <div style="text-align:center;color:var(--text-secondary)">
-          <div style="font-size:2rem">🗺️</div>
-          <div style="font-weight:600;margin-top:8px">Visualização de Rota GPS</div>
-          <div style="font-size:0.8rem;color:var(--text-tertiary)">Mostrando sequência de paradas em tempo real</div>
-        </div>
-      </div></div>
-    </div>
-  `;
-};
-
-PAGE_RENDERERS.motorista_entregas = (el) => {
-  const prof = window.PROFILES[state.currentProfile];
-  const emTransporteList = SharedState.getOrders().filter(o => o.status === 'Em transporte' && (!prof || o.driver === prof.name));
-  const alvo = window._selectedDeliveryOrderId
-    ? emTransporteList.find(o => o.id === window._selectedDeliveryOrderId)
-    : emTransporteList[0];
-  const alvoNome = alvo ? alvo.school : 'EM PROF. ANTÔNIO LOPES LINS';
-  window._currentDeliveryOrderId = alvo ? alvo.id : null;
-
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Realizar Entrega</div><div class="page-subtitle">Confirmação de recebimento física na unidade escolar${alvo ? ' · Pedido #' + String(alvo.numero).padStart(3,'0') : ''}</div></div>
-
-    ${emTransporteList.length > 0 ? `
-    <div class="card mb-16">
-      <div class="card-header"><div class="card-title">🚚 Fila de Entregas (Em transporte)</div><span class="status-badge status-warning">${emTransporteList.length}</span></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>#</th><th>Escola</th><th>Itens</th><th>Ação</th></tr></thead>
-          <tbody>
-            ${emTransporteList.map(o => `
-              <tr ${o.id === (alvo?.id) ? 'style="background:var(--primary-light)"' : ''}>
-                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
-                <td><strong>${o.school}</strong></td>
-                <td style="font-size:0.82rem">${(o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ') || '—'}</td>
-                <td><button class="btn btn-sm ${o.id === (alvo?.id) ? 'btn-primary' : 'btn-outline'}" onclick="selectDelivery('${o.id}')">${o.id === (alvo?.id) ? 'Selecionada' : 'Selecionar'}</button></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>` : ''}
-
-    <div id="entrega-form-container" class="card mb-24" style="max-width: 600px; margin: 0 auto;">
-      <div class="card-header"><div class="card-title">Confirmar Recibo de Alimentos: ${alvoNome}</div></div>
-      <div class="card-body">
-        <form id="form-driver-delivery">
-          <div class="form-group">
-            <label>Responsável pelo Recebimento (Nome Completo)</label>
-            <input type="text" id="delivery-receiver" class="btn btn-outline" style="width:100%;text-align:left;cursor:text;padding:10px" placeholder="Ex: Ana Costa (Diretora)" required>
-          </div>
-          <div class="form-group">
-            <label>Matrícula / Documento</label>
-            <input type="text" id="delivery-doc" class="btn btn-outline" style="width:100%;text-align:left;cursor:text;padding:10px" placeholder="Ex: 98765-X" required>
-          </div>
-          
-          <div class="form-group">
-            <label>Foto do Comprovante / Alimentos Entregues</label>
-            <div class="camera-preview" id="delivery-camera-preview" onclick="simulateCamera()">
-              <div class="camera-placeholder" id="delivery-camera-placeholder">
-                <span style="font-size:2rem">📷</span>
-                <span>Toque para simular captura da foto</span>
-              </div>
-              <img id="delivery-camera-img" src="" style="display:none" alt="Comprovante">
-            </div>
-          </div>
-          
-          <div class="form-group">
-            <label>Assinatura Digital do Responsável</label>
-            <div class="signature-pad" id="delivery-sig-pad">
-              <canvas id="delivery-sig-canvas"></canvas>
-              <div class="signature-placeholder" id="delivery-sig-placeholder">Desenhe a assinatura com o mouse/dedo aqui</div>
-            </div>
-            <button type="button" class="btn btn-ghost btn-sm" style="margin-top:4px" onclick="clearSignature()">Limpar Assinatura</button>
-          </div>
-          
-          <div style="display:flex;gap:12px;margin-top:24px;justify-content:flex-end">
-            <button type="button" class="btn btn-outline" onclick="navigateTo(null, 'dashboard')">Voltar</button>
-            <button type="submit" class="btn btn-primary">Confirmar e Assinar Recibo</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
-  setTimeout(() => {
-    initSignatureCanvas();
-    document.getElementById('form-driver-delivery')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const rec = document.getElementById('delivery-receiver').value;
-      const doc = document.getElementById('delivery-doc').value;
-      if (!rec) {
-        alert('Por favor, informe o nome do responsável.');
-        return;
-      }
-      if (window._currentDeliveryOrderId) {
-        SharedState.confirmDelivery(window._currentDeliveryOrderId, rec, doc);
-        window._currentDeliveryOrderId = null;
-        window._selectedDeliveryOrderId = null;
-        showToast('✅ Entrega confirmada. Escola, Cooperativa e SEMED foram notificados. Estoque local incrementado.');
-      } else {
-        alert('Entrega confirmada com sucesso! Recibo digital assinado e foto enviada para a SEMED.');
-      }
-      navigateTo(null, 'dashboard');
-    });
-  }, 50);
-};
-
-window.selectDelivery = (orderId) => {
-  window._selectedDeliveryOrderId = orderId;
-  PAGE_RENDERERS.motorista_entregas(document.getElementById('page-content'));
-};
-
-window.simulateCamera = () => {
-  const placeholder = document.getElementById('delivery-camera-placeholder');
-  const img = document.getElementById('delivery-camera-img');
-  if (placeholder && img) {
-    placeholder.style.display = 'none';
-    img.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="300" height="200" viewBox="0 0 300 200"><rect width="300" height="200" fill="%23c5e1a5"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" fill="%2333691e">Carga Entregue - EM PROF. ANTÔNIO LOPES LINS</text></svg>';
-    img.style.display = 'block';
-  }
-};
-
-window.clearSignature = () => {
-  const canvas = document.getElementById('delivery-sig-canvas');
-  const placeholder = document.getElementById('delivery-sig-placeholder');
-  if (canvas) {
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-  }
-  if (placeholder) placeholder.style.display = 'flex';
-};
-
-window.initSignatureCanvas = () => {
-  const canvas = document.getElementById('delivery-sig-canvas');
-  const placeholder = document.getElementById('delivery-sig-placeholder');
-  if (!canvas) return;
-  
-  canvas.width = canvas.offsetWidth;
-  canvas.height = canvas.offsetHeight;
-  
-  const ctx = canvas.getContext('2d');
-  ctx.strokeStyle = '#0F172A';
-  ctx.lineWidth = 2.5;
-  ctx.lineCap = 'round';
-  
-  let drawing = false;
-  
-  const startDraw = (e) => {
-    drawing = true;
-    if (placeholder) placeholder.style.display = 'none';
-    ctx.beginPath();
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
-    ctx.moveTo(x, y);
-  };
-  
-  const draw = (e) => {
-    if (!drawing) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  };
-  
-  const stopDraw = () => {
-    drawing = false;
-  };
-  
-  canvas.addEventListener('mousedown', startDraw);
-  canvas.addEventListener('mousemove', draw);
-  canvas.addEventListener('mouseup', stopDraw);
-  canvas.addEventListener('touchstart', (e) => { startDraw(e); e.preventDefault(); });
-  canvas.addEventListener('touchmove', (e) => { draw(e); e.preventDefault(); });
-  canvas.addEventListener('touchend', stopDraw);
-};
-
-PAGE_RENDERERS.motorista_ocorrencias = (el) => {
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Registrar Ocorrência</div><div class="page-subtitle">Comunicação de incidentes em tempo real para a SEMED</div></div>
-    <div class="card mb-24" style="max-width: 600px; margin: 0 auto;">
-      <div class="card-header"><div class="card-title">Novo Registro de Ocorrência</div></div>
-      <div class="card-body">
-        <form id="form-driver-incident">
-          <div class="form-group">
-            <label>Escola Relacionada</label>
-            <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="incident-school" required>
-              <option value="">Selecione a escola...</option>
-              ${(DATA.schools || []).map(s => `<option value="${s.name}">${s.name}</option>`).join('')}
-              <option value="EM Elpídio Reis">EM Elpídio Reis</option>
-              <option value="Outra">Outro incidente (Trânsito / Veículo)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Tipo de Ocorrência</label>
-            <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="incident-type" required>
-              <option value="">Selecione o tipo...</option>
-              <option value="Atraso no trânsito">Atraso no trânsito (Engarrafamento/Acidente)</option>
-              <option value="Escola fechada">Escola fechada ou sem recebedor</option>
-              <option value="Item danificado">Alimento ou embalagem danificada</option>
-              <option value="Problema mecânico">Problema mecânico no veículo</option>
-              <option value="Outro">Outro problema (especificar)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label>Descrição do Ocorrido</label>
-            <textarea class="btn btn-outline" style="width:100%;text-align:left;cursor:text;min-height:100px;padding:10px" id="incident-desc" placeholder="Descreva os detalhes do problema ocorrido..." required></textarea>
-          </div>
-          <div style="display:flex;gap:12px;margin-top:24px;justify-content:flex-end">
-            <button type="button" class="btn btn-outline" onclick="navigateTo(null, 'dashboard')">Voltar</button>
-            <button type="submit" class="btn btn-danger">Enviar Relatório de Ocorrência</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  `;
-  setTimeout(() => {
-    document.getElementById('form-driver-incident')?.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const school = document.getElementById('incident-school').value;
-      const type = document.getElementById('incident-type').value;
-      const desc = document.getElementById('incident-desc').value;
-      SharedState.addIncident({
-        school,
-        tipo: type,
-        descricao: desc,
-        motorista: (PROFILES[state.currentProfile] && PROFILES[state.currentProfile].name) || 'Motorista',
-      });
-      showToast('⚠️ Ocorrência registrada — SEMED/Gestor foram notificados em tempo real.');
-      navigateTo(null, 'dashboard');
-    });
-  }, 50);
-};
-
-PAGE_RENDERERS.motorista_historico = (el) => {
-  const confirmadas = SharedState.getDeliveries().filter(d => d.status === 'Confirmada');
-  const incidents = SharedState.getIncidents();
-
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Histórico de Viagens & Entregas</div><div class="page-subtitle">Entregas confirmadas por este motorista e ocorrências registradas</div></div>
-
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${confirmadas.length}</div><div class="kpi-label">Entregas Confirmadas</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${new Set(confirmadas.map(d => d.school)).size}</div><div class="kpi-label">Escolas Atendidas</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${incidents.length}</div><div class="kpi-label">Ocorrências Registradas</div></div>
-    </div>
-
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">🚚 Entregas Realizadas</div>${confirmadas.length ? '<span class="status-badge status-ok">'+confirmadas.length+'</span>' : ''}</div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Data</th><th>Pedido</th><th>Escola</th><th>Cooperativa</th><th>Recebido por</th><th>Doc.</th></tr></thead>
-          <tbody>
-            ${confirmadas.map(d => `
-              <tr>
-                <td style="font-family:var(--font-mono);font-size:0.82rem">${d.confirmadoEm ? new Date(d.confirmadoEm).toLocaleString('pt-BR') : '—'}</td>
-                <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(d.orderNumero).padStart(3,'0')}</td>
-                <td><strong>${d.school}</strong></td>
-                <td><span class="tag tag-teal">${d.cooperative||'—'}</span></td>
-                <td>${d.receiver || '—'}</td>
-                <td style="font-size:0.82rem">${d.doc || '—'}</td>
-              </tr>
-            `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma entrega confirmada ainda</td></tr>'}
-          </tbody>
-        </table>
-      </div>
-    </div>
-
-    ${incidents.length > 0 ? `
-    <div class="card">
-      <div class="card-header"><div class="card-title">⚠️ Ocorrências Recentes</div></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Data</th><th>Escola</th><th>Tipo</th><th>Descrição</th><th>Status</th></tr></thead>
-          <tbody>
-            ${incidents.slice(0, 10).map(i => `
-              <tr>
-                <td style="font-size:0.82rem">${new Date(i.criadoEm).toLocaleString('pt-BR')}</td>
-                <td>${i.school || '—'}</td>
-                <td><strong>${i.tipo || '—'}</strong></td>
-                <td style="font-size:0.82rem">${i.descricao || '—'}</td>
-                <td><span class="status-badge status-warning">${i.status || 'Aberta'}</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>` : ''}
-  `;
-};
+// ─── MOTORISTA: RENDERERS ─── migrado para js/modules/motorista.js (inclui selectDelivery/simulateCamera/clearSignature/initSignatureCanvas)
 
 // ─── DIRETOR: RENDERERS ─────────────────────────────────────
 

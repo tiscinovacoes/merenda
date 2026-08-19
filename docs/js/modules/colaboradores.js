@@ -7,20 +7,20 @@
   if (!window.PAGE_RENDERERS) window.PAGE_RENDERERS = {};
 
   // REGISTRO DE RENDERERS DO COLABORADOR (Assinatura: (el) => { el.innerHTML = ...; })
-  PAGE_RENDERERS['cooperativa_dashboard'] = renderColaboradoresDashboard;
-  PAGE_RENDERERS['agricultor_dashboard'] = renderColaboradoresDashboard;
-
-  PAGE_RENDERERS['cooperativa_pedidos'] = renderColaboradoresPedidos;
-  PAGE_RENDERERS['agricultor_pedidos'] = renderColaboradoresPedidos;
-
-  PAGE_RENDERERS['cooperativa_escolas'] = renderColaboradoresEscolas;
-  PAGE_RENDERERS['agricultor_escolas'] = renderColaboradoresEscolas;
-
-  PAGE_RENDERERS['cooperativa_producao'] = renderColaboradoresProducao;
-  PAGE_RENDERERS['agricultor_producao'] = renderColaboradoresProducao;
-
-  PAGE_RENDERERS['cooperativa_relatorios'] = renderColaboradoresRelatorios;
-  PAGE_RENDERERS['agricultor_relatorios'] = renderColaboradoresRelatorios;
+  //
+  // Regra 6 do PLANO_MODULARIZACAO_APP.md: não registrar chave cuja versão em
+  // app.js é mais completa. A auditoria de 2026-08-18 constatou que todas as telas
+  // deste módulo são mais pobres que as de app.js: o dashboard perde os 2 gráficos
+  // e usa faturamento fixo; pedidos perde o filtro por cooperativa/agricultor e os
+  // botões de aceitar/despachar; escolas cai de 8 para 3 colunas (sem restrições
+  // nem estoque local); produção troca o formulário real (SharedState.addProduction)
+  // por uma lista estática; relatórios trocam 6 relatórios com export CSV por um
+  // único botão de impressão. Nenhuma chave é registrada até a migração real.
+  // As funções seguem definidas abaixo, prontas para assumir.
+  //
+  // NOTA: cooperativa_producao ficou sem registro de propósito — a versão deste
+  // módulo é estática e app.js não define essa chave; o menu da cooperativa também
+  // não tem o item, então nada regride.
 
   // 1. DASHBOARD COLABORADORES
   function renderColaboradoresDashboard(el) {

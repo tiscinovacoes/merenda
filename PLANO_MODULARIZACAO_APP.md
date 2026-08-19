@@ -15,6 +15,19 @@ Uma primeira tentativa de execução deste plano (working tree da `feature/modul
 
 As Regras e Fases abaixo foram ajustadas para que isso não se repita.
 
+### ✅ Situação após a limpeza de 2026-08-18 17:40
+
+O estado descrito acima foi **corrigido** (validado com smoke test das 100 telas dos 11 perfis, 0 falhas):
+
+- **Contrato de chamada resolvido:** o `index.html` passou a carregar `app.js` **por último**, então o `renderPage()` do `app.js` (que chama `renderer(container)`, a assinatura correta da Seção 4.3) é o vigente. O `renderPage()` do `core_hub.js` fica inerte. **Antes de remover o `app.js`, o `core_hub.js` precisa ser corrigido para a assinatura da Seção 4.3** — hoje ele ainda tem a versão incompatível.
+- **Módulos alinhados à Regra 6:** todos os registros de `PAGE_RENDERERS` que sombreavam versões mais completas do `app.js` foram removidos dos 6 módulos (47 no `gestor`/`estoque`/`escolas`/`colaboradores` + 9 no `nutricao`). As funções continuam nos arquivos, prontas para assumir; cada bloco de registro tem comentário explicando o critério.
+- **Estado real medido:** das ~115 chaves, **5 vêm de módulo e são alcançáveis** (as 4 do Motorista + Guias de Entrega da Nutrição) e 3 são exclusivas úteis mas ainda sem item de menu. O resto vem do `app.js` — que segue sendo a fonte de ~95% das telas.
+- **`motorista.js` promovido:** é o único módulo que era clone fiel; assumiu as 4 telas do Motorista e as ~344 linhas equivalentes saíram do `app.js`.
+- **`app.js` enxugado:** 13.844 → 12.999 linhas, sem nenhuma duplicata interna restante.
+- **`docs/` sincronizado e verificado** arquivo por arquivo (não mais divergente).
+
+**Portanto a Fase 4 pode prosseguir com segurança**, um módulo por vez: a tarefa agora não é *criar* os arquivos (já existem), é **elevar cada função do módulo ao nível da versão do `app.js`** e só então registrar a chave e remover o bloco correspondente do `app.js`.
+
 ---
 
 ## 1. 🎯 Visão Geral & Diretrizes

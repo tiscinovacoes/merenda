@@ -7,35 +7,20 @@
   if (!window.PAGE_RENDERERS) window.PAGE_RENDERERS = {};
 
   // REGISTRO DE RENDERERS DA ESCOLA (Assinatura: (el) => { el.innerHTML = ...; })
-  PAGE_RENDERERS['escola_dashboard'] = renderEscolaDashboard;
-  PAGE_RENDERERS['diretor_dashboard'] = renderEscolaDashboard;
-  PAGE_RENDERERS['merendeira_dashboard'] = renderEscolaDashboard;
-  PAGE_RENDERERS['resp_estoque_dashboard'] = renderEscolaDashboard;
-
-  PAGE_RENDERERS['escola_estoque'] = renderEscolaEstoque;
-  PAGE_RENDERERS['diretor_estoque'] = renderEscolaEstoque;
-  PAGE_RENDERERS['merendeira_estoque'] = renderEscolaEstoque;
-  PAGE_RENDERERS['resp_estoque_estoque'] = renderEscolaEstoque;
-
-  PAGE_RENDERERS['escola_consumo'] = renderEscolaConsumo;
-  PAGE_RENDERERS['diretor_consumo'] = renderEscolaConsumo;
-  PAGE_RENDERERS['merendeira_consumo'] = renderEscolaConsumo;
-  PAGE_RENDERERS['resp_estoque_consumo'] = renderEscolaConsumo;
-
-  PAGE_RENDERERS['escola_pedidos'] = renderEscolaPedidos;
-  PAGE_RENDERERS['diretor_pedidos'] = renderEscolaPedidos;
-  PAGE_RENDERERS['merendeira_pedidos'] = renderEscolaPedidos;
-  PAGE_RENDERERS['resp_estoque_pedidos'] = renderEscolaPedidos;
-
-  PAGE_RENDERERS['escola_entregas'] = renderEscolaEntregas;
-  PAGE_RENDERERS['diretor_entregas'] = renderEscolaEntregas;
-  PAGE_RENDERERS['merendeira_entregas'] = renderEscolaEntregas;
-  PAGE_RENDERERS['resp_estoque_entregas'] = renderEscolaEntregas;
-
-  PAGE_RENDERERS['escola_planejamento'] = renderEscolaPlanejamento;
-  PAGE_RENDERERS['escola_cardapios'] = renderEscolaPlanejamento;
-  PAGE_RENDERERS['escola_escolas'] = renderEscolaPerfilUnidade;
-  PAGE_RENDERERS['escola_restricoes'] = renderEscolaRestricoes;
+  //
+  // Regra 6 do PLANO_MODULARIZACAO_APP.md: não registrar chave cuja versão em
+  // app.js é mais completa. A auditoria de 2026-08-18 constatou que dashboard,
+  // estoque, consumo, pedidos, entregas, planejamento/cardapios, escolas e
+  // restricoes são mais ricas em app.js (frequência/orçamento reais, timeline de
+  // status, sugestão IA, itens múltiplos). As funções seguem definidas abaixo,
+  // prontas para assumir quando forem migradas de verdade.
+  //
+  // Migradas e ativas: chaves que app.js não define. Delegam em tempo de chamada
+  // para as telas ricas do perfil escola, em vez de servir a versão mais pobre
+  // deste módulo (mesmo padrão de alias que app.js usa para os outros subperfis).
+  PAGE_RENDERERS['resp_estoque_estoque'] = (el) => PAGE_RENDERERS['escola_estoque'](el);
+  PAGE_RENDERERS['resp_estoque_entregas'] = (el) => PAGE_RENDERERS['escola_entregas'](el);
+  PAGE_RENDERERS['merendeira_pedidos'] = (el) => PAGE_RENDERERS['escola_pedidos'](el);
 
   function getCurrentSchoolHelper() {
     if (typeof getCurrentSchool === 'function') return getCurrentSchool();

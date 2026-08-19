@@ -7,17 +7,17 @@
   if (!window.PAGE_RENDERERS) window.PAGE_RENDERERS = {};
 
   // REGISTRO DE RENDERERS DO ESTOQUE CENTRAL (Assinatura: (el) => { el.innerHTML = ...; })
-  PAGE_RENDERERS['estoque_dashboard'] = renderEstoqueDashboard;
-  PAGE_RENDERERS['estoque_produtos'] = renderEstoqueProdutos;
-  PAGE_RENDERERS['estoque_catalogo'] = renderEstoqueProdutos;
-  PAGE_RENDERERS['estoque_entradas'] = renderEstoqueEntradas;
-  PAGE_RENDERERS['estoque_recebimentos-pendentes'] = renderEstoqueEntradas;
-  PAGE_RENDERERS['estoque_separacao'] = renderEstoqueSeparacao;
-  PAGE_RENDERERS['estoque_expedicao-os'] = renderEstoqueSeparacao;
-  PAGE_RENDERERS['estoque_carregamento'] = renderEstoqueCarregamento;
-  PAGE_RENDERERS['estoque_ordens-entrega'] = renderEstoqueCarregamento;
-  PAGE_RENDERERS['estoque_os-central'] = renderEstoqueOsCentral;
-  PAGE_RENDERERS['estoque_relatorios'] = renderEstoqueRelatorios;
+  //
+  // Regra 6 do PLANO_MODULARIZACAO_APP.md: não registrar chave cuja versão em
+  // app.js é mais completa. As telas de dashboard, entradas/recebimentos-pendentes,
+  // separacao/expedicao-os, carregamento/ordens-entrega e os-central são servidas
+  // pelos módulos de alta fidelidade do Gestor (conferência física RN01, confronto
+  // NF-e, separação FEFO RN06/RN07, motorista/veículo/rota + assinatura digital) —
+  // as versões deste módulo são tabelas simples, sem essas ações. As funções seguem
+  // definidas abaixo, prontas para assumir quando forem migradas de verdade.
+  //
+  // Migradas e ativas (delegam para as telas ricas do Gestor, disponibilizando-as
+  // ao perfil Estoque; ainda não há item de menu apontando para elas):
   PAGE_RENDERERS['estoque_lista-compras'] = renderEstoqueListaCompras;
   PAGE_RENDERERS['estoque_os-fornecedores'] = renderEstoqueOsFornecedores;
 

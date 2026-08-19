@@ -7,17 +7,17 @@
   if (!window.PAGE_RENDERERS) window.PAGE_RENDERERS = {};
 
   // REGISTRO DE RENDERERS (Assinatura: (el) => { el.innerHTML = ...; })
-  PAGE_RENDERERS['nutricionista_dashboard'] = renderNutricionistaDashboard;
-  PAGE_RENDERERS['nutricionista_cardapios'] = renderNutricionistaCardapios;
-  PAGE_RENDERERS['nutricionista_planejador'] = renderNutricionistaPlanejador;
-  PAGE_RENDERERS['nutricionista_fichas-tecnicas'] = renderNutricionistaFichas;
-  PAGE_RENDERERS['nutricionista_dietas-especiais'] = renderNutricionistaRestricoes;
-  PAGE_RENDERERS['nutricionista_restricoes'] = renderNutricionistaRestricoes;
-  PAGE_RENDERERS['nutricionista_relatorios'] = renderNutricionistaRelatorios;
-  PAGE_RENDERERS['nutricionista_estoquesual'] = renderNutricionistaEstoqueSual;
+  //
+  // Regra 6 do PLANO_MODULARIZACAO_APP.md: só registramos aqui a tela cuja versão
+  // migrada é equivalente ou melhor que a de app.js. As demais telas deste perfil
+  // (dashboard, cardapios, fichas, restricoes, relatorios, estoquesual, consumo,
+  // desperdicios, planejamento) continuam servidas por app.js, que hoje tem as
+  // versões mais completas — registrá-las aqui as substituiria por versões mais
+  // pobres assim que a ordem dos <script> mudasse. As funções seguem definidas
+  // abaixo, prontas para assumir quando forem migradas de verdade.
+  //
+  // Migradas e ativas:
   PAGE_RENDERERS['nutricionista_guiasentrega'] = renderNutricionistaGuiasEntrega;
-  PAGE_RENDERERS['nutricionista_consumo'] = renderNutricionistaConsumo;
-  PAGE_RENDERERS['nutricionista_desperdicios'] = renderNutricionistaDesperdicios;
 
   // 1. DASHBOARD NUTRICIONISTA
   function renderNutricionistaDashboard(el) {
@@ -324,27 +324,29 @@
 
   // 8. GUIAS DE ENTREGA
   function renderNutricionistaGuiasEntrega(el) {
-    const schools = DATA.schools || [];
+    const pre = window._guiaFiltroPreSelect || null;
+    window._guiaFiltroPreSelect = null;
+    const modoInicial = pre ? pre.modo : 'escola';
+
     el.innerHTML = `
       <div class="page-header">
-        <div class="page-title">🚚 Guias de Entrega & Distribuição Parcelada</div>
-        <div class="page-subtitle">Emissão de ordens de fornecimento fracionadas por per capita, frequências e trocas por sazonalidade</div>
+        <div class="page-title">🚚 Guias de Entrega & Distribuição</div>
+        <div class="page-subtitle">Emissão da Guia de Remessa de Gêneros Alimentares — por escola, por colaborador (cooperativa/agricultor) ou por produto</div>
       </div>
+
+      <div style="display:flex; gap:10px; margin-bottom:16px; border-bottom:2px solid var(--border,#e2e8f0); padding-bottom:8px;">
+        <button class="btn btn-sm" id="guia-tab-escola-btn" onclick="window.trocarAbaGuiaEntrega('escola')">🏫 Por Escola</button>
+        <button class="btn btn-sm" id="guia-tab-colaborador-btn" onclick="window.trocarAbaGuiaEntrega('colaborador')">🤝 Por Colaborador</button>
+        <button class="btn btn-sm" id="guia-tab-produto-btn" onclick="window.trocarAbaGuiaEntrega('produto')">🥕 Por Produto</button>
+      </div>
+
       <div class="card mb-24">
-        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-          <div class="card-title">📋 Emissão de Guia por Unidade Escolar</div>
-          <select id="guia-escola-select" class="btn btn-outline" style="padding:6px 12px;font-size:0.85rem" onchange="window.renderizarGuiaEscola(this.value)">
-            ${schools.map(s => `<option value="${s.id}">${s.name} (${s.students} alunos)</option>`).join('')}
-          </select>
-        </div>
-        <div class="card-body">
-          <div id="guia-detalhes-container"></div>
-        </div>
+        <div class="card-body" id="guia-filtro-container"></div>
       </div>
+      <div id="guia-detalhes-container"></div>
     `;
-    setTimeout(() => {
-      if (schools.length) window.renderizarGuiaEscola(schools[0].id);
-    }, 50);
+
+    window.trocarAbaGuiaEntrega(modoInicial, pre);
   }
 
   // 9. CONSUMO
@@ -468,31 +470,349 @@
     if (container) renderNutricionistaRestricoes(container);
   };
 
-  window.renderizarGuiaEscola = (escolaId) => {
-    const container = document.getElementById('guia-detalhes-container');
-    if (!container) return;
-    const school = (DATA.schools || []).find(s => String(s.id) === String(escolaId)) || DATA.schools[0];
-    const qtdAlunos = school ? school.students : 400;
+  window.trocarAbaGuiaEntrega = (modo, preSelect) => {
+    ['escola', 'colaborador', 'produto'].forEach(m => {
+      const btn = document.getElementById(`guia-tab-${m}-btn`);
+      if (btn) btn.className = m === modo ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm';
+    });
 
-    container.innerHTML = `
-      <div style="background:var(--surface-1);padding:16px;border-radius:8px;border:1px solid var(--border);margin-bottom:16px">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <h3 style="margin:0">🏫 ${school ? school.name : 'Escola'}</h3>
-            <div style="font-size:0.83rem;color:var(--text-secondary)">Alunos Matriculados: <strong>${qtdAlunos}</strong></div>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="window.print()">🖨️ Imprimir Guia</button>
+    const filtroEl = document.getElementById('guia-filtro-container');
+    const detalhesEl = document.getElementById('guia-detalhes-container');
+    if (!filtroEl || !detalhesEl) return;
+
+    const guias = SharedState.getGuiasEntrega ? SharedState.getGuiasEntrega() : [];
+    const schools = DATA.schools || [];
+
+    if (modo === 'escola') {
+      filtroEl.innerHTML = `
+        <label style="font-weight:600;display:block;margin-bottom:6px">Selecionar Escola</label>
+        <select id="guia-select-escola" class="btn btn-outline" style="width:100%;max-width:420px;text-align:left;padding:8px" onchange="window.renderGuiasPorEscola(this.value)">
+          ${schools.map(s => `<option value="${s.id}">${escapeHTML(s.name)} (${s.students} alunos)</option>`).join('')}
+        </select>
+      `;
+      const escolaIdInicial = (preSelect && preSelect.modo === 'escola') ? preSelect.escolaId : (schools[0] && schools[0].id);
+      if (escolaIdInicial != null) {
+        const sel = document.getElementById('guia-select-escola');
+        if (sel) sel.value = escolaIdInicial;
+        window.renderGuiasPorEscola(escolaIdInicial);
+      }
+    } else if (modo === 'colaborador') {
+      const colaboradores = [...new Set(guias.filter(g => g.tipo === 'Colaborador').map(g => g.entregador))];
+      const opcoes = colaboradores.length ? colaboradores : (DATA.cooperatives || []).map(c => c.name);
+      filtroEl.innerHTML = `
+        <label style="font-weight:600;display:block;margin-bottom:6px">Selecionar Cooperativa / Agricultor</label>
+        <select id="guia-select-colaborador" class="btn btn-outline" style="width:100%;max-width:420px;text-align:left;padding:8px" onchange="window.renderGuiasPorColaborador(this.value)">
+          ${opcoes.map(c => `<option value="${escapeHTML(c)}">${escapeHTML(c)}</option>`).join('')}
+        </select>
+      `;
+      const colaboradorInicial = (preSelect && preSelect.modo === 'colaborador') ? preSelect.colaborador : opcoes[0];
+      if (colaboradorInicial) {
+        const sel = document.getElementById('guia-select-colaborador');
+        if (sel) sel.value = colaboradorInicial;
+        window.renderGuiasPorColaborador(colaboradorInicial);
+      } else {
+        detalhesEl.innerHTML = window._emptyState('Nenhum colaborador com guia pendente ainda.');
+      }
+    } else {
+      const produtos = [...new Set(guias.flatMap(g => (g.produtos || []).map(p => p.produto)))];
+      filtroEl.innerHTML = `
+        <label style="font-weight:600;display:block;margin-bottom:6px">Selecionar Produto</label>
+        <select id="guia-select-produto" class="btn btn-outline" style="width:100%;max-width:420px;text-align:left;padding:8px" onchange="window.renderGuiasPorProduto(this.value)">
+          ${produtos.length ? produtos.map(p => `<option value="${escapeHTML(p)}">${escapeHTML(p)}</option>`).join('') : '<option value="">Nenhum produto em circulação ainda</option>'}
+        </select>
+      `;
+      if (produtos.length) window.renderGuiasPorProduto(produtos[0]);
+      else detalhesEl.innerHTML = window._emptyState('Nenhuma guia de entrega gerada ainda. Publique um cardápio para gerar as guias.');
+    }
+  };
+
+  // SUBSTITUIÇÃO POR SAZONALIDADE (Requisito PDF nº 4)
+  // Chave de persistência mantém o formato legado `escolaId_item` em
+  // SharedState._data.trocasSazionais, agora usando o nome do produto como item
+  // (a tela antiga usava ids fixos 'g1'..'g7' de um array hardcoded).
+  window._chaveTrocaSazonal = (escolaId, produtoNome) => `${escolaId}_${produtoNome}`;
+
+  window._trocaSazonal = (escolaId, produtoNome) => {
+    const trocas = (SharedState._data && SharedState._data.trocasSazionais) || {};
+    return trocas[window._chaveTrocaSazonal(escolaId, produtoNome)] || null;
+  };
+
+  window._cardGuia = (g) => `
+    <div class="card mb-12">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <div>
+          <div class="card-title">${g.tipo === 'Colaborador' ? '🌾' : '🏬'} ${escapeHTML(g.entregador)} → ${escapeHTML(g.escolaNome)}</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary)">Guia N° <strong>${g.numeroGuia}</strong> · Linha de Entrega: ${escapeHTML(g.linhaEntrega || 'Urbana')}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          ${window._statusBadge ? window._statusBadge(g.status) : `<span class="tag">${escapeHTML(g.status)}</span>`}
+          <button class="btn btn-sm btn-primary" onclick="window.imprimirGuiaRemessa('${g.id}')">🖨️ Emitir Guia de Remessa</button>
         </div>
       </div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>Produto</th><th>Quantidade</th><th>Embalagem</th><th>Substituição por Sazonalidade</th><th>Ação</th></tr></thead>
+          <tbody>
+            ${(g.produtos || []).map((p, idx) => {
+              const troca = window._trocaSazonal(g.escolaId, p.produto);
+              return `
+              <tr style="${troca ? 'background:#fffbe6' : ''}">
+                <td>
+                  <strong>${escapeHTML(troca ? troca.substituto : p.produto)}</strong>
+                  ${p.af ? '<span class="tag tag-green" style="font-size:0.7rem">🌾 AF</span>' : ''}
+                  ${troca ? `<div style="font-size:0.75rem;color:#b45309">⚠️ Substituído: de ${escapeHTML(p.produto)}</div>` : ''}
+                </td>
+                <td style="font-family:var(--font-mono);font-weight:700">${(p.qtd || 0).toLocaleString('pt-BR')} ${p.unidade || 'kg'}</td>
+                <td style="font-size:0.8rem">${escapeHTML(p.regra || '—')}</td>
+                <td style="font-size:0.8rem">
+                  ${troca
+                    ? `<span class="status-badge status-warning">Alterado</span><div style="font-size:0.72rem;color:var(--text-secondary);margin-top:2px">${escapeHTML(troca.justificativa)}</div>`
+                    : '<span style="color:var(--text-secondary)">Sem troca</span>'}
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-outline" style="border-color:#f59e0b;color:#b45309" onclick="window.abrirModalSubstituicaoSazonal('${g.id}', ${idx})">
+                    🔄 ${troca ? 'Alterar' : 'Substituir'}
+                  </button>
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  // Contexto da aba/filtro ativo — permite re-renderizar na mesma visão após
+  // registrar uma substituição, em vez de voltar sempre para "Por Escola".
+  window._guiaCtx = { modo: 'escola', valor: null };
+  window._reRenderGuias = () => {
+    const { modo, valor } = window._guiaCtx || {};
+    if (modo === 'colaborador') window.renderGuiasPorColaborador(valor);
+    else if (modo === 'produto') window.renderGuiasPorProduto(valor);
+    else window.renderGuiasPorEscola(valor);
+  };
+
+  window.renderGuiasPorEscola = (escolaId) => {
+    window._guiaCtx = { modo: 'escola', valor: escolaId };
+    const detalhesEl = document.getElementById('guia-detalhes-container');
+    if (!detalhesEl) return;
+    const school = (DATA.schools || []).find(s => String(s.id) === String(escolaId));
+    const guias = SharedState.getGuiasEntrega({ escolaId });
+    detalhesEl.innerHTML = guias.length
+      ? guias.map(g => window._cardGuia(g)).join('')
+      : window._emptyState(`Nenhuma guia pendente para ${school ? school.name : 'esta escola'}. Publique um cardápio para gerar.`);
+  };
+
+  window.renderGuiasPorColaborador = (colaborador) => {
+    window._guiaCtx = { modo: 'colaborador', valor: colaborador };
+    const detalhesEl = document.getElementById('guia-detalhes-container');
+    if (!detalhesEl) return;
+    const guias = SharedState.getGuiasEntrega({ colaborador });
+    if (!guias.length) {
+      detalhesEl.innerHTML = window._emptyState(`Nenhuma guia pendente para ${colaborador}.`);
+      return;
+    }
+    const totalPorProduto = {};
+    guias.forEach(g => (g.produtos || []).forEach(p => {
+      totalPorProduto[p.produto] = (totalPorProduto[p.produto] || 0) + (p.qtd || 0);
+    }));
+    detalhesEl.innerHTML = `
+      <div class="card mb-16" style="border-left:4px solid #16a34a">
+        <div class="card-header"><div class="card-title">📦 Total Consolidado para ${escapeHTML(colaborador)} (${guias.length} escola(s))</div></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Produto</th><th>Quantidade Total</th></tr></thead>
+            <tbody>
+              ${Object.entries(totalPorProduto).map(([produto, qtd]) => `<tr><td><strong>${escapeHTML(produto)}</strong></td><td style="font-family:var(--font-mono);font-weight:700">${qtd.toLocaleString('pt-BR')} kg</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      ${guias.map(g => window._cardGuia(g)).join('')}
+    `;
+  };
+
+  window.renderGuiasPorProduto = (produto) => {
+    window._guiaCtx = { modo: 'produto', valor: produto };
+    const detalhesEl = document.getElementById('guia-detalhes-container');
+    if (!detalhesEl) return;
+    const guias = SharedState.getGuiasEntrega({ produto });
+    if (!guias.length) {
+      detalhesEl.innerHTML = window._emptyState(`Nenhuma guia com o produto ${produto}.`);
+      return;
+    }
+    detalhesEl.innerHTML = `
       <table class="data-table">
-        <thead><tr><th>Insumo</th><th>Per Capita</th><th>Remessa Calculada</th><th>Frequência</th></tr></thead>
+        <thead><tr><th>Escola</th><th>Entregador</th><th>Quantidade</th><th>Guia N°</th><th>Status</th><th>Ação</th></tr></thead>
         <tbody>
-          <tr><td>Banana Nanica</td><td>100g</td><td>${((100 * qtdAlunos)/1000).toFixed(1)} kg</td><td><span class="tag tag-blue">Semanal</span></td></tr>
-          <tr><td>Arroz Tipo 1</td><td>60g</td><td>${((60 * qtdAlunos)/1000).toFixed(1)} kg</td><td><span class="tag tag-teal">Mensal</span></td></tr>
-          <tr><td>Feijão Carioca</td><td>40g</td><td>${((40 * qtdAlunos)/1000).toFixed(1)} kg</td><td><span class="tag tag-teal">Mensal</span></td></tr>
+          ${guias.map(g => {
+            const item = (g.produtos || []).find(p => p.produto === produto);
+            return `<tr>
+              <td><strong>${escapeHTML(g.escolaNome)}</strong></td>
+              <td>${escapeHTML(g.entregador)}</td>
+              <td style="font-family:var(--font-mono);font-weight:700">${item ? item.qtd.toLocaleString('pt-BR') : '—'} kg</td>
+              <td>${g.numeroGuia}</td>
+              <td>${window._statusBadge ? window._statusBadge(g.status) : escapeHTML(g.status)}</td>
+              <td><button class="btn btn-sm btn-primary" onclick="window.imprimirGuiaRemessa('${g.id}')">🖨️ Emitir</button></td>
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>
     `;
+  };
+
+  // Substituição por sazonalidade — modal de registro (Requisito PDF nº 4).
+  // Substitui a versão órfã que vivia em app.js junto da tela antiga de guias.
+  window.abrirModalSubstituicaoSazonal = (guiaId, idx) => {
+    const g = (SharedState.getGuiasEntrega ? SharedState.getGuiasEntrega() : []).find(x => x.id === guiaId);
+    if (!g) return showToast('Guia não encontrada.', 'error');
+    const item = (g.produtos || [])[idx];
+    if (!item) return showToast('Item não encontrado na guia.', 'error');
+    const atual = window._trocaSazonal(g.escolaId, item.produto);
+
+    const content = `
+      <form onsubmit="window.salvarSubstituicaoSazonal(event, '${g.id}', ${idx})">
+        <div style="background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:12px;font-size:0.85rem">
+          <div><strong>Escola:</strong> ${escapeHTML(g.escolaNome)}</div>
+          <div><strong>Guia N°:</strong> ${g.numeroGuia} · <strong>Entregador:</strong> ${escapeHTML(g.entregador)}</div>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Item Original Programado</label>
+          <input type="text" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${escapeHTML(item.produto)}" readonly>
+        </div>
+        <div class="form-group mb-12">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Produto Substituto de Hortifrúti (Sazonalidade)</label>
+          <select id="subst-produto" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" required>
+            ${['Pepino Japonês','Mamão Formosa','Abobrinha Menina','Repolho Verde','Chuchu','Laranja Pera','Banana Prata','Melancia','Cenoura','Beterraba']
+              .map(p => `<option value="${p}" ${atual && atual.substituto === p ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group mb-18">
+          <label style="font-weight:600;display:block;margin-bottom:4px">Justificativa (obrigatória — sai impressa na Guia de Remessa)</label>
+          <textarea id="subst-justificativa" class="btn btn-outline" style="width:100%;text-align:left;padding:8px;height:80px" placeholder="Ex: Substituição autorizada devido à indisponibilidade de colheita provocada pelas chuvas na região." required>${atual ? escapeHTML(atual.justificativa) : ''}</textarea>
+        </div>
+        <div style="display:flex;justify-content:space-between;gap:10px">
+          <div>
+            ${atual ? `<button type="button" class="btn btn-outline" style="border-color:#dc2626;color:#dc2626" onclick="window.removerSubstituicaoSazonal('${g.id}', ${idx})">🗑️ Remover Substituição</button>` : ''}
+          </div>
+          <div style="display:flex;gap:10px">
+            <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+            <button type="submit" class="btn btn-primary">💾 Registrar Substituição na Guia</button>
+          </div>
+        </div>
+      </form>
+    `;
+    window.showModal('🔄 Substituição por Sazonalidade (Requisito PDF nº 4)', content, '600px');
+  };
+
+  window.salvarSubstituicaoSazonal = (e, guiaId, idx) => {
+    e.preventDefault();
+    const g = (SharedState.getGuiasEntrega ? SharedState.getGuiasEntrega() : []).find(x => x.id === guiaId);
+    const item = g && (g.produtos || [])[idx];
+    if (!item) return showToast('Item não encontrado.', 'error');
+
+    const substituto = document.getElementById('subst-produto').value;
+    const justificativa = document.getElementById('subst-justificativa').value;
+
+    SharedState._data.trocasSazionais = SharedState._data.trocasSazionais || {};
+    SharedState._data.trocasSazionais[window._chaveTrocaSazonal(g.escolaId, item.produto)] = {
+      original: item.produto, substituto, justificativa, data: new Date().toISOString()
+    };
+    SharedState._persist();
+
+    showToast(`✅ Substituição para ${substituto} registrada na guia ${g.numeroGuia}!`, 'success');
+    closeModal();
+    window._reRenderGuias();
+  };
+
+  window.removerSubstituicaoSazonal = (guiaId, idx) => {
+    const g = (SharedState.getGuiasEntrega ? SharedState.getGuiasEntrega() : []).find(x => x.id === guiaId);
+    const item = g && (g.produtos || [])[idx];
+    if (!item) return;
+    if (SharedState._data.trocasSazionais) {
+      delete SharedState._data.trocasSazionais[window._chaveTrocaSazonal(g.escolaId, item.produto)];
+      SharedState._persist();
+    }
+    showToast('Substituição removida. Item volta ao original.', 'info');
+    closeModal();
+    window._reRenderGuias();
+  };
+
+  window.imprimirGuiaRemessa = (guiaId) => {
+    const g = (SharedState.getGuiasEntrega ? SharedState.getGuiasEntrega() : []).find(x => x.id === guiaId);
+    if (!g) return showToast('Guia não encontrada.', 'error');
+
+    // Aplica as substituições sazonais: a guia física precisa mostrar o produto
+    // que realmente vai ser entregue, e a escola precisa saber o motivo da troca.
+    const itens = (g.produtos || []).map(p => {
+      const troca = window._trocaSazonal(g.escolaId, p.produto);
+      return { ...p, nomeImpresso: troca ? troca.substituto : p.produto, troca };
+    });
+    const justificativas = itens.filter(i => i.troca)
+      .map(i => `${i.produto} ➔ ${i.troca.substituto}: ${i.troca.justificativa}`);
+
+    const via = (label, isSegunda) => `
+      <div style="padding:20px;font-family:sans-serif;color:#0f172a;max-width:800px;margin:0 auto;${isSegunda ? 'page-break-before:always;border-top:2px dashed #94a3b8;padding-top:24px;' : ''}">
+        <div style="text-align:center;margin-bottom:12px">
+          <div style="font-weight:800;font-size:1.05rem;color:#1565C0">PREFEITURA MUNICIPAL DE CAMPO GRANDE</div>
+          <div style="font-size:0.9rem;font-weight:700">SUPERINTENDÊNCIA DE ALIMENTAÇÃO ESCOLAR — SUALE</div>
+          <div style="font-size:0.95rem;font-weight:700;margin-top:6px">GUIA DE REMESSA DE GÊNEROS ALIMENTARES</div>
+          <div style="font-size:0.78rem;color:#64748b;margin-top:2px">${label} — ${isSegunda ? 'Retorna assinada com o Entregador' : 'Fica com a Instituição'}</div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;border:1px solid #cbd5e1;padding:10px;border-radius:6px;margin-bottom:12px;font-size:0.85rem">
+          <div><strong>Guia N°:</strong> ${g.numeroGuia}</div>
+          <div><strong>Data:</strong> ${new Date(g.criadoEm).toLocaleDateString('pt-BR')}</div>
+          <div><strong>Entregador:</strong> ${escapeHTML(g.entregador)}</div>
+          <div><strong>Classificação:</strong> ${escapeHTML(g.classificacaoGrupo || '—')}</div>
+          <div style="grid-column:1/-1"><strong>Instituição:</strong> ${escapeHTML(g.escolaNome)} <span style="color:#64748b">(${escapeHTML(g.escolaCodigo || '—')})</span></div>
+          <div><strong>Linha de Entrega:</strong> ${escapeHTML(g.linhaEntrega || 'Urbana')}</div>
+          <div><strong>Ref. Cardápio:</strong> ${escapeHTML(g.cardapioCodigo || '—')}</div>
+        </div>
+
+        <table class="data-table" style="width:100%;font-size:0.85rem;margin-bottom:12px">
+          <thead><tr><th>Produto</th><th>Quantidade</th><th>Qtd. Embalagem</th></tr></thead>
+          <tbody>
+            ${itens.map(p => `<tr><td>${escapeHTML(p.nomeImpresso)}${p.troca ? ` <span style="font-size:0.72rem;color:#b45309">(substitui ${escapeHTML(p.produto)})</span>` : ''}</td><td style="font-family:var(--font-mono);font-weight:700">${(p.qtd || 0).toLocaleString('pt-BR')} ${p.unidade || 'kg'}</td><td style="font-size:0.8rem">${escapeHTML(p.regra || '—')}</td></tr>`).join('')}
+          </tbody>
+        </table>
+
+        <div style="font-size:0.78rem;border:1px solid #cbd5e1;padding:10px;border-radius:6px;margin-bottom:10px">
+          <strong>AO RECEBER OS PRODUTOS, A DIREÇÃO DO ESTABELECIMENTO DEVE:</strong>
+          <div>☐ Conferir as quantidades recebidas com as constantes nesta guia;</div>
+          <div>☐ Anotar a data e horário de recebimento e assinar/carimbar a 1ª via;</div>
+          <div>☐ Assinar a 2ª via e devolvê-la ao entregador como comprovante de entrega.</div>
+        </div>
+        <div style="font-size:0.8rem;margin-bottom:16px">
+          <strong>Observação:</strong>
+          ${justificativas.length
+            ? `<div style="margin-top:4px;padding:6px 8px;border:1px solid #fcd34d;background:#fffbeb;border-radius:4px;font-size:0.76rem">
+                 <strong>Substituição por sazonalidade:</strong>
+                 ${justificativas.map(j => `<div>• ${escapeHTML(j)}</div>`).join('')}
+               </div>`
+            : ' ______________________________________________'}
+        </div>
+
+        <div style="border-top:1px dashed #94a3b8;padding-top:20px;margin-top:20px;text-align:center;font-size:0.82rem">
+          _______________________________<br><strong>Nutricionista Resp. Técnica — Dra. Lilian Droppa (CRN 12345/MS)</strong>
+        </div>
+        <div style="font-size:0.68rem;color:#64748b;text-align:center;margin-top:14px">
+          PRODUTOS DESTINADOS À REDE DE ENSINO PÚBLICO. COMPETE ÀS ESCOLAS FILANTRÓPICAS A PROIBIÇÃO DA VENDA/UTILIZAÇÃO PARA OUTROS FINS.
+        </div>
+      </div>
+    `;
+
+    const html = `
+      <div id="print-guia-remessa">
+        ${via('1ª VIA', false)}
+        ${via('2ª VIA', true)}
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px" class="no-print">
+        <button class="btn btn-outline" onclick="closeModal()">Fechar</button>
+        <button class="btn btn-primary" onclick="window.print(); SharedState.marcarGuiaEmitida('${g.id}');">🖨️ Imprimir Guia de Remessa (2 vias)</button>
+      </div>
+    `;
+    window.showModal(`📬 Guia de Remessa — ${g.numeroGuia}`, html, '900px');
   };
 
   window.gerarRelatorioMensal4Paginas = () => {

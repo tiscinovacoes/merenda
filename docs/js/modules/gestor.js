@@ -7,17 +7,17 @@
   if (!window.PAGE_RENDERERS) window.PAGE_RENDERERS = {};
 
   // REGISTRO DE RENDERERS DO GESTOR (Assinatura: (el) => { el.innerHTML = ...; })
-  PAGE_RENDERERS['gestor_dashboard'] = renderGestorDashboard;
-  PAGE_RENDERERS['gestor_atas'] = renderGestorAtas;
-  PAGE_RENDERERS['gestor_empenhos'] = renderGestorEmpenhos;
-  PAGE_RENDERERS['gestor_contratos'] = renderGestorContratos;
-  PAGE_RENDERERS['gestor_escolas'] = renderGestorEscolas;
-  PAGE_RENDERERS['gestor_planejamento'] = renderGestorPlanejamento;
-  PAGE_RENDERERS['gestor_relatorios'] = renderGestorRelatorios;
+  //
+  // Regra 6 do PLANO_MODULARIZACAO_APP.md: não registrar chave cuja versão em
+  // app.js é mais completa. Auditoria de 2026-08-18 constatou que dashboard, atas,
+  // empenhos, escolas, planejamento, relatorios, os-central, lista-compras e
+  // os-fornecedores são mais ricas em app.js (charts, modais de detalhe, export
+  // CSV, FEFO). Registrá-las aqui as substituiria por versões mais pobres assim
+  // que a ordem dos <script> mudasse. As funções seguem definidas abaixo,
+  // prontas para assumir quando forem migradas de verdade.
+  //
+  // Migradas e ativas (sem equivalente em app.js):
   PAGE_RENDERERS['gestor_audit-log'] = renderGestorAuditLog;
-  PAGE_RENDERERS['gestor_os-central'] = renderGestorOsCentral;
-  PAGE_RENDERERS['gestor_lista-compras'] = renderGestorListaCompras;
-  PAGE_RENDERERS['gestor_os-fornecedores'] = renderGestorOsFornecedores;
 
   // 1. DASHBOARD EXECUTIVO GESTOR
   function renderGestorDashboard(el) {
