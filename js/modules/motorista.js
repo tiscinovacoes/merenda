@@ -362,4 +362,49 @@
     canvas.addEventListener('touchmove', (e) => { draw(e); e.preventDefault(); });
     canvas.addEventListener('touchend', stopDraw);
   };
+
+  // === Migrado do app.js (Fase 4) ===
+  PAGE_RENDERERS.motorista_escolas = (el) => {
+    const schools = DATA.schools || [];
+    const hoje = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long' });
+    // Filtra escolas apenas dos pedidos em transporte
+    const inTransit = SharedState.getOrders().filter(o => o.status === 'Em transporte' && (!prof || o.driver === prof.name));
+    const rotaNomes = new Set(inTransit.map(o => o.school));
+    const escolasRota = schools.filter(s => rotaNomes.has(s.name));
+    const escolasParaMostrar = escolasRota.length > 0 ? escolasRota : schools.slice(0, 3); // fallback: 3 primeiras
+  
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">Escolas da Rota</div>
+        <div class="page-subtitle">Destinos das entregas em transporte · ${hoje}</div>
+      </div>
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:24px">
+        <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${escolasParaMostrar.length}</div><div class="kpi-label">Escolas na Rota</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${inTransit.length}</div><div class="kpi-label">Pedidos em Transporte</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${SharedState.getOrders().filter(o => o.status === 'Entregue').length}</div><div class="kpi-label">Entregues Hoje</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">${escolasRota.length > 0 ? 'Escolas da Rota Ativa' : 'Sem pedidos ativos — exibindo referência'}</div></div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:10px">
+            ${escolasParaMostrar.map((s,i) => {
+              const pedidoDaEscola = inTransit.find(o => o.school === s.name);
+              return `
+            <div style="display:flex;align-items:center;gap:14px;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface-1)">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--primary-100);color:var(--primary);font-weight:700;display:flex;align-items:center;justify-content:center;font-size:0.8rem;flex-shrink:0">${i+1}</div>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600">${s.name} ${pedidoDaEscola ? '<span class="tag tag-blue" style="font-size:0.65rem">Pedido #' + String(pedidoDaEscola.numero).padStart(3,'0') + '</span>' : ''}</div>
+                <div style="font-size:0.78rem;color:var(--text-secondary)">${s.region} · ${s.director} · ${s.students} alunos</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+                ${pedidoDaEscola ? `<button class="btn btn-sm btn-primary" onclick="selectDelivery('${pedidoDaEscola.id}');navigateTo('motorista','entregas')">Entregar</button>` : `<span class="status-badge ${statusClass(s.stockStatus)}" style="font-size:0.7rem">${statusLabel(s.stockStatus)}</span>`}
+              </div>
+            </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
 })();

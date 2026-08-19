@@ -579,4 +579,59 @@ window.saveAgriProfile = () => {
   showToast('✅ Perfil salvo.');
   PAGE_RENDERERS.agricultor_perfil(document.getElementById('page-content'));
 };
+
+  // === Migrado do app.js (Fase 4) ===
+  PAGE_RENDERERS.cooperativa_escolas = (el) => {
+    const schools = DATA.schools || [];
+    const total = schools.reduce((s,e) => s + e.students, 0);
+    const risco = schools.filter(s => s.stockStatus === 'danger').length;
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">Escolas Atendidas</div>
+        <div class="page-subtitle">Pontos de entrega e situação de abastecimento das ${schools.length} Escolas Piloto (${total.toLocaleString('pt-BR')} Alunos)</div>
+      </div>
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+        <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${schools.length}</div><div class="kpi-label">Escolas Piloto</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">👥</div><div class="kpi-value">${total.toLocaleString('pt-BR')}</div><div class="kpi-label">Alunos Atendidos</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${schools.filter(s=>s.stockStatus==='warning').length}</div><div class="kpi-label">Em Atenção</div></div>
+        <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${risco}</div><div class="kpi-label">Em Risco</div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Pontos de Entrega (Escolas Piloto Real)</div></div>
+        <div class="card-body">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>Escola Piloto</th><th>Região</th><th>Modalidade</th><th>Alunos</th><th>Restrições</th><th>Estoque Atual</th><th>Status</th><th>Última Entrega</th></tr></thead>
+              <tbody>
+                ${schools.map(s => {
+                  const restrCount = (SharedState.getRestricoes(s.id) || []).filter(r => r.status === 'ativo').reduce((a,b)=>a+(b.quantidade||1), 0);
+                  const localStock = SharedState.getSchoolStock(s.name) || [];
+                  const deliveries = SharedState.getDeliveries().filter(d => d.school === s.name || d.escola === s.name);
+                  const lastDel = deliveries.length > 0 ? (deliveries[deliveries.length-1].confirmadoEm || deliveries[deliveries.length-1].criadoEm) : s.lastDelivery;
+                  return `
+                  <tr>
+                    <td><strong>${s.name}</strong></td>
+                    <td><span class="tag tag-blue">${s.region}</span></td>
+                    <td><span class="tag tag-teal" style="font-size:0.7rem">${s.modality || 'Escolar Urbana'}</span></td>
+                    <td style="font-family:var(--font-mono)">${s.students}</td>
+                    <td>${restrCount > 0 ? `<span class="status-badge warning" style="font-size:0.7rem">⚠️ ${restrCount} aluno(s)</span>` : '<span style="color:var(--text-tertiary);font-size:0.8rem">Nenhuma</span>'}</td>
+                    <td><div style="display:flex;align-items:center;gap:8px">
+                      <div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
+                      <span style="font-family:var(--font-mono);font-size:0.78rem">${s.stockPct}% (${localStock.length} itens)</span>
+                    </div></td>
+                    <td><span class="status-badge ${statusClass(s.stockStatus)}">${statusLabel(s.stockStatus)}</span></td>
+                    <td style="font-size:0.82rem">${lastDel ? (lastDel.slice(0, 10)) : '—'}</td>
+                  </tr>`;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  // === Cross-perfil *_escolas (Fase 4.7): closure para cooperativa_escolas ===
+  PAGE_RENDERERS.agricultor_escolas = (el) => PAGE_RENDERERS.cooperativa_escolas(el);
+
 })();

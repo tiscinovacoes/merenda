@@ -1721,4 +1721,7 @@
     });
   };
 
+  // === Cross-perfil *_escolas (Fase 4.7): closure para cooperativa_escolas ===
+  PAGE_RENDERERS.nutricionista_escolas = (el) => PAGE_RENDERERS.cooperativa_escolas(el);
+
 })();

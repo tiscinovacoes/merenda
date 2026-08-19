@@ -780,4 +780,7 @@ PAGE_RENDERERS.estoque_lotes = (el) => {
   `;
 };
 
+  // === Cross-perfil *_escolas (Fase 4.7): closure para cooperativa_escolas ===
+  PAGE_RENDERERS.estoque_escolas = (el) => PAGE_RENDERERS.cooperativa_escolas(el);
+
 })();
