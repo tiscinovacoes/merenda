@@ -7705,7 +7705,7 @@ PAGE_RENDERERS['gestor_expedicao-os'] = (el) => {
   const badgeStatus = (s) => {
     const map = {
       'Aguardando Separação': 'tag-gray', 'Em Separação': 'tag-orange', 'Separado': 'tag-blue',
-      'Aguardando Expedição': 'tag-blue', 'Em Rota': 'tag-orange', 'Entregue': 'tag-green',
+      'Separado parcial': 'tag-orange', 'Aguardando Expedição': 'tag-blue', 'Em Rota': 'tag-orange', 'Entregue': 'tag-green',
       'Entrega Parcial': 'tag-orange', 'Devolvida': 'tag-red', 'Cancelada': 'tag-red'
     };
     return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
@@ -7724,13 +7724,19 @@ PAGE_RENDERERS['gestor_expedicao-os'] = (el) => {
       <td><span class="tag ${o.prioridade==='Alta'?'tag-red':'tag-blue'}">${o.prioridade}</span></td>
       <td>${badgeStatus(o.status)}</td>
       <td>
-        <div style="display:flex;gap:4px">
-          <button class="btn btn-sm btn-primary" style="background:#15803d" onclick="window.abrirModalSeparacaoFEFO('${o.id}')">
-            📦 Separação FEFO (RN06)
-          </button>
-          <button class="btn btn-sm btn-outline" onclick="window.abrirModalNovaOrdemEntrega('${o.id}')">
-            🚛 Criar OE (RN08)
-          </button>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${(o.status === 'Em Rota' || o.status === 'Entregue')
+            ? `<span class="tag tag-green" style="font-weight:700">🚛 OE emitida</span>`
+            : `
+            ${(o.status !== 'Separado') ? `
+              <button class="btn btn-sm btn-primary" style="background:#15803d" onclick="window.abrirModalSeparacaoFEFO('${o.id}')">
+                📦 ${o.status === 'Separado parcial' ? 'Continuar Separação' : 'Separação FEFO (RN06)'}
+              </button>` : ''}
+            ${(o.status === 'Separado' || o.status === 'Separado parcial') ? `
+              <button class="btn btn-sm btn-primary" onclick="window.abrirModalNovaOrdemEntrega('${o.id}')">
+                🚛 Criar OE (RN08)
+              </button>` : ''}
+          `}
         </div>
       </td>
     </tr>
@@ -8168,73 +8174,149 @@ window.aprovarEntradaFinalEstoque = (recId) => {
 };
 
 // MODAL 3: SEPARAÇÃO FEFO (RN06)
+// Corpo reativo do modal de Separação FEFO (com bipagem por item).
+window._sepFefoBody = (os) => {
+  const total = os.produtos.length;
+  const bipados = os.produtos.filter(p => p._bipado).length;
+  const pct = total ? Math.round(bipados / total * 100) : 0;
+  return `
+    <div style="background:#f0fdf4;padding:12px;border-radius:8px;border:1px solid #86efac;margin-bottom:14px;font-size:0.85rem;color:#166534">
+      💡 <strong>Método FEFO Ativo (RN06)</strong>: lotes ordenados por menor validade. Confira cada item pela leitura do código de barras.
+    </div>
+    <div class="card mb-16" style="padding:12px;font-size:0.9rem">
+      <div>Ordem de Serviço: <strong>${os.numeroOs}</strong></div>
+      <div>Escola de Destino: <strong>${os.escolaNome}</strong> (Escola Única — RN07)</div>
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:12px">
+      <input type="text" id="fefo-scan" class="form-control" autocomplete="off" placeholder="🔦 Bipe o código de barras / lote e tecle Enter..." style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();window._biparProximoFefo('${os.id}', this.value);this.value='';}">
+      <button type="button" class="btn btn-outline" onclick="window._biparTodosFefo('${os.id}')">Bipar todos</button>
+    </div>
+    <div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;font-size:0.8rem;margin-bottom:4px"><span>Conferência de separação</span><strong>${bipados}/${total} itens (${pct}%)</strong></div>
+      <div style="height:8px;background:var(--surface-2,#e2e8f0);border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:#15803d;transition:width .3s"></div></div>
+    </div>
+    <div style="overflow-x:auto;margin-bottom:14px">
+      <table class="data-table" style="font-size:0.85rem">
+        <thead><tr><th>Produto Solicitado</th><th>Qtd</th><th>Lote FEFO</th><th>Validade</th><th>Conferência</th></tr></thead>
+        <tbody>
+          ${os.produtos.map((p, i) => `
+            <tr style="${p._bipado ? 'background:var(--success-light,#f0fdf4)' : ''}">
+              <td><strong>${p.produto}</strong></td>
+              <td>${p.quantidade} ${p.unidade}</td>
+              <td><span class="tag tag-blue">${p.loteSugerido}</span></td>
+              <td>${p.validade}</td>
+              <td>${p._bipado
+                ? '<span class="status-badge status-ok">✅ Conferido</span>'
+                : `<button type="button" class="btn btn-sm btn-outline" onclick="window._biparItemFefo('${os.id}', ${i})">📷 Bipar</button>`}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;gap:8px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-outline" onclick="window.imprimirSeparacaoFEFO('${os.id}')">🖨️ Imprimir Romaneio</button>
+      </div>
+      <button type="button" class="btn btn-primary" style="background:#15803d" onclick="window.concluirSeparacaoFEFO('${os.id}')">✅ Concluir Separação (${bipados}/${total})</button>
+    </div>
+  `;
+};
+
 window.abrirModalSeparacaoFEFO = (osId) => {
   const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
   if (!os) return;
+  window.showModal(`📦 Separação de Estoque por FEFO — OS ${os.numeroOs}`, `<div id="fefo-sep-body" style="font-family:Inter,sans-serif">${window._sepFefoBody(os)}</div>`, '750px');
+  setTimeout(() => { const s = document.getElementById('fefo-scan'); if (s) s.focus(); }, 120);
+};
 
-  const content = `
-    <div style="font-family:Inter,sans-serif">
-      <div style="background:#f0fdf4;padding:12px;border-radius:8px;border:1px solid #86efac;margin-bottom:14px;font-size:0.85rem;color:#166534">
-        💡 <strong>Método FEFO Ativo (First Expire, First Out — RN06)</strong>: O algoritmo ordena os lotes automaticamente priorizando aqueles com menor prazo de validade para evitar desperdícios.
-      </div>
-      <div class="card mb-16" style="padding:12px">
-        <div>Ordem de Serviço: <strong>${os.numeroOs}</strong></div>
-        <div>Escola de Destino: <strong>${os.escolaNome}</strong> (Escola Única — RN07)</div>
-      </div>
+window._refreshSepFefo = (os) => {
+  const body = document.getElementById('fefo-sep-body');
+  if (body) body.innerHTML = window._sepFefoBody(os);
+  const s = document.getElementById('fefo-scan'); if (s) s.focus();
+};
 
-      <div style="overflow-x:auto;margin-bottom:14px">
-        <table class="data-table" style="font-size:0.85rem">
-          <thead>
-            <tr>
-              <th>Produto Solicitado</th>
-              <th>Qtd Necessária</th>
-              <th>Lote Sugerido (FEFO)</th>
-              <th>Data Validade</th>
-              <th>Recomendação Algoritmo</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${os.produtos.map(p => `
-              <tr>
-                <td><strong>${p.produto}</strong></td>
-                <td>${p.quantidade} ${p.unidade}</td>
-                <td><span class="tag tag-blue">${p.loteSugerido}</span></td>
-                <td>${p.validade}</td>
-                <td><span class="tag tag-green">✓ Lote mais antigo (Saída Imediata)</span></td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
+window._biparItemFefo = (osId, idx) => {
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os || !os.produtos[idx]) return;
+  os.produtos[idx]._bipado = true;
+  SharedState._persist();
+  window._refreshSepFefo(os);
+};
 
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-        <button class="btn btn-primary" style="background:#15803d" onclick="window.concluirSeparacaoFEFO('${os.id}')">
-          ✅ Concluir Separação FEFO
-        </button>
-      </div>
-    </div>
-  `;
+window._biparProximoFefo = (osId, code) => {
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os) return;
+  const c = String(code || '').trim().toLowerCase();
+  let alvo = c ? os.produtos.find(p => !p._bipado && (String(p.loteSugerido).toLowerCase() === c || p.produto.toLowerCase().includes(c))) : null;
+  if (!alvo) alvo = os.produtos.find(p => !p._bipado);
+  if (!alvo) { showToast('Todos os itens já foram conferidos!', 'warning'); return; }
+  alvo._bipado = true;
+  SharedState._persist();
+  showToast(`🟢 Item conferido pelo leitor: ${alvo.produto} (${alvo.loteSugerido})`);
+  window._refreshSepFefo(os);
+};
 
-  window.showModal(`📦 Separação de Estoque por FEFO — OS ${os.numeroOs}`, content, '750px');
+window._biparTodosFefo = (osId) => {
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os) return;
+  os.produtos.forEach(p => p._bipado = true);
+  SharedState._persist();
+  window._refreshSepFefo(os);
+};
+
+window.imprimirSeparacaoFEFO = (osId) => {
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os) return;
+  const linhas = os.produtos.map(p => `<tr><td>${p.produto}</td><td style="text-align:center">${p.quantidade} ${p.unidade}</td><td>${p.loteSugerido}</td><td style="text-align:center">${p.validade}</td><td style="text-align:center">${p._bipado ? 'Conferido' : '☐'}</td></tr>`).join('');
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>Romaneio de Separação — ${os.numeroOs}</title>
+    <style>body{font-family:Arial,Helvetica,sans-serif;padding:28px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;font-weight:400;color:#555;margin:0 0 16px}
+    table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #999;padding:6px 8px;text-align:left}th{background:#f0f0f0}
+    .meta{font-size:12px;margin-bottom:14px;line-height:1.6}.sig{margin-top:48px;display:flex;justify-content:space-between;font-size:12px}.sig div{border-top:1px solid #333;width:45%;text-align:center;padding-top:6px}</style></head>
+    <body>
+      <h1>SUALE · SEMED Campo Grande — Romaneio de Separação (FEFO)</h1>
+      <h2>Documento de acompanhamento de expedição — RN06/RN07</h2>
+      <div class="meta"><strong>OS:</strong> ${os.numeroOs} &nbsp;·&nbsp; <strong>Escola (única):</strong> ${os.escolaNome} &nbsp;·&nbsp; <strong>Município:</strong> ${os.municipio || '—'}<br>
+      <strong>Data prevista:</strong> ${os.dataPrevista || '—'} &nbsp;·&nbsp; <strong>Prioridade:</strong> ${os.prioridade || '—'} &nbsp;·&nbsp; <strong>Emitido em:</strong> ${new Date().toLocaleString('pt-BR')}</div>
+      <table><thead><tr><th>Produto</th><th style="text-align:center">Qtd</th><th>Lote (FEFO)</th><th style="text-align:center">Validade</th><th style="text-align:center">Conf.</th></tr></thead><tbody>${linhas}</tbody></table>
+      <div class="sig"><div>Separador (Almoxarifado Central)</div><div>Conferente / Motorista</div></div>
+      <script>window.onload=function(){window.print();}<\/script>
+    </body></html>`;
+  const w = window.open('', '_blank', 'width=820,height=640');
+  if (!w) { showToast('Permita pop-ups para imprimir o romaneio de separação.', 'warning'); return; }
+  w.document.write(html);
+  w.document.close();
 };
 
 window.concluirSeparacaoFEFO = (osId) => {
   const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
   if (!os) return;
 
-  os.status = 'Separado';
+  const total = os.produtos.length;
+  const bipados = os.produtos.filter(p => p._bipado).length;
+  if (bipados === 0) { showToast('Bipe ao menos um item antes de concluir a separação.', 'warning'); return; }
+
+  const totalSeparado = bipados === total;
+  os.status = totalSeparado ? 'Separado' : 'Separado parcial';
+
+  // Baixa do estoque central (FEFO) apenas dos itens efetivamente conferidos —
+  // mantém o Estoque Central alinhado com o que saiu para a escola.
+  os.produtos.filter(p => p._bipado).forEach(p => {
+    if (SharedState.consumeCentralStock) SharedState.consumeCentralStock(p.produto, p.quantidade);
+  });
+
   SharedState.registrarLogAuditoria({
-    acao: 'Separação de Estoque FEFO (RN06)',
-    produto: os.produtos.map(p => p.produto).join(', '),
-    quantidade: os.produtos.reduce((s,p) => s + p.quantidade, 0),
+    acao: `Separação de Estoque FEFO (RN06) — ${totalSeparado ? 'Total' : 'Parcial'}`,
+    produto: os.produtos.filter(p => p._bipado).map(p => p.produto).join(', '),
+    quantidade: os.produtos.filter(p => p._bipado).reduce((s, p) => s + p.quantidade, 0),
     origem: 'Estoque Central SEMED',
     destino: os.escolaNome,
-    motivo: `Separação concluída via FEFO para a Ordem de Serviço ${os.numeroOs}.`
+    motivo: `Separação ${totalSeparado ? 'total' : 'parcial'} (${bipados}/${total} itens) via FEFO para a OS ${os.numeroOs}.`
   });
   SharedState._persist();
 
-  showToast(`✅ Separação FEFO concluída para a escola ${os.escolaNome}! Status alterado para Separado.`);
+  showToast(totalSeparado
+    ? `✅ Separação FEFO concluída — OS ${os.numeroOs} SEPARADA. Já pode gerar a Ordem de Entrega.`
+    : `⚠️ Separação PARCIAL registrada (${bipados}/${total} itens) — OS ${os.numeroOs}.`);
   closeModal();
   renderPage();
 };
@@ -8256,17 +8338,29 @@ window.abrirModalNovaOrdemEntrega = (osId) => {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
           <div>
-            <label class="form-label">Nome do Motorista / Entregador (RN09):</label>
-            <input type="text" id="oe-motorista" class="form-control" value="Marcos Antônio Ribeiro" required>
+            <label class="form-label">Motorista / Entregador (RN09):</label>
+            <select id="oe-motorista" class="form-control" required>
+              <option value="José Souza">José Souza — CNH E</option>
+              <option value="Marcos Antônio Ribeiro">Marcos Antônio Ribeiro — CNH D</option>
+              <option value="Carlos Alberto Santos">Carlos Alberto Santos — CNH D</option>
+            </select>
           </div>
           <div>
             <label class="form-label">Veículo de Transporte (Placa/Modelo):</label>
-            <input type="text" id="oe-veiculo" class="form-control" value="Furgão IVECO Daily (ABC-1234)" required>
+            <select id="oe-veiculo" class="form-control" required>
+              <option value="Furgão IVECO Daily (ABC-1234)">Furgão IVECO Daily (ABC-1234)</option>
+              <option value="Caminhão VW Delivery (DEF-5678)">Caminhão VW Delivery (DEF-5678)</option>
+              <option value="Van Renault Master refrigerada (GHI-9012)">Van Renault Master refrigerada (GHI-9012)</option>
+            </select>
           </div>
         </div>
         <div style="margin-bottom:14px">
           <label class="form-label">Rota Logística / Itinerário:</label>
-          <input type="text" id="oe-rota" class="form-control" value="Rota 03 — Zona Norte (Anhanduízinho)" required>
+          <select id="oe-rota" class="form-control" required>
+            <option value="Rota 03 — Zona Norte (Anhanduízinho)">Rota 03 — Zona Norte (Anhanduízinho)</option>
+            <option value="Rota 07 — Zona Sul (Aero Rancho)">Rota 07 — Zona Sul (Aero Rancho)</option>
+            <option value="Rota 12 — Centro / Segredo">Rota 12 — Centro / Segredo</option>
+          </select>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
@@ -8287,28 +8381,44 @@ window.salvarNovaOrdemEntrega = (e, osId) => {
   const motorista = document.getElementById('oe-motorista').value;
   const veiculo = document.getElementById('oe-veiculo').value;
   const rota = document.getElementById('oe-rota').value;
+  const numeroOe = `OE-2026/${Math.floor(100 + Math.random() * 900)}`;
 
   const novaOe = {
-    id: `OE-2026-${Math.floor(100 + Math.random()*900)}`,
-    numeroOe: `OE-2026/${Math.floor(100 + Math.random()*900)}`,
+    id: `OE-${Date.now()}`,
+    numeroOe,
     osId: os.numeroOs,
     escolaId: os.escolaId,
     escolaNome: os.escolaNome,
-    motorista,
-    veiculo,
-    rota,
-    dataEntrega: new Date().toISOString().slice(0,10),
+    motorista, veiculo, rota,
+    dataEntrega: new Date().toISOString().slice(0, 10),
     status: 'Em Transporte',
     produtos: os.produtos,
     assinaturaDigital: null,
     recebidoPor: null
   };
 
-  SharedState.getOrdensEntrega().push(novaOe);
+  // Persiste a OE no array real (getOrdensEntrega retorna cópia — não usar push nela).
+  (SharedState._data.ordensEntrega = SharedState._data.ordensEntrega || []).unshift(novaOe);
   os.status = 'Em Rota';
-  SharedState._persist();
 
-  showToast(`🚛 Ordem de Entrega ${novaOe.numeroOe} gerada para a escola ${os.escolaNome}!`);
+  // DISPARA a ordem para o módulo Motorista: cria um pedido "Em transporte"
+  // atribuído ao motorista escolhido (o app do Motorista lê getOrders() por driver).
+  const pedido = SharedState.addOrder({
+    school: os.escolaNome,
+    driver: motorista,
+    status: 'Em transporte',
+    cooperative: 'Almoxarifado Central',
+    cardapioCodigo: os.numeroOs,
+    oeNumero: numeroOe,
+    veiculo, rota,
+    value: 0,
+    itens: os.produtos.map(p => ({ produto: p.produto, qtd: p.quantidade, unidade: p.unidade, regra: 'Separação FEFO (RN06)' }))
+  });
+  novaOe.pedidoId = pedido ? pedido.id : null;
+  SharedState._persist();
+  if (SharedState._emit) SharedState._emit('oe:created', novaOe);
+
+  showToast(`🚛 Ordem de Entrega ${numeroOe} gerada e DISPARADA para o motorista ${motorista} (${veiculo}).`);
   closeModal();
   renderPage();
 };
