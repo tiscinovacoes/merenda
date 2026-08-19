@@ -96,6 +96,13 @@
   **não aparecem** aqui — o caminhão "Em Montagem" pertence à ação **Montagem de Carga**, não ao rastreio.
 - Para cada caminhão em rota, mostrar a **parada atual** (em qual destino/escola ele está agora — A, B, …)
   na sequência da rota, além da carga e do status. Sem GPS real agora (posição = parada corrente da rota).
+- **(Ajuste 04) Ação da linha = Rastreamento do caminhão, NÃO Montagem de Carga.** O botão de ação da
+  Rastreabilidade **abriu o popup errado** (Montagem de Carga). Deve abrir um **modal de rastreamento
+  do caminhão**: como o caminhão tem **várias paradas/O.E.**, mostrar **onde ele está em tempo real**
+  num **mapa fictício simulado** (a integração de GPS real vem depois). O modal traz: sequência de
+  paradas (escolas da rota) com a **parada atual destacada**, um **mapa mock** com o marcador do
+  caminhão avançando entre as paradas (simulação — ex.: mover o marcador por timer/etapas), e a lista
+  das O.E. daquela carga. Deixar o ponto de integração de GPS isolado (mock trocável por posição real).
 
 ### ÉPICO C — Dashboard / Cobertura
 
