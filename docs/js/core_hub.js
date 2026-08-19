@@ -1342,32 +1342,237 @@ window.SHARED_STATE_KEY = SHARED_STATE_KEY;
 // REGISTRO GLOBAL DE RENDERIZADORES DE PÁGINAS
 window.PAGE_RENDERERS = window.PAGE_RENDERERS || {};
 
-// APP STATE GLOBAL
-window.state = window.state || {
+// PROFILE CONFIGS
+
+const PROFILES = {
+  gestor: {
+    userId: 'ID-001',
+    name: 'Luiz Raghiant',
+    role: 'Gestor SEMED',
+    initials: 'LR',
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Dashboard Executivo', badge: null },
+      { id: 'escolas', icon: '🏫', label: 'Escolas', badge: null },
+      { type: 'group', label: 'Operacional', children: [
+        { id: 'pedidos', icon: '📦', label: 'Pedidos', badge: '3' },
+        { id: 'estoque', icon: '📊', label: 'Estoque Consolidado', badge: null },
+        { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
+      ]},
+      { type: 'group', label: 'Colaboradores', children: [
+        { id: 'cooperativas', icon: '🤝', label: 'Cooperativas', badge: null },
+        { id: 'agricultura', icon: '🌾', label: 'Agricultura Familiar', badge: null },
+      ]},
+      { type: 'group', label: 'Gerenciamento Estoque', children: [
+        { id: 'os-central',            icon: '🏭', label: 'OS Estoque Central',      badge: null },
+        { id: 'recebimentos-pendentes',icon: '🚚', label: 'Recebimentos Pendentes', badge: 'NEW' },
+        { id: 'expedicao-os',          icon: '📦', label: 'Expedição (OS Escolas)',   badge: null },
+        { id: 'ordens-entrega',        icon: '🚛', label: 'Ordens de Entrega',        badge: null },
+      ]},
+      { type: 'group', label: 'Prestação de Contas', children: [
+        { id: 'atas',                  icon: '📋', label: 'Atas e Contratos',        badge: null },
+        { id: 'empenhos',              icon: '💳', label: 'Empenhos SIAFI',          badge: null },
+        { id: 'rastreabilidade-lotes', icon: '🔍', label: 'Rastreabilidade 5-Way',   badge: null },
+        { id: 'listacompras',         icon: '🛒', label: 'Lista de Compras',        badge: null },
+        { id: 'os-fornecedores',       icon: '🤝', label: 'OS Fornecedores',         badge: null },
+      ]},
+      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+      { id: 'ia', icon: '🤖', label: 'IA de Previsão', badge: null },
+    ]
+  },
+  nutricionista: {
+    userId: 'ID-002',
+    name: 'Dra. Lilian Droppa',
+    role: 'Nutricionista SEMED',
+    initials: 'LD',
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Dashboard Nutricional', badge: null },
+      { id: 'fichas', icon: '📝', label: 'Fichas Técnicas', badge: null },
+      { id: 'produtos', icon: '🥕', label: 'Produtos', badge: null },
+      { id: 'cardapios', icon: '🍽️', label: 'Cardápios (Viewer, PDF, Romaneio)', badge: null },
+      { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
+      { id: 'estoquesual', icon: '📦', label: 'Estoque SUAL (Consolidado)', badge: null },
+      { id: 'guiasentrega', icon: '🚚', label: 'Guias de Entrega & Distr.', badge: null },
+      { id: 'escolas', icon: '🏫', label: 'Escolas', badge: null },
+      { id: 'consumo', icon: '📈', label: 'Consumo', badge: null },
+      { id: 'desperdicios', icon: '🗑️', label: 'Desperdícios', badge: null },
+      { id: 'restricoes', icon: '⚠️', label: 'Restrições Alimentares', badge: null },
+      { id: 'relatorios', icon: '📊', label: 'Relatórios', badge: null },
+      { id: 'ia', icon: '🤖', label: 'IA Nutricional', badge: null },
+    ]
+  },
+  escola: {
+    userId: 'ID-003',
+    name: 'Maria Santos',
+    role: 'EM ADV. DEMOSTHENES MARTINS',
+    initials: 'MS',
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Dashboard', badge: null },
+      { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
+      { id: 'cardapios', icon: '🍽️', label: 'Cardápios', badge: null },
+      { id: 'estoque', icon: '📦', label: 'Estoque', badge: '2' },
+      { id: 'consumo', icon: '📝', label: 'Registro de Consumo', badge: null },
+      { id: 'pedidos', icon: '🛒', label: 'Pedidos de Abastecimento', badge: null },
+      { id: 'entregas', icon: '🚚', label: 'Entregas', badge: '1' },
+      { id: 'historico', icon: '📜', label: 'Histórico', badge: null },
+      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+    ]
+  },
+  cooperativa: {
+    userId: 'ID-004',
+    name: 'Carlos Mendes',
+    role: 'COOPAGRAN',
+    initials: 'CM',
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Dashboard', badge: null },
+      { id: 'escolas', icon: '🏫', label: 'Escolas Atendidas', badge: null },
+      { id: 'agricultores', icon: '👨‍🌾', label: 'Agricultores', badge: null },
+      { id: 'produtos', icon: '🥕', label: 'Produtos', badge: null },
+      { id: 'estoque', icon: '📦', label: 'Estoque Consolidado', badge: null },
+      { id: 'pedidos', icon: '📋', label: 'Pedidos', badge: '2' },
+      { id: 'planejamento', icon: '📅', label: 'Planejamento de Entregas', badge: null },
+      { id: 'rotas', icon: '🗺️', label: 'Rotas', badge: null },
+      { id: 'contratos', icon: '📄', label: 'Contratos e Chamamentos', badge: null },
+      { id: 'entregas', icon: '🚚', label: 'Entregas', badge: null },
+      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+      { id: 'indicadores', icon: '🎯', label: 'Indicadores', badge: null },
+    ]
+  },
+  agricultor: {
+    userId: 'ID-005',
+    name: 'José Maria Rodrigues',
+    role: 'Agricultor Familiar',
+    initials: 'JR',
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Dashboard', badge: null },
+      { id: 'escolas', icon: '🏫', label: 'Escolas que Atendo', badge: null },
+      { id: 'producao', icon: '🌱', label: 'Minha Produção', badge: null },
+      { id: 'estoque', icon: '📦', label: 'Estoque', badge: null },
+      { id: 'pedidos', icon: '📋', label: 'Pedidos', badge: '1' },
+      { id: 'entregas', icon: '🚚', label: 'Entregas', badge: null },
+      { id: 'calendario', icon: '📅', label: 'Calendário', badge: null },
+      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+      { id: 'perfil', icon: '👤', label: 'Perfil', badge: null },
+    ]
+  },
+  estoque: {
+    userId: 'ID-006',
+    name: 'Fabricio Milano',
+    role: 'Central de Distribuição (Estoque)',
+    initials: 'FM',
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Dashboard Operacional', badge: null },
+      { id: 'inventario', icon: '🏢', label: 'Posição de Estoque', badge: null },
+      { type: 'group', label: 'Gerenciamento Estoque', children: [
+        { id: 'os-central',            icon: '🏭', label: 'OS Estoque Central',      badge: null },
+        { id: 'recebimentos-pendentes',icon: '🚚', label: 'Recebimentos Pendentes', badge: 'NEW' },
+        { id: 'expedicao-os',          icon: '📦', label: 'Expedição (OS Escolas)',   badge: null },
+        { id: 'ordens-entrega',        icon: '🚛', label: 'Ordens de Entrega',        badge: null },
+      ]},
+      { id: 'lotes', icon: '📋', label: 'Controle de Lotes & Rastreabilidade', badge: null },
+      { id: 'escolas', icon: '🏫', label: 'Escolas Atendidas', badge: null },
+    ]
+  },
+  diretor: {
+    userId: 'ID-007',
+    get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
+    get name() { const sc = this._sc; return sc && sc.diretor ? sc.diretor.name : 'Diretor(a)'; },
+    get role() { const sc = this._sc; return sc ? sc.name : 'Direção Escolar'; },
+    get initials() { const sc = this._sc; return sc && sc.diretor ? sc.diretor.initials : 'DE'; },
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Painel da Escola', badge: null },
+      { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
+      { id: 'estoque', icon: '📦', label: 'Estoque da Escola', badge: null },
+      { id: 'pedidos', icon: '🛒', label: 'Solicitar Reposição', badge: null },
+      { id: 'entregas', icon: '🚚', label: 'Acompanhar Entregas', badge: null },
+      { id: 'consumo', icon: '📝', label: 'Consumo Registrado', badge: null },
+      { id: 'cardapios', icon: '🍽️', label: 'Cardápio Vigente', badge: null },
+      { id: 'restricoes', icon: '⚠️', label: 'Restrições Alimentares', badge: null },
+      { id: 'historico', icon: '📜', label: 'Histórico', badge: null },
+      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+    ]
+  },
+  resp_estoque: {
+    userId: 'ID-008',
+    get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
+    get name() { const sc = this._sc; return sc && sc.respEstoque ? sc.respEstoque.name : 'Resp. Estoque'; },
+    get role() { const sc = this._sc; return sc ? 'Estoque · ' + (sc.sigla||'') + ' ' + sc.name.split(' ').slice(-2).join(' ') : 'Responsável de Estoque'; },
+    get initials() { const sc = this._sc; return sc && sc.respEstoque ? sc.respEstoque.initials : 'RE'; },
+    menu: [
+      { id: 'dashboard', icon: '📊', label: 'Dashboard de Estoque', badge: null },
+      { id: 'inventario', icon: '🏢', label: 'Inventário Físico', badge: null },
+      { id: 'entradas', icon: '📥', label: 'Confirmar Entregas', badge: null },
+      { id: 'consumo', icon: '📝', label: 'Lançar Consumo', badge: null },
+      { id: 'pedidos', icon: '🛒', label: 'Pedidos em Aberto', badge: null },
+      { id: 'validades', icon: '⏳', label: 'Controle de Validade (FEFO)', badge: null },
+      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
+    ]
+  },
+  merendeira: {
+    userId: 'ID-009',
+    get _sc() { return state.selectedSchool || (window._PILOT_SCHOOLS||[]).find(s => s.id === state.selectedSchoolId); },
+    get name() { const sc = this._sc; return sc && sc.merendeira ? sc.merendeira.name : 'Merendeira Escolar'; },
+    get role() { const sc = this._sc; return sc ? 'Cozinha · ' + (sc.sigla||'') + ' ' + sc.name.split(' ').slice(-2).join(' ') : 'Cozinha'; },
+    get initials() { const sc = this._sc; return sc && sc.merendeira ? sc.merendeira.initials : 'ME'; },
+    menu: [
+      { id: 'dashboard', icon: '👩‍🍳', label: 'Painel da Merendeira', badge: null },
+      { id: 'consumo', icon: '📝', label: 'Lançamento Ágil de Consumo', badge: null },
+      { id: 'cardapios', icon: '🍽️', label: 'Cardápio do Dia', badge: null },
+      { id: 'estoque', icon: '📦', label: 'Estoque (Leitura)', badge: null },
+      { id: 'entregas', icon: '🚚', label: 'Conferir Entregas', badge: null },
+    ]
+  },
+  motorista: {
+    userId: 'ID-010',
+    name: 'José Souza',
+    role: 'Motorista de Entrega',
+    initials: 'JS',
+    menu: [
+      { id: 'dashboard', icon: '🗺️', label: 'Minha Rota Diária', badge: null },
+      { id: 'escolas', icon: '🏫', label: 'Escolas da Rota', badge: null },
+      { id: 'entregas', icon: '🚚', label: 'Realizar Entregas', badge: '1' },
+      { id: 'ocorrencias', icon: '⚠️', label: 'Registrar Ocorrência', badge: null },
+      { id: 'historico', icon: '📜', label: 'Histórico de Viagens', badge: null },
+    ]
+  }
+};
+// NÃO reintroduzir `PROFILES.diretor = PROFILES.escola`.
+// O perfil `diretor` acima tem menu próprio (school-aware, com getters dinâmicos
+// de nome/escola/iniciais) e inclui "Restrições Alimentares" — item que o menu
+// genérico da escola não tem. O alias sobrescrevia tudo isso e deixava a tela
+// `diretor_restricoes` inatingível, apesar de existir e ser completa.
+// Todos os 10 renderers do menu do diretor estão registrados (verificado).
+window.PROFILES = PROFILES;
+
+// APP STATE
+
+let state = {
   currentProfile: 'gestor',
   currentPage: 'dashboard',
   charts: {},
   sidebarCollapsed: false,
-  selectedSchoolId: null,
-  selectedSchool: null,
+  selectedSchoolId: null,   // id da escola piloto selecionada no login
+  selectedSchool: null,     // objeto escola capturado antes do hydrateData (imutável durante sessão)
   pilotoAtivo: (() => { try { return localStorage.getItem('saged_piloto_v1') === '1'; } catch { return false; } })(),
 };
 
 window.togglePilotoMode = () => {
-  if (window.state) window.state.pilotoAtivo = !window.state.pilotoAtivo;
-  try { localStorage.setItem('saged_piloto_v1', window.state?.pilotoAtivo ? '1' : '0'); } catch {}
-  if (typeof applyPiloto === 'function') applyPiloto();
-  showToast(window.state?.pilotoAtivo ? '🎯 Modo Piloto ativado: 8 escolas.' : '🌐 Modo completo: ' + (window._DATA_SCHOOLS_FULL||[]).length + ' escolas.');
-  if (typeof renderPage === 'function') renderPage();
+  state.pilotoAtivo = !state.pilotoAtivo;
+  try { localStorage.setItem('saged_piloto_v1', state.pilotoAtivo ? '1' : '0'); } catch {}
+  applyPiloto();
+  showToast(state.pilotoAtivo ? '🎯 Modo Piloto ativado: 8 escolas.' : '🌐 Modo completo: ' + (window._DATA_SCHOOLS_FULL||[]).length + ' escolas.');
+  renderPage();
 };
 
 function applyPiloto() {
-  if (!window.DATA) return;
-  if (!window._DATA_SCHOOLS_FULL) window._DATA_SCHOOLS_FULL = window.DATA.schools ? window.DATA.schools.slice() : [];
-  if (window.DATA.schools && window.state) {
-    window.DATA.schools = window.state.pilotoAtivo ? window._DATA_SCHOOLS_FULL.slice(0, 8) : window._DATA_SCHOOLS_FULL.slice();
-  }
+  if (!window._DATA_SCHOOLS_FULL) window._DATA_SCHOOLS_FULL = DATA.schools.slice();
+  DATA.schools = state.pilotoAtivo ? window._DATA_SCHOOLS_FULL.slice(0, 8) : window._DATA_SCHOOLS_FULL.slice();
 }
+
+// Dono unico do `state`: o MESMO objeto responde por `state` (bare) e por
+// `window.state`. Antes o Hub tinha um objeto e o app.js outro (`let state`),
+// o que faria o navigateTo gravar num e o renderPage do Hub ler o outro no dia
+// em que o app.js saisse. Ver Fase 3.5 do PLANO_ACAO_POS_AUDITORIA.md.
+window.state = state;
 window.applyPiloto = applyPiloto;
 
 // CONTRATO FIXO E IMUTÁVEL DO ROTEADOR: renderer(containerElement)
