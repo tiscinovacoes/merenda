@@ -205,6 +205,9 @@
   }
 
   // 6. OS CENTRAL
+  // Direção única de delegação: estoque → gestor (o Gestor possui estas telas e o
+  // perfil Estoque as reaproveita). Nunca delegar de volta a partir do gestor.js,
+  // sob pena de recursão infinita. Ver nota nos itens 9–11 do js/modules/gestor.js.
   function renderEstoqueOsCentral(el) {
     if (typeof PAGE_RENDERERS['gestor_os-central'] === 'function') {
       PAGE_RENDERERS['gestor_os-central'](el);

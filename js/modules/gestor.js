@@ -233,31 +233,30 @@
     `;
   }
 
-  // 9. OS CENTRAL GESTOR
+  // 9–11. OS CENTRAL / LISTA DE COMPRAS / OS FORNECEDORES
+  //
+  // ⚠️ NÃO delegar para as chaves `estoque_*` daqui. O `js/modules/estoque.js`
+  // delega essas mesmas telas de volta para as `gestor_*` (é o Gestor que as
+  // possui, e o perfil Estoque as reaproveita). Delegar nas duas direções cria
+  // recursão infinita no instante em que os dois módulos registrarem suas
+  // versões — foi exatamente o bug que existia aqui (a função checava
+  // `estoque_os-fornecedores` e chamava `gestor_os-fornecedores`, isto é, a si
+  // mesma). O ciclo fica quebrado numa direção só: estoque → gestor.
+  //
+  // As implementações reais destas 3 telas vivem hoje no `app.js` (tabelas com
+  // KPIs, modais de detalhe e trilha de auditoria). Migrar para cá é tarefa da
+  // Fase 4 do PLANO_ACAO_POS_AUDITORIA.md: portar o corpo real do `app.js`,
+  // então registrar a chave e só depois remover o bloco de lá.
   function renderGestorOsCentral(el) {
-    if (typeof PAGE_RENDERERS['estoque_os-central'] === 'function') {
-      PAGE_RENDERERS['estoque_os-central'](el);
-      return;
-    }
-    renderGestorDashboard(el);
+    el.innerHTML = window._emptyState('OS Estoque Central ainda não migrada para js/modules/gestor.js.');
   }
 
-  // 10. LISTA COMPRAS GESTOR
   function renderGestorListaCompras(el) {
-    if (typeof PAGE_RENDERERS['estoque_lista-compras'] === 'function') {
-      PAGE_RENDERERS['estoque_lista-compras'](el);
-      return;
-    }
-    renderGestorDashboard(el);
+    el.innerHTML = window._emptyState('Lista de Compras ainda não migrada para js/modules/gestor.js.');
   }
 
-  // 11. OS FORNECEDORES GESTOR
   function renderGestorOsFornecedores(el) {
-    if (typeof PAGE_RENDERERS['estoque_os-fornecedores'] === 'function') {
-      PAGE_RENDERERS['gestor_os-fornecedores'](el);
-      return;
-    }
-    renderGestorDashboard(el);
+    el.innerHTML = window._emptyState('OS Fornecedores ainda não migrada para js/modules/gestor.js.');
   }
 
   // HELPER GLOBAL DA NOVA ATA

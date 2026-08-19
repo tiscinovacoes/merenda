@@ -8,8 +8,28 @@ const SUPABASE_URL = 'https://xszqqqyvdzoyxokkuqix.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_qwKVO7DURZT5jY0FlJs03Q_EYNKoH4L';
 
 // Projeto único (xszqqqyvdzoyxokkuqix)
-const _sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+//
+// ⚠️ O CDN do Supabase é carregado com `defer` no index.html, então a global
+// `supabase` ainda NÃO existe quando este arquivo executa (db.js roda durante o
+// parse do body). Sem a guarda abaixo, esta linha lançava `ReferenceError:
+// supabase is not defined` e **todo o restante do db.js deixava de ser definido**
+// — inclusive `window.DB` —, fazendo o app operar só com dados locais de forma
+// silenciosa, com um erro não tratado no console a cada carregamento.
+//
+// A guarda mantém exatamente o comportamento atual (fallback para mock: cada
+// `_fetch()` cai no catch e devolve null), mas sem exceção não tratada e com o
+// motivo explícito em `DB_STATUS`. Ativar a camada real do Supabase é uma decisão
+// separada — exigiria remover o `defer` do script e revisar o `hydrateData()`,
+// que sobrescreve coleções de `DATA` (ver notas no topo do app.js).
+const _sbLib = (typeof supabase !== 'undefined') ? supabase
+             : (typeof window !== 'undefined' && window.supabase) ? window.supabase
+             : null;
+const _sb = _sbLib ? _sbLib.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 const _sb2 = _sb;
+
+if (!_sb) {
+  console.info('[DB] Biblioteca do Supabase ainda não carregada (script com `defer`). Operando com dados locais — sem erro.');
+}
 
 // ============================
 // STATUS DA CONEXÃO
@@ -17,7 +37,7 @@ const _sb2 = _sb;
 window.DB_STATUS = {
   connected: false,
   lastSync: null,
-  error: null,
+  error: _sb ? null : 'Biblioteca do Supabase indisponível na carga (script com `defer`) — usando dados locais.',
 };
 
 // ============================
