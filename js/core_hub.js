@@ -192,6 +192,15 @@ window._resolverRestricao = (id) => {
   }
 };
 
+// Cross-perfil (Fase 4.1): usado pela cooperativa e pela tela de entregas da escola.
+window.confirmSchoolDelivery = (id, receiver) => {
+  const nome = prompt('Nome do responsável pelo recebimento:', receiver || '');
+  if (!nome) return;
+  SharedState.confirmDelivery(id, nome, '');
+  showToast('✅ Recebimento confirmado! Cooperativa e Gestor notificados.');
+  renderPage();
+};
+
 // HTML HELPERS REUTILIZÁVEIS
 window._kpi = (title, val, sub, icon, trend) => `
   <div class="kpi-card">
