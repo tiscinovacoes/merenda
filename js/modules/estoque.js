@@ -15,7 +15,7 @@
 PAGE_RENDERERS.estoque_dashboard = (el) => {
   const sharedOrders = SharedState.getOrders();
   // KPIs coerentes com as sub-telas do fluxo (mesmos getters).
-  const recebPendentes = SharedState.getRecebimentosPendentes ? SharedState.getRecebimentosPendentes().length : 0;
+  const recebPendentes = SharedState.getRecebimentosPendentes ? SharedState.getRecebimentosPendentes().filter(r => r.status !== 'Recebido').length : 0;
   const osExped = SharedState.getOrdensServicoExpedicao ? SharedState.getOrdensServicoExpedicao() : [];
   const aSeparar = osExped.filter(o => o.status === 'Aguardando Separação' || o.status === 'Em Separação').length;
   const ordensEntrega = SharedState.getOrdensEntrega ? SharedState.getOrdensEntrega().length : 0;

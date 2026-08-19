@@ -7635,14 +7635,20 @@ PAGE_RENDERERS['gestor_recebimentos-pendentes'] = (el) => {
       <td>${badgePrio(r.prioridade)}</td>
       <td>${badgeStatus(r.status)}</td>
       <td>
+        ${r.status === 'Recebido' ? `
+          <span class="tag tag-green" style="font-weight:700">✅ Entrada no Estoque</span>
+          <button class="btn btn-sm btn-outline" style="margin-left:4px" onclick="window.abrirModalConfronto4Vias('${r.id}')">📄 NF-e</button>
+        ` : `
         <div style="display:flex;gap:4px">
           <button class="btn btn-sm btn-primary" onclick="window.abrirModalConferenciaFisica('${r.id}')">
-            🔍 Conf. Física
+            🔍 ${r.entradaRealizada ? 'Conferir Saldo' : 'Conf. Física'}
           </button>
           <button class="btn btn-sm btn-outline" onclick="window.abrirModalConfronto4Vias('${r.id}')">
             📄 Confronto NF-e
           </button>
         </div>
+        ${r.status === 'Recebido parcialmente' ? `<div style="margin-top:4px"><span class="tag tag-teal" style="font-size:0.7rem">Parcial: ${(r.qtdEntregue||0).toLocaleString('pt-BR')} recebido · ${(r.qtdPendente||0).toLocaleString('pt-BR')} pendente</span></div>` : ''}
+        `}
       </td>
     </tr>
   `).join('') : '<tr><td colspan="12" style="text-align:center;color:#94A3B8">Nenhum recebimento pendente.</td></tr>';
@@ -7966,32 +7972,80 @@ window.abrirModalConferenciaFisica = (recId) => {
   window.showModal(`🔍 Conferência Física de Carga — Pedido ${rec.numeroPedido}`, content, '750px');
 };
 
+// Entrada de mercadoria conferida no Estoque Central. Ponto ÚNICO de entrada de
+// um recebimento — mantém alinhados: estoque físico consolidado (DATA.products,
+// lido pelo Inventário e Dashboard), o Estoque Central vigente + rastreabilidade
+// de lote (getCentralStock, card "Estoque Central Vigente") e o saldo do empenho.
+// Marca rec.entradaRealizada para não dar entrada em dobro (RN01 → RN04).
+window._darEntradaEstoqueRecebimento = (rec, confFisica) => {
+  const qtdOk = Number(confFisica.qtdOk) || 0;
+  if (qtdOk <= 0) return false;
+
+  rec.qtdEntregue = (rec.qtdEntregue || 0) + qtdOk;
+  rec.qtdPendente = Math.max(0, (rec.qtdSolicitada || 0) - rec.qtdEntregue);
+  rec.status = rec.qtdPendente === 0 ? 'Recebido' : 'Recebido parcialmente';
+  rec.entradaRealizada = true;
+
+  // 1. Estoque físico consolidado (Inventário / Dashboard) — DATA.products é a fonte
+  const prod = (typeof DATA !== 'undefined' && DATA.products || []).find(p => p.name.includes(rec.produto.split(' ')[0]));
+  if (prod) prod.stock = (prod.stock || 0) + qtdOk;
+
+  // 2. Estoque Central vigente + lote (card "Estoque Central Vigente (via NFs Recebidas)")
+  SharedState._data.centralStock = SharedState._data.centralStock || {};
+  const cur = SharedState._data.centralStock[rec.produto] || { qtd: 0, unidade: (prod && prod.unit) || 'un', lotes: [] };
+  cur.qtd = (cur.qtd || 0) + qtdOk;
+  (cur.lotes = cur.lotes || []).push({ lote: confFisica.lote || rec.loteEsperado, qtd: qtdOk, validade: confFisica.validade || rec.validadeEsperada, entrada: new Date().toISOString().slice(0, 10) });
+  SharedState._data.centralStock[rec.produto] = cur;
+
+  // 3. Baixa do saldo do empenho
+  const emp = SharedState.getEmpenhos2 ? SharedState.getEmpenhos2().find(x => x.numero_empenho === rec.numeroEmpenho) : null;
+  if (emp) {
+    emp.valor_liquidado = (emp.valor_liquidado || 0) + (qtdOk * 5.0);
+    emp.status = emp.valor_liquidado >= emp.valor_empenhado ? 'Liquidado' : 'Emitido';
+  }
+
+  SharedState.registrarLogAuditoria({
+    acao: 'Entrada no Estoque Central (Conferência RN01/RN04)',
+    produto: rec.produto,
+    quantidade: qtdOk,
+    origem: `Fornecedor: ${rec.fornecedor}`,
+    destino: 'Estoque Central SEMED',
+    motivo: `Entrada de ${qtdOk} un do lote ${confFisica.lote || rec.loteEsperado}. Empenho ${rec.numeroEmpenho} atualizado.`
+  });
+  SharedState._persist();
+  if (SharedState._emit) SharedState._emit('recebimento:entrada', rec);
+  return true;
+};
+
 window.salvarConferenciaFisica = (e, recId) => {
-  e.preventDefault();
-  const recs = SharedState.getRecebimentosPendentes();
-  const rec = recs.find(r => r.id === recId);
+  if (e && e.preventDefault) e.preventDefault();
+  const rec = SharedState.getRecebimentosPendentes().find(r => r.id === recId);
   if (!rec) return;
 
   const qtdOk = Number(document.getElementById('conf-qtd-ok').value) || 0;
   const qtdRec = Number(document.getElementById('conf-qtd-recusada').value) || 0;
   const lote = document.getElementById('conf-lote').value;
   const validade = document.getElementById('conf-validade').value;
+  const integridade = (document.getElementById('conf-integridade') || {}).value || 'Perfeita';
   const obs = document.getElementById('conf-obs').value;
 
-  rec.conferenciaFisica = { qtdOk, qtdRec, lote, validade, obs, data: new Date().toISOString() };
-  rec.status = qtdRec > 0 ? 'Aguardando ajuste' : 'Em conferência';
-  SharedState._persist();
+  rec.conferenciaFisica = { qtdOk, qtdRec, lote, validade, integridade, obs, data: new Date().toISOString() };
+  if (qtdRec > 0 || integridade === 'Danificada') {
+    (rec.divergencias = rec.divergencias || []).push({ qtdRec, integridade, obs, data: new Date().toISOString() });
+  }
 
-  SharedState.registrarLogAuditoria({
-    acao: 'Conferência Física de Mercadoria (RN01)',
-    produto: rec.produto,
-    quantidade: qtdOk,
-    origem: `Fornecedor: ${rec.fornecedor}`,
-    destino: 'Almoxarifado Central SEMED',
-    motivo: `Conferência Física realizada. Qtd Aprovada: ${qtdOk}, Qtd Recusada: ${qtdRec}. Lote: ${lote}`
-  });
+  if (qtdOk > 0) {
+    // Conferência aprovada DÁ ENTRADA no estoque (o que foi conferido entra).
+    window._darEntradaEstoqueRecebimento(rec, { qtdOk, lote, validade });
+    showToast(rec.qtdPendente === 0
+      ? `✅ Conferência gravada — ${qtdOk.toLocaleString('pt-BR')} un de ${rec.produto} deram ENTRADA no Estoque Central. Pedido ${rec.numeroPedido} recebido.`
+      : `✅ Entrada parcial de ${qtdOk.toLocaleString('pt-BR')} un de ${rec.produto} no Estoque Central. Saldo pendente: ${rec.qtdPendente.toLocaleString('pt-BR')}.`);
+  } else {
+    rec.status = 'Aguardando ajuste';
+    SharedState._persist();
+    showToast(`⚠️ Conferência registrada sem quantidade aprovada — pedido ${rec.numeroPedido} aguardando ajuste do fornecedor.`);
+  }
 
-  showToast(`✅ Conferência física gravada com sucesso para o pedido ${rec.numeroPedido}!`);
   closeModal();
   const container = document.getElementById('page-content');
   if (container && PAGE_RENDERERS['gestor_recebimentos-pendentes']) PAGE_RENDERERS['gestor_recebimentos-pendentes'](container);
@@ -8092,39 +8146,21 @@ window.notificarDivergenciaFornecedor = (recId) => {
 };
 
 window.aprovarEntradaFinalEstoque = (recId) => {
-  const recs = SharedState.getRecebimentosPendentes();
-  const rec = recs.find(r => r.id === recId);
+  const rec = SharedState.getRecebimentosPendentes().find(r => r.id === recId);
   if (!rec) return;
 
+  if (rec.entradaRealizada) {
+    showToast(`ℹ️ Pedido ${rec.numeroPedido} já teve entrada no Estoque Central — sem nova baixa.`);
+    closeModal();
+    const c = document.getElementById('page-content');
+    if (c && PAGE_RENDERERS['gestor_recebimentos-pendentes']) PAGE_RENDERERS['gestor_recebimentos-pendentes'](c);
+    return;
+  }
+
   const confFisica = rec.conferenciaFisica || { qtdOk: rec.qtdPendente, lote: rec.loteEsperado, validade: rec.validadeEsperada };
+  // Mesmo ponto de entrada usado pela Conferência Física (estoque central + empenho + lote).
+  window._darEntradaEstoqueRecebimento(rec, confFisica);
 
-  rec.qtdEntregue = (rec.qtdEntregue || 0) + confFisica.qtdOk;
-  rec.qtdPendente = Math.max(0, rec.qtdSolicitada - rec.qtdEntregue);
-  rec.status = rec.qtdPendente === 0 ? 'Recebido' : 'Recebido parcialmente';
-
-  // 1. Atualiza estoque central
-  const prod = SharedState.getProducts().find(p => p.name.includes(rec.produto.split(' ')[0]));
-  if (prod) {
-    prod.stock = (prod.stock || 0) + confFisica.qtdOk;
-  }
-
-  // 2. Atualiza saldo do empenho
-  const emp = SharedState.getEmpenhos2().find(e => e.numero_empenho === rec.numeroEmpenho);
-  if (emp) {
-    emp.valor_liquidado = (emp.valor_liquidado || 0) + (confFisica.qtdOk * 5.0);
-    emp.status = emp.valor_liquidado >= emp.valor_empenhado ? 'Liquidado' : 'Emitido';
-  }
-
-  SharedState.registrarLogAuditoria({
-    acao: 'Entrada Aprovada no Estoque Central (RN04/RN05)',
-    produto: rec.produto,
-    quantidade: confFisica.qtdOk,
-    origem: `Fornecedor: ${rec.fornecedor} (NF-e Liberada)`,
-    destino: 'Estoque Central SEMED',
-    motivo: `Conferência Final Aprovada. Entrada de ${confFisica.qtdOk} unidades do Lote ${confFisica.lote}. Saldo de Empenho atualizado.`
-  });
-
-  SharedState._persist();
   showToast(`🎉 Entrada de ${confFisica.qtdOk} unidades aprovada no Estoque Central! Empenho ${rec.numeroEmpenho} atualizado.`);
   closeModal();
   const container = document.getElementById('page-content');
