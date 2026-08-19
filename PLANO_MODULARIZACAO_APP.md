@@ -45,7 +45,9 @@ Todo o restante do plano foi executado e validado (suíte Playwright 82/82 + smo
   - Esqueleto morto do `gestor.js` removido.
   - Adicionado `tests/smoke-renderers.spec.js` (itera todas as chaves de `PAGE_RENDERERS`).
 
-**Nota de ordem de carga (importante):** o Hub carrega **depois** dos 6 módulos, não antes como no rascunho da Fase 5 abaixo. Motivo: `estoque.js` e `nutricao.js` ainda têm handlers `window.*` duplicados que, se carregados por último, sombreariam as versões reais do ex-`app.js`. Com o Hub por último, as funções reais prevalecem (paridade com produção). Limpeza desses handlers duplicados nos módulos fica como refinamento futuro (hoje são dead code corretamente sombreado).
+**Nota de ordem de carga (importante):** o Hub carrega **depois** dos 6 módulos, não antes como no rascunho da Fase 5 abaixo. Motivo original: `estoque.js` e `nutricao.js` tinham handlers `window.*` duplicados que, se carregados por último, sombreariam as versões reais do ex-`app.js`. Com o Hub por último, as funções reais prevalecem (paridade com produção).
+
+**Atualização (`fase5.1`):** os 12 handlers `window.*` duplicados nesses dois módulos eram esqueletos mortos e foram **removidos** — o `core_hub.js` é a fonte única. Não há mais colisão `window.*` módulo↔Hub, então a ordem de carga deixou de ser um ponto frágil (o Hub segue por último por consistência, mas já não depende disso). Validado: 82/82 + smoke 111/0.
 
 ---
 
