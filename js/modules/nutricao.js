@@ -851,4 +851,874 @@
     showToast('📱 Notificações de Ordens de Serviço disparadas com sucesso.', 'success');
   };
 
+
+  // === Migrado do app.js (Fase 4) ===
+  PAGE_RENDERERS.nutricionista_dashboard = (el) => {
+    const totalStudents = DATA.schools.reduce((a, s) => a + s.students, 0);
+    el.innerHTML = `
+      <div class="page-header"><div class="page-title">Dashboard Nutricional</div><div class="page-subtitle">Planejamento e acompanhamento nutricional da rede municipal</div></div>
+      <div class="kpi-grid">
+        <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${DATA.schools.length}</div><div class="kpi-label">Escolas Atendidas</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">👨‍🎓</div><div class="kpi-value">${(totalStudents/1000).toFixed(1)}K</div><div class="kpi-label">Alunos Atendidos</div></div>
+        <div class="kpi-card teal"><div class="kpi-icon">🍽️</div><div class="kpi-value">4</div><div class="kpi-label">Cardápios Ativos</div></div>
+        <div class="kpi-card blue"><div class="kpi-icon">📊</div><div class="kpi-value">43.200</div><div class="kpi-label">Consumo Previsto (kg)</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">📈</div><div class="kpi-value">41.600</div><div class="kpi-label">Consumo Real (kg)</div></div>
+        <div class="kpi-card red"><div class="kpi-icon">🗑️</div><div class="kpi-value">3,7%</div><div class="kpi-label">Índice de Desperdício</div><div class="kpi-trend down">▼ -0,5% vs mês anterior</div></div>
+      </div>
+      <div class="grid-2-1">
+        <div class="card"><div class="card-header"><div class="card-title">📈 Consumo Previsto vs Real</div></div>
+          <div class="card-body"><div class="chart-container h-300"><canvas id="chart-nutri-consumo"></canvas></div></div>
+        </div>
+        <div class="card"><div class="card-header"><div class="card-title">🚨 Alertas Nutricionais</div></div>
+          <div class="card-body">
+            <div class="alert-list">
+              <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>5 produtos</strong> com estoque insuficiente para o cardápio vigente</div></div>
+              <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>Cardápio Julho</strong> sem cobertura completa de ingredientes</div></div>
+              <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>3 escolas</strong> com consumo 20% abaixo do previsto</div></div>
+              <div class="alert-item info"><span class="alert-icon">🤖</span><div class="alert-text"><strong>IA sugere:</strong> Substituir Maçã por Banana Prata (safra atual)</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="ia-card" style="margin-top:24px">
+        <div class="ia-card-title">🤖 IA Nutricional <span class="ia-badge">SUGESTÕES</span></div>
+        <div class="ia-suggestion">🔄 Substituir <strong>Melancia</strong> por <strong>Manga Tommy</strong> — safra atual com 18% menos custo</div>
+        <div class="ia-suggestion">📉 Reduzir porção de <strong>Arroz</strong> de 120g para 110g — economia de 3.200 kg/mês sem impacto nutricional</div>
+        <div class="ia-suggestion">🌾 Priorizar <strong>Mandioca</strong> e <strong>Batata Doce</strong> — alta disponibilidade na agricultura familiar</div>
+      </div>
+    `;
+    setTimeout(() => {
+      createChart('chart-nutri-consumo', {
+        type: 'line',
+        data: {
+          labels: DATA.months.slice(0, 6),
+          datasets: [
+            { label: 'Previsto (kg)', data: [42000, 38500, 45200, 41800, 43900, 43200], borderColor: CHART_COLORS.blue, backgroundColor: CHART_COLORS.blueFill, fill: true, tension: 0.4 },
+            { label: 'Real (kg)', data: [40800, 37200, 44100, 40500, 42300, 41600], borderColor: CHART_COLORS.green, tension: 0.4 },
+          ]
+        },
+        options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { position: 'bottom' } } }
+      });
+    }, 100);
+  };
+
+  PAGE_RENDERERS.nutricionista_fichas = (el) => {
+    const todas = mergeFichas();
+    const salvas = todas.length - _FICHAS_DEMO.length;
+  
+    el.innerHTML = `
+      <div class="page-header"><div class="page-title">Fichas Técnicas de Preparação</div><div class="page-subtitle">Gestão de receitas, ingredientes e cálculo nutricional (Padrão FNDE/PNAE)</div></div>
+  
+      <div class="card mb-24">
+        <div class="card-body" style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap">
+          <div class="header-search-box" style="flex:1;max-width:300px;margin:0">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <input type="search" id="search-fichas" placeholder="Buscar receita..." oninput="filterFichas()" style="width:100%">
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:0.8rem;color:var(--text-secondary)">${salvas} salva${salvas !== 1 ? 's' : ''} + ${_FICHAS_DEMO.length} demo</span>
+            <button class="btn btn-outline" onclick="PAGE_RENDERERS.nutricionista_simulacoes(document.getElementById('page-content'))">🔬 Simular Enquadramento PNAE</button>
+            <button class="btn btn-primary" onclick="showCreateFichaForm(true)" style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%);border:none;box-shadow:0 2px 8px rgba(2,132,199,0.25)">🤖 Gerar Ficha Técnica com IA (Estoque)</button>
+            <button class="btn btn-outline" onclick="showCreateFichaForm()">+ Nova Ficha Manual</button>
+          </div>
+        </div>
+      </div>
+  
+      <div id="fichas-container" class="grid-3 mb-24">
+        ${todas.map(_renderFichaCard).join('')}
+      </div>
+    `;
+  };
+
+  PAGE_RENDERERS.nutricionista_produtos = (el) => {
+    const alimentos = (typeof DATA !== 'undefined' && DATA.alimentos) ? DATA.alimentos :
+                      (typeof ALIMENTOS_PNAE !== 'undefined' ? ALIMENTOS_PNAE : []);
+    const categorias = [...new Set(alimentos.map(a => a.category))].sort();
+  
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">Tabela de Alimentos PNAE</div>
+        <div class="page-subtitle">Base oficial FNDE/TACO — ${alimentos.length} alimentos com composição nutricional por 100g</div>
+      </div>
+  
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+        <div class="kpi-card blue"><div class="kpi-icon">🥗</div><div class="kpi-value">${alimentos.length}</div><div class="kpi-label">Alimentos Cadastrados</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">🏷️</div><div class="kpi-value">${categorias.length}</div><div class="kpi-label">Categorias</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">🌾</div><div class="kpi-value">${alimentos.filter(a=>a.family_farm).length}</div><div class="kpi-label">Agricultura Familiar</div></div>
+        <div class="kpi-card teal"><div class="kpi-icon">📊</div><div class="kpi-value">TACO/IBGE</div><div class="kpi-label">Fonte dos Dados</div></div>
+      </div>
+  
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Catálogo de Alimentos</div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <select id="filter-cat" style="padding:6px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem;background:var(--surface-1)">
+              <option value="">Todas as categorias</option>
+              ${categorias.map(c => `<option value="${c}">${c}</option>`).join('')}
+            </select>
+            <div style="display:flex;align-items:center;gap:6px;background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius-md);padding:0 12px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/><path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <input type="search" id="search-alimentos" placeholder="Buscar alimento ou código..." style="border:none;background:none;padding:8px 0;font-size:0.85rem;outline:none;width:240px">
+            </div>
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div id="alimentos-table-wrap" style="overflow-x:auto">
+            <table class="data-table" id="alimentos-table">
+              <thead>
+                <tr>
+                  <th style="width:100px">Código</th>
+                  <th>Nome do Alimento</th>
+                  <th>Categoria</th>
+                  <th style="text-align:right">Kcal/100g</th>
+                  <th style="text-align:right">Prot. (g)</th>
+                  <th style="text-align:right">Lip. (g)</th>
+                  <th style="text-align:right">Carb. (g)</th>
+                  <th style="text-align:right">Sódio (mg)</th>
+                  <th>Ag. Familiar</th>
+                </tr>
+              </thead>
+              <tbody id="alimentos-tbody"></tbody>
+            </table>
+          </div>
+          <div id="alimentos-pagination" style="display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-top:1px solid var(--border);font-size:0.82rem;color:var(--text-secondary)">
+            <span id="alimentos-info"></span>
+            <div style="display:flex;gap:6px">
+              <button id="btn-prev-al" class="btn btn-ghost btn-sm">‹ Anterior</button>
+              <span id="alimentos-pages" style="display:flex;gap:4px"></span>
+              <button id="btn-next-al" class="btn btn-ghost btn-sm">Próximo ›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  
+    // ── Pagination state ──
+    let currentPage = 1;
+    const PAGE_SIZE = 25;
+    let filtered = alimentos;
+  
+    function renderTable() {
+      const tbody = document.getElementById('alimentos-tbody');
+      if (!tbody) return;
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const slice = filtered.slice(start, start + PAGE_SIZE);
+      const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  
+      tbody.innerHTML = slice.map(a => `
+        <tr>
+          <td><span style="font-family:var(--font-mono,monospace);font-size:0.78rem;background:var(--primary-50);color:var(--primary);padding:2px 8px;border-radius:4px;font-weight:600">${a.code}</span></td>
+          <td style="font-weight:500;max-width:280px">${a.name}</td>
+          <td><span class="status-badge status-info" style="font-size:0.72rem">${a.category}</span></td>
+          <td style="text-align:right;font-weight:600;color:var(--primary)">${a.kcal_per_100g || 0}</td>
+          <td style="text-align:right">${a.protein_per_100g || 0}</td>
+          <td style="text-align:right">${a.fat_per_100g || 0}</td>
+          <td style="text-align:right">${a.carb_per_100g || 0}</td>
+          <td style="text-align:right">${a.sodium_per_100g || 0}</td>
+          <td style="text-align:center">${a.family_farm ? '<span style="color:#2E7D32;font-weight:600">✓ Sim</span>' : '<span style="color:#94A3B8">Não</span>'}</td>
+        </tr>
+      `).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--text-secondary);padding:32px">Nenhum alimento encontrado</td></tr>';
+  
+      // Info
+      const infoEl = document.getElementById('alimentos-info');
+      if (infoEl) infoEl.textContent = `Exibindo ${start+1}–${Math.min(start+PAGE_SIZE, filtered.length)} de ${filtered.length} alimentos`;
+  
+      // Page buttons
+      const pagesEl = document.getElementById('alimentos-pages');
+      if (pagesEl) {
+        const showPages = [];
+        for (let p = Math.max(1, currentPage-2); p <= Math.min(totalPages, currentPage+2); p++) showPages.push(p);
+        pagesEl.innerHTML = showPages.map(p =>
+          `<button onclick="window._setAlPage(${p})" style="width:30px;height:30px;border-radius:6px;border:1px solid var(--border);background:${p===currentPage?'var(--primary)':'var(--surface-1)'};color:${p===currentPage?'white':'inherit'};cursor:pointer;font-size:0.8rem">${p}</button>`
+        ).join('');
+      }
+  
+      const prevBtn = document.getElementById('btn-prev-al');
+      const nextBtn = document.getElementById('btn-next-al');
+      if (prevBtn) prevBtn.disabled = currentPage === 1;
+      if (nextBtn) nextBtn.disabled = currentPage === totalPages;
+    }
+  
+    function applyFilters() {
+      const search = (document.getElementById('search-alimentos')?.value || '').toLowerCase();
+      const cat = document.getElementById('filter-cat')?.value || '';
+      filtered = alimentos.filter(a => {
+        const matchCat = !cat || a.category === cat;
+        const matchSearch = !search || a.name.toLowerCase().includes(search) || a.code.toLowerCase().includes(search);
+        return matchCat && matchSearch;
+      });
+      currentPage = 1;
+      renderTable();
+    }
+  
+    window._setAlPage = (p) => { currentPage = p; renderTable(); };
+  
+    document.getElementById('search-alimentos')?.addEventListener('input', applyFilters);
+    document.getElementById('filter-cat')?.addEventListener('change', applyFilters);
+    document.getElementById('btn-prev-al')?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
+    document.getElementById('btn-next-al')?.addEventListener('click', () => { if (currentPage < Math.ceil(filtered.length / PAGE_SIZE)) { currentPage++; renderTable(); } });
+  
+    renderTable();
+  };
+
+  PAGE_RENDERERS.nutricionista_cardapios = (el) => {
+    const readOnly = state.currentProfile === 'escola';
+    const sharedMenus = SharedState.getMenus();
+    const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]').map((c, i) => ({
+      id: 'legacy-' + i,
+      nome: c.nome,
+      periodo: c.periodo,
+      escolas: c.escolas === 'Todas' ? ((DATA.schools||[]).length || 183) : (parseInt(c.escolas) || 0),
+      status: c.status,
+      autor: c.autor || 'Dra. Lilian Droppa',
+      criadoEm: c.criadoEm || '2026-06-25',
+    }));
+    const allCardapios = [...legacy, ...sharedMenus];
+    const totalSchools = (DATA.schools||[]).length || 183;
+  
+    // Separar em Elaboração x Publicados
+    const emElaboracao = allCardapios.filter(c => c.status !== 'Publicado');
+    const publicados    = allCardapios.filter(c => c.status === 'Publicado');
+  
+    // Helper para linha da tabela principal
+    const _row = (c, i, allowEdit, allowPublish) => {
+      const periodoStr = c.periodo || `${(c.data_inicio||'').split('-').reverse().join('/')} a ${(c.data_fim||'').split('-').reverse().join('/')}`;
+      return `
+        <tr>
+          <td>
+            <span class="tag tag-blue" style="font-size:0.75rem; font-family:var(--font-mono); margin-right:4px;">${c.codigoCardapio || 'CARD-2026/08-101'}</span>
+            <strong>${c.nome}</strong>
+          </td>
+          <td>${periodoStr}</td>
+          <td style="font-family:var(--font-mono)">${c.escolas || '—'}</td>
+          <td style="font-size:0.82rem">${c.autor || '—'} <span style="font-size:0.7rem; color:#64748b;">(${c.criadoPorUserId || 'ID-002'})</span></td>
+          <td>
+            <div style="display:flex;gap:4px;flex-wrap:wrap">
+              <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(c.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
+              ${allowEdit ? `<button class="table-action" onclick="editarCardapio('${c.id || i}')">✏️ Editar</button>` : ''}
+              ${allowPublish && !readOnly ? `<button class="table-action" style="color:#16a34a;font-weight:700;border:1px solid #16a34a;border-radius:4px;padding:2px 8px" onclick="window.publicarCardapio('${c.id || i}')">🚀 Publicar</button>` : ''}
+              ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${c.id || i}')">🗑️ Excluir</button>` : ''}
+            </div>
+          </td>
+        </tr>`;
+    };
+  
+    const _emptyRow = (cols, msg) =>
+      `<tr><td colspan="${cols}" style="text-align:center;padding:24px;color:var(--text-secondary);font-style:italic">${msg}</td></tr>`;
+  
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">${readOnly ? 'Cardápios da Rede' : 'Gestão de Cardápios'}</div>
+        <div class="page-subtitle">${readOnly ? 'Cardápios elaborados pela Nutricionista SEMED e distribuídos à sua escola' : 'Elaboração, publicação, edição e exclusão de cardápios escolares'}</div>
+      </div>
+  
+      ${!readOnly ? `
+      <div class="card mb-24">
+        <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-weight:600">Planejador de Cardápios</div>
+            <div style="font-size:0.82rem;color:var(--text-secondary)">Cardápios publicados aqui aparecem imediatamente nas ${totalSchools} escolas da rede e no painel do Gestor</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <button class="btn btn-secondary" onclick="window.abrirRelatorioMensal4Paginas()">📄 Relatório Mensal (4 Páginas/Mês)</button>
+            <button class="btn btn-primary" onclick="showMenuPlanner()">+ Abrir Planejador Semanal</button>
+          </div>
+        </div>
+      </div>` : `
+      <div class="card mb-24" style="border-left:4px solid var(--primary)">
+        <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+          <div>
+            <div style="font-weight:700">📖 Cardápios recebidos da SEMED</div>
+            <div style="font-size:0.82rem;color:var(--text-secondary)">Visão somente leitura — apenas a Nutricionista SEMED pode editar</div>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('escola','planejamento')">Ver Planejamento Semanal →</button>
+        </div>
+      </div>`}
+  
+      <!-- SEÇÃO 1: Em Elaboração -->
+      <div class="card mb-24">
+        <div class="card-header">
+          <div class="card-title">✏️ Cardápios em Elaboração</div>
+          <span class="status-badge status-info">${emElaboracao.length}</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Autor</th><th>Ações</th></tr></thead><tbody>
+            ${emElaboracao.length > 0
+              ? emElaboracao.map((c, i) => _row(c, i, true, true)).join('')
+              : _emptyRow(5, 'Nenhum cardápio em elaboração no momento')}
+          </tbody></table>
+        </div>
+      </div>
+  
+      <!-- SEÇÃO 2: Publicados -->
+      <div class="card mb-24">
+        <div class="card-header">
+          <div class="card-title">✅ Cardápios Publicados</div>
+          <span class="status-badge status-ok">${publicados.length}</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Escolas Vinculadas</th><th>Autor</th><th>Ações</th></tr></thead><tbody>
+            ${publicados.length > 0
+              ? publicados.map((c, i) => _row(c, i, false, false)).join('')
+              : _emptyRow(5, 'Nenhum cardápio publicado ainda')}
+          </tbody></table>
+        </div>
+      </div>
+  
+    `;
+  };
+
+  PAGE_RENDERERS.nutricionista_estoquesual = (el) => {
+    const products = DATA.products || [];
+    const zerados = products.filter(p => (p.stock || 0) === 0);
+    const emRisco = products.filter(p => (p.daysLeft || 0) > 0 && (p.daysLeft || 0) <= 5);
+    const afItens = products.filter(p => p.familyFarm);
+  
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">📦 Estoque Consolidado SUAL (Modo Leitura — Nutrição)</div>
+        <div class="page-subtitle">Acompanhamento dos níveis de estoque central, risco de desabastecimento e itens zerados sem movimentação física</div>
+      </div>
+  
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+        <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${products.length}</div><div class="kpi-label">Itens no Catálogo SUAL</div></div>
+        <div class="kpi-card red"><div class="kpi-icon">🚫</div><div class="kpi-value">${zerados.length}</div><div class="kpi-label">Itens Zerados</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${emRisco.length}</div><div class="kpi-label">Em Risco (< 5 dias)</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">🌽</div><div class="kpi-value">${afItens.length}</div><div class="kpi-label">Agricultura Familiar</div></div>
+      </div>
+  
+      <div class="card mb-24">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">🔍 Consulta de Insumos da Central SUAL</div>
+          <div style="font-size:0.82rem;color:var(--text-secondary);background:#f1f5f9;padding:4px 12px;border-radius:20px">
+            🔒 Perfil Nutricionista: Visualização em tempo real (Sem permissão de baixa)
+          </div>
+        </div>
+        <div class="card-body" style="padding:0">
+          <div style="overflow-x:auto">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Produto / Insumo</th>
+                  <th>Categoria</th>
+                  <th>Origem</th>
+                  <th>Estoque Atual</th>
+                  <th>Consumo Médio/Dia</th>
+                  <th>Autonomia Estimada</th>
+                  <th>Status SUAL</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${products.map(p => {
+                  const isZero = (p.stock || 0) === 0;
+                  const isLow = (p.daysLeft || 0) <= 5 && !isZero;
+                  const statusBadge = isZero
+                    ? '<span class="status-badge status-danger">Zerado</span>'
+                    : isLow
+                    ? '<span class="status-badge status-warning">Risco (< 5 dias)</span>'
+                    : '<span class="status-badge status-ok">OK</span>';
+  
+                  return `
+                    <tr style="${isZero ? 'background:#fef2f2' : isLow ? 'background:#fffbe6' : ''}">
+                      <td><strong>${p.name}</strong></td>
+                      <td><span class="tag tag-blue">${p.category}</span></td>
+                      <td>${p.familyFarm ? '<span style="color:#2E7D32;font-weight:700">🌽 Agric. Familiar</span>' : 'Pregão Central'}</td>
+                      <td style="font-family:var(--font-mono);font-weight:700">${(p.stock || 0).toLocaleString('pt-BR')} ${p.unit}</td>
+                      <td style="font-family:var(--font-mono)">${p.avgConsume || 0} ${p.unit}/dia</td>
+                      <td style="font-family:var(--font-mono);font-weight:700;color:${isZero ? 'var(--danger)' : isLow ? '#c2410c' : '#1565C0'}">
+                        ${isZero ? '0 dias (Esgotado)' : `${p.daysLeft} dias`}
+                      </td>
+                      <td>${statusBadge}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  PAGE_RENDERERS.nutricionista_planejamento = (el) => {
+    PAGE_RENDERERS.gestor_planejamento(el);
+    const header = el.querySelector('.page-header');
+    if (header) {
+      header.insertAdjacentHTML('afterend', `<div style="background:var(--warning-light);border:1px solid var(--warning);padding:12px;border-radius:var(--radius-md);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;"><div><strong>⚠️ Área em Validação:</strong> Esta tela de planejamento está em fase de testes e co-criação com a equipe de nutrição.</div><button class="btn btn-primary btn-sm" onclick="alert('Formulário de feedback da Nutricionista aberto!')">Dar Feedback</button></div>`);
+    }
+  };
+
+  PAGE_RENDERERS.nutricionista_consumo = (el) => {
+    // Consolida todos os registros de consumo do SharedState
+    const todos = SharedState.getConsumo();
+    const porProduto = {};
+    const porEscola = {};
+    todos.forEach(c => {
+      porProduto[c.produto] = (porProduto[c.produto] || 0) + (c.qtd || 0);
+      porEscola[c.escola] = (porEscola[c.escola] || 0) + (c.qtd || 0);
+    });
+    const rankProdutos = Object.entries(porProduto).sort((a,b) => b[1]-a[1]).slice(0, 10);
+    const rankEscolas = Object.entries(porEscola).sort((a,b) => b[1]-a[1]).slice(0, 10);
+    const totalKg = todos.reduce((s,c) => s + (c.qtd||0), 0);
+  
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">Monitoramento de Consumo</div>
+        <div class="page-subtitle">Consolidação em tempo real dos registros das escolas · Comparativo previsto vs realizado</div>
+      </div>
+  
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
+        <div class="kpi-card blue"><div class="kpi-icon">📝</div><div class="kpi-value">${todos.length}</div><div class="kpi-label">Registros das Escolas</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">⚖️</div><div class="kpi-value">${totalKg.toLocaleString('pt-BR')}</div><div class="kpi-label">Total Consumido</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">🏫</div><div class="kpi-value">${Object.keys(porEscola).length}</div><div class="kpi-label">Escolas Reportando</div></div>
+        <div class="kpi-card teal"><div class="kpi-icon">🥕</div><div class="kpi-value">${Object.keys(porProduto).length}</div><div class="kpi-label">Produtos Diferentes</div></div>
+      </div>
+  
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">🥇 Produtos Mais Consumidos (Real)</div></div>
+          <div class="card-body" style="padding:0">
+            <table class="data-table"><thead><tr><th>Produto</th><th>Total</th><th>%</th></tr></thead><tbody>
+              ${rankProdutos.map(([p, q]) => {
+                const pct = totalKg > 0 ? Math.round(q / totalKg * 100) : 0;
+                return `<tr>
+                  <td><strong>${p}</strong></td>
+                  <td style="font-family:var(--font-mono)">${q.toLocaleString('pt-BR')}</td>
+                  <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="width:60px"><div class="progress-fill blue" style="width:${pct}%"></div></div><span style="font-family:var(--font-mono);font-size:0.78rem">${pct}%</span></div></td>
+                </tr>`;
+              }).join('') || '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-secondary)">Aguardando registros das escolas</td></tr>'}
+            </tbody></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🏫 Consumo por Escola</div></div>
+          <div class="card-body" style="padding:0">
+            <table class="data-table"><thead><tr><th>Escola</th><th>Total</th><th>Registros</th></tr></thead><tbody>
+              ${rankEscolas.map(([e, q]) => {
+                const n = todos.filter(c => c.escola === e).length;
+                return `<tr>
+                  <td><strong>${e}</strong></td>
+                  <td style="font-family:var(--font-mono)">${q.toLocaleString('pt-BR')}</td>
+                  <td style="font-family:var(--font-mono)">${n}</td>
+                </tr>`;
+              }).join('') || '<tr><td colspan="3" style="text-align:center;padding:24px;color:var(--text-secondary)">—</td></tr>'}
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+  
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><div class="card-title">📋 Registros Recentes</div>${todos.length ? '<span class="status-badge status-ok">'+todos.length+'</span>' : ''}</div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Data</th><th>Escola</th><th>Refeição</th><th>Produto</th><th>Qtd</th><th>Responsável</th></tr></thead>
+            <tbody>
+              ${todos.slice(0, 15).map(c => `
+                <tr>
+                  <td style="font-size:0.82rem">${c.data || (c.criadoEm||'').slice(0,10)}</td>
+                  <td>${c.escola}</td>
+                  <td>${c.refeicao || '—'}</td>
+                  <td><strong>${c.produto}</strong></td>
+                  <td style="font-family:var(--font-mono)">${c.qtd} ${c.unidade || ''}</td>
+                  <td style="font-size:0.82rem">${c.responsavel || '—'}</td>
+                </tr>
+              `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum registro — aguardando escolas registrarem consumo em /consumo</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+  
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><div class="card-title">📊 Previsto vs Realizado (Referência mensal)</div></div>
+        <div class="card-body"><div class="chart-container h-300"><canvas id="chart-comparativo"></canvas></div></div>
+      </div>
+    `;
+    setTimeout(() => {
+      createChart('chart-comparativo', {
+        type: 'bar',
+        data: {
+          labels: ['Arroz', 'Feijão', 'Leite', 'Frango', 'Banana', 'Tomate', 'Cenoura', 'Carne'],
+          datasets: [
+            { label: 'Previsto (kg)', data: [25500, 12600, 36000, 23400, 18000, 12000, 9300, 15600], backgroundColor: CHART_COLORS.blue, borderRadius: 4 },
+            { label: 'Consumido (kg)', data: [24800, 11900, 34200, 22100, 16800, 11200, 9100, 14800], backgroundColor: CHART_COLORS.green, borderRadius: 4 },
+          ]
+        },
+        options: CHART_DEFAULTS
+      });
+    }, 100);
+  };
+
+  PAGE_RENDERERS.nutricionista_desperdicios = (el) => {
+    // Estima desperdício por escola: total recebido (stockAdjust +) - total consumido = sobra estimada
+    const adj = SharedState.getStockAdjust();
+    const consumo = SharedState.getConsumo();
+    const perEsc = {};
+    adj.filter(a => a.delta > 0).forEach(a => {
+      perEsc[a.escola] = perEsc[a.escola] || { recebido: 0, consumido: 0 };
+      perEsc[a.escola].recebido += a.delta;
+    });
+    consumo.forEach(c => {
+      perEsc[c.escola] = perEsc[c.escola] || { recebido: 0, consumido: 0 };
+      perEsc[c.escola].consumido += c.qtd || 0;
+    });
+    const sobras = Object.entries(perEsc).map(([e, d]) => ({ escola: e, recebido: d.recebido, consumido: d.consumido, sobra: Math.max(0, d.recebido - d.consumido) }));
+    const totalSobra = sobras.reduce((s, x) => s + x.sobra, 0);
+    const totalRec = sobras.reduce((s, x) => s + x.recebido, 0);
+    const pctReal = totalRec > 0 ? Math.round(totalSobra / totalRec * 1000) / 10 : 0;
+  
+    el.innerHTML = `
+      <div class="page-header"><div class="page-title">Gestão de Desperdícios</div><div class="page-subtitle">Monitoramento e controle de sobras · Cálculo real: recebido - consumido por escola</div></div>
+  
+      <div class="kpi-grid">
+        <div class="kpi-card red"><div class="kpi-icon">🗑️</div><div class="kpi-value" id="waste-total-pct">${pctReal || '3,7'}%</div><div class="kpi-label">Índice ${pctReal ? 'Real' : 'Estimado'}</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">📊</div><div class="kpi-value" id="waste-total-kg">${totalSobra ? totalSobra.toLocaleString('pt-BR') : '1.598'}</div><div class="kpi-label">kg Sobrando</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">📉</div><div class="kpi-value">${sobras.length}</div><div class="kpi-label">Escolas c/ Registro</div></div>
+      </div>
+  
+      ${sobras.length > 0 ? `
+      <div class="card mb-24">
+        <div class="card-header"><div class="card-title">🏫 Balanço por Escola (Recebido vs Consumido)</div></div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead><tr><th>Escola</th><th>Recebido</th><th>Consumido</th><th>Sobra</th><th>% Sobra</th></tr></thead>
+            <tbody>
+              ${sobras.sort((a,b)=>b.sobra-a.sobra).map(x => {
+                const pct = x.recebido > 0 ? Math.round(x.sobra / x.recebido * 100) : 0;
+                return `<tr>
+                  <td><strong>${x.escola}</strong></td>
+                  <td style="font-family:var(--font-mono)">${x.recebido.toLocaleString('pt-BR')}</td>
+                  <td style="font-family:var(--font-mono);color:var(--success)">${x.consumido.toLocaleString('pt-BR')}</td>
+                  <td style="font-family:var(--font-mono);color:${x.sobra > 0 ? 'var(--warning)' : 'var(--text-secondary)'}">${x.sobra.toLocaleString('pt-BR')}</td>
+                  <td><div style="display:flex;align-items:center;gap:6px"><div class="progress-bar" style="width:60px"><div class="progress-fill ${pct>20?'red':pct>10?'orange':'green'}" style="width:${pct}%"></div></div><span style="font-family:var(--font-mono);font-size:0.78rem">${pct}%</span></div></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>` : ''}
+  
+      <div class="grid-2 mb-24">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Registrar Sobras / Desperdício por Escola</div></div>
+          <div class="card-body">
+            <form id="form-log-waste" onsubmit="handleLogWaste(event)">
+              <div class="form-group">
+                <label>Selecione a Escola</label>
+                ${state.currentProfile === 'escola' ? 
+                  `<input class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:not-allowed" id="waste-school" value="${window.PROFILES[state.currentProfile].role}" readonly>` :
+                  `<select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="waste-school" required>
+                    <option value="EMTI PROF. IRACEMA">EMTI PROFª IRACEMA MARIA VICENTE</option>
+                    <option value="EMRTI GOV. ARNALDO">EMRTI AGRICOLA GOVERNADOR ARNALDO ESTEVAO DE FIGUEREDO</option>
+                    <option value="EM ADV. DEMOSTHENES M.">EM ADV. DEMOSTHENES MARTINS</option>
+                  </select>`
+                }
+              </div>
+              <div class="form-group">
+                <label>Refeição Relacionada</label>
+                <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="waste-meal" required>
+                  <option value="Almoço">Almoço</option>
+                  <option value="Lanche">Lanche</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Quantidade Desperdiçada (kg)</label>
+                <input type="number" id="waste-amount" class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:text" value="15" required>
+              </div>
+              <button type="submit" class="btn btn-danger btn-full" id="btn-submit-waste">Registrar Desperdício</button>
+            </form>
+          </div>
+        </div>
+        
+        <div class="card">
+          <div class="card-header"><div class="card-title">Desperdício por Escola (Top 5)</div></div>
+          <div class="card-body">
+            <div class="chart-container h-250"><canvas id="chart-desperdicio"></canvas></div>
+          </div>
+        </div>
+      </div>
+    `;
+    setTimeout(() => {
+      window.renderWasteChart([245, 198, 176, 162, 148]);
+    }, 100);
+  };
+
+  PAGE_RENDERERS.nutricionista_simulacoes = (el) => {
+    let options = '';
+    for (const key in DRI_TABLE) {
+      options += `<option value="${key}">${DRI_TABLE[key].name}</option>`;
+    }
+    
+    el.innerHTML = `
+      <div class="page-header"><div class="page-title">Simulações de Cardápios & PNAE</div><div class="page-subtitle">Verifique o enquadramento de macronutrientes (% VET) nas diretrizes do FNDE/PNAE</div></div>
+      <div style="background:var(--warning-light);border:1px solid var(--warning);padding:12px;border-radius:var(--radius-md);margin-bottom:20px;display:flex;justify-content:space-between;align-items:center;"><div><strong>⚠️ Área em Validação:</strong> O módulo de simulação e enquadramento PNAE está em fase de testes para validação.</div><button class="btn btn-primary btn-sm" onclick="alert('Formulário de feedback da Nutricionista aberto!')">Dar Feedback</button></div>
+      
+      <div class="grid-2-1 mb-24">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Parâmetros de Simulação</div></div>
+          <div class="card-body">
+            <form id="form-simulation-pnae" onsubmit="runPnaeSimulation(event)">
+              <div class="form-group">
+                <label>Selecione a Modalidade e Referência FNDE</label>
+                <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="sim-preset-modalidade" onchange="updateSimulationPresets()">
+                  ${options}
+                </select>
+              </div>
+              <div class="form-group" style="margin-top:12px">
+                <label>Tipo de Refeição</label>
+                <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="sim-meal-type">
+                  <option value="Desjejum">Desjejum / Café da Manhã</option>
+                  <option value="Almoço">Almoço</option>
+                  <option value="Lanche">Lanche da Tarde</option>
+                </select>
+              </div>
+              
+              <div class="form-group">
+                <label>Energia da Porção (kcal)</label>
+                <input type="number" id="sim-kcal" class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:text" value="303" required>
+              </div>
+              
+              <div class="grid-3">
+                <div class="form-group">
+                  <label>Carboidratos (g)</label>
+                  <input type="number" id="sim-carbs-g" class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:text" value="45" required>
+                </div>
+                <div class="form-group">
+                  <label>Proteínas (g)</label>
+                  <input type="number" id="sim-proteins-g" class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:text" value="8" required>
+                </div>
+                <div class="form-group">
+                  <label>Lipídeos (g)</label>
+                  <input type="number" id="sim-lipids-g" class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:text" value="10" required>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label>Sódio (mg)</label>
+                <input type="number" id="sim-sodium" class="btn btn-outline" style="width:100%;text-align:left;padding:10px;cursor:text" value="280" required>
+              </div>
+              
+              <button type="submit" class="btn btn-primary btn-full" id="btn-run-simulation">Executar Simulação PNAE</button>
+              <button type="button" class="btn btn-outline btn-full" style="margin-top:8px" onclick="window.renderStockSuggestions()">Gerar Sugestões com IA 🤖</button>
+            </form>
+          </div>
+        </div>
+  
+        <div class="card" id="sim-result-card">
+          <div class="card-header"><div class="card-title">Resultado da Simulação</div></div>
+          <div class="card-body" style="display:flex;align-items:center;justify-content:center;min-height:250px">
+            <div style="text-align:center;color:var(--text-tertiary)">
+              <div style="font-size:3rem">🔬</div>
+              <div style="font-weight:600;margin-top:8px">Aguardando Parâmetros</div>
+              <div style="font-size:0.8rem">Selecione uma referência, configure e simule.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+  
+      <div class="card" id="sim-stock-suggestions"></div>
+    `;
+    setTimeout(() => {
+      window.updateSimulationPresets();
+    }, 50);
+  };
+
+  PAGE_RENDERERS.nutricionista_relatorios = (el) => { PAGE_RENDERERS.gestor_relatorios(el); };
+
+  PAGE_RENDERERS.nutricionista_ia = (el) => {
+    // Sugestões dinâmicas: produção AF em alta + produtos críticos
+    const producoes = SharedState.getProductions();
+    const produtosAFAltaOferta = producoes.filter(p => (p.disponivel || 0) > 500).slice(0, 3);
+    const criticos = DATA.products.filter(p => (p.daysLeft || 99) <= 5).slice(0, 3);
+  
+    const sugestoes = [
+      ...produtosAFAltaOferta.map(p => ({
+        titulo: '🌾 Aproveitar Produção Local de ' + p.produto,
+        desc: `${p.agricultor} tem ${p.disponivel} kg de ${p.produto} disponíveis. Considere incorporar no cardápio da semana.`,
+        benef: '✓ Fortalece agricultura familiar / ✓ Preço competitivo / ✓ Frescor garantido',
+      })),
+      ...criticos.map(p => ({
+        titulo: '🔄 Substituir ' + p.name + ' (estoque crítico)',
+        desc: `${p.name} tem apenas ${p.daysLeft} dias de estoque. Sugestão: substituir por produto com maior disponibilidade nas próximas refeições.`,
+        benef: '✓ Evita ruptura no cardápio / ✓ Reduz dependência de reposição urgente',
+      })),
+      { titulo: '🌾 Integração de Tubérculos Familiares', desc: 'Aumentar Mandioca cozida (2x/semana) reduzindo 10g de arroz por porção.', benef: '✓ +12% fibras / ✓ Absorve excedente da AF' },
+    ].slice(0, 6);
+  
+    el.innerHTML = `
+      <div class="page-header"><div class="page-title">IA Nutricional — Assistente Preditivo</div><div class="page-subtitle">Sugestões baseadas em produção real dos agricultores + estoque crítico</div></div>
+  
+      <div class="card mb-24">
+        <div class="card-header"><div class="card-title">🤖 Sugestões do Assistente de IA</div><span class="status-badge status-info">${sugestoes.length}</span></div>
+        <div class="card-body">
+          <div style="display:flex;flex-direction:column;gap:16px">
+            ${sugestoes.map((s, i) => `
+              <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px">
+                <div style="flex:1">
+                  <div style="font-weight:700;font-size:1rem;color:var(--primary)">${s.titulo}</div>
+                  <div style="font-size:0.85rem;color:var(--text-secondary);margin-top:4px">${s.desc}</div>
+                  <div style="font-size:0.8rem;color:var(--success);margin-top:6px;font-weight:600">${s.benef}</div>
+                </div>
+                <div>
+                  <button class="btn btn-primary btn-sm" id="btn-ia-${i}" onclick="applyIaSuggestion(${i})">Aplicar</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  PAGE_RENDERERS.nutricionista_restricoes = (el) => {
+    const restricoes = SharedState.getRestricoes();
+    const schools = DATA.schools || [];
+    const ativos = restricoes.filter(r => r.status === 'ativo');
+    const resolvidos = restricoes.filter(r => r.status === 'resolvido');
+    const tipos = {};
+    ativos.forEach(r => { tipos[r.tipo] = (tipos[r.tipo]||0) + 1; });
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">Restrições Alimentares</div>
+        <div class="page-subtitle">Visão consolidada da rede — ${restricoes.length} registros</div>
+      </div>
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+        <div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value">${ativos.length}</div><div class="kpi-label">Ativas</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${resolvidos.length}</div><div class="kpi-label">Resolvidas</div></div>
+        <div class="kpi-card blue"><div class="kpi-icon">🏫</div><div class="kpi-value">${new Set(ativos.map(r => r.schoolId)).size}</div><div class="kpi-label">Escolas Afetadas</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">🔍</div><div class="kpi-value">${Object.keys(tipos).length}</div><div class="kpi-label">Tipos Distintos</div></div>
+      </div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div class="card-title">Registrar Nova Restrição</div>
+        </div>
+        <div class="card-body">
+          <form id="form-nova-restricao" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end">
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Escola</label>
+              <select id="restr-school" class="form-control" required>
+                <option value="">Selecione</option>
+                ${schools.map(s => `<option value="${s.id}">${s.name}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Tipo</label>
+              <select id="restr-tipo" class="form-control" required>
+                <option value="Alergia alimentar">Alergia alimentar</option>
+                <option value="Intolerância à lactose">Intolerância à lactose</option>
+                <option value="Doença celíaca">Doença celíaca</option>
+                <option value="Diabetes">Diabetes</option>
+                <option value="Restrição religiosa">Restrição religiosa</option>
+                <option value="Vegetariano/Vegano">Vegetariano/Vegano</option>
+                <option value="Outra">Outra</option>
+              </select>
+            </div>
+            <div>
+              <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Qtd. alunos</label>
+              <input type="number" id="restr-qtd" class="form-control" min="1" value="1" required>
+            </div>
+            <button type="submit" class="btn btn-primary" style="height:38px">Registrar</button>
+          </form>
+          <div style="margin-top:8px">
+            <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Observação</label>
+            <input type="text" id="restr-obs" class="form-control" placeholder="Ex: laudo médico apresentado em 10/07">
+          </div>
+        </div>
+      </div>
+      <!-- PAINEL DE ESCOLAS AFETADAS -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><div class="card-title">🏫 Escolas da Rede com Restrições Alimentares</div></div>
+        <div class="card-body">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Unidade Escolar</th>
+                  <th>Região</th>
+                  <th>Total de Alunos c/ Restrição</th>
+                  <th>Tipos Registrados</th>
+                  <th>Status de Alerta</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${schools.map(sc => {
+                  const restrSc = ativos.filter(r => r.schoolId === sc.id || (r.schoolName || '').toLowerCase() === sc.name.toLowerCase());
+                  if (restrSc.length === 0) return '';
+                  const totalQtd = restrSc.reduce((a,b) => a + (b.quantidade||1), 0);
+                  const badges = restrSc.map(r => `<span class="tag tag-orange" style="margin-right:4px">${r.tipo}: ${r.quantidade||1}</span>`).join('');
+                  return `
+                    <tr>
+                      <td><strong>${sc.name}</strong></td>
+                      <td><span class="status-badge" style="background:#f1f5f9;color:#334155">${sc.region}</span></td>
+                      <td style="font-family:var(--font-mono);font-weight:700;color:#c2410c">${totalQtd} Aluno(s)</td>
+                      <td>${badges}</td>
+                      <td><span class="status-badge warning">⚠️ Alerta Ativo</span></td>
+                    </tr>
+                  `;
+                }).filter(Boolean).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">Nenhuma escola com restrição ativa</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Registros Individuais Ativos (${ativos.length})</div></div>
+        <div class="card-body">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>Escola</th><th>Tipo</th><th>Qtd</th><th>Observação</th><th>Registrado por</th><th>Data</th><th>Ação</th></tr></thead>
+              <tbody>
+                ${ativos.length === 0 ? '<tr><td colspan="7" style="text-align:center;color:var(--text-secondary)">Nenhuma restrição ativa</td></tr>' :
+                  ativos.map(r => `
+                    <tr>
+                      <td><strong>${r.schoolName || 'Escola #' + r.schoolId}</strong></td>
+                      <td><span class="tag tag-orange">${r.tipo}</span></td>
+                      <td style="font-family:var(--font-mono)">${r.quantidade || 1}</td>
+                      <td style="font-size:0.82rem">${r.observacao || '—'}</td>
+                      <td style="font-size:0.82rem">${r.registradoPor || '—'}</td>
+                      <td style="font-size:0.82rem">${r.criadoEm ? new Date(r.criadoEm).toLocaleDateString('pt-BR') : '—'}</td>
+                      <td><button class="table-action" onclick="window._resolverRestricao('${r.id}')">Resolver</button></td>
+                    </tr>
+                  `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      ${resolvidos.length > 0 ? `
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><div class="card-title">Resolvidas (${resolvidos.length})</div></div>
+        <div class="card-body">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead><tr><th>Escola</th><th>Tipo</th><th>Qtd</th><th>Resolvido em</th></tr></thead>
+              <tbody>
+                ${resolvidos.map(r => `
+                  <tr style="opacity:0.6">
+                    <td>${r.schoolName || 'Escola #' + r.schoolId}</td>
+                    <td>${r.tipo}</td>
+                    <td>${r.quantidade || 1}</td>
+                    <td>${r.resolvidoEm ? new Date(r.resolvidoEm).toLocaleDateString('pt-BR') : '—'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>` : ''}
+    `;
+    document.getElementById('form-nova-restricao')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const schoolId = parseInt(document.getElementById('restr-school').value, 10);
+      const school = schools.find(s => s.id === schoolId);
+      SharedState.addRestricao({
+        schoolId, schoolName: school ? school.name : 'Escola #' + schoolId,
+        tipo: document.getElementById('restr-tipo').value,
+        quantidade: parseInt(document.getElementById('restr-qtd').value, 10) || 1,
+        observacao: document.getElementById('restr-obs').value,
+        registradoPor: PROFILES.nutricionista.name,
+      });
+      PAGE_RENDERERS.nutricionista_restricoes(el);
+    });
+  };
+
 })();
