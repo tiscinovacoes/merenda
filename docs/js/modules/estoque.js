@@ -6,288 +6,41 @@
 (function() {
   if (!window.PAGE_RENDERERS) window.PAGE_RENDERERS = {};
 
-  // REGISTRO DE RENDERERS DO ESTOQUE CENTRAL (Assinatura: (el) => { el.innerHTML = ...; })
-  //
-  // Regra 6 do PLANO_MODULARIZACAO_APP.md: não registrar chave cuja versão em
-  // app.js é mais completa. As telas de dashboard, entradas/recebimentos-pendentes,
-  // separacao/expedicao-os, carregamento/ordens-entrega e os-central são servidas
-  // pelos módulos de alta fidelidade do Gestor (conferência física RN01, confronto
-  // NF-e, separação FEFO RN06/RN07, motorista/veículo/rota + assinatura digital) —
-  // as versões deste módulo são tabelas simples, sem essas ações. As funções seguem
-  // definidas abaixo, prontas para assumir quando forem migradas de verdade.
-  //
-  // Nenhuma chave registrada por enquanto. As antigas `estoque_lista-compras` e
-  // `estoque_os-fornecedores` foram removidas por decisão do usuário (2026-08-19):
-  // não havia item de menu para elas no perfil Estoque e não devem entrar. As
-  // funções seguem abaixo, prontas para quando/se essas telas forem incorporadas
-  // ao menu do perfil.
-
-  // 1. DASHBOARD ESTOQUE CENTRAL
-  function renderEstoqueDashboard(el) {
-    const products = DATA.products || [];
-    const os = SharedState.getOsEstoqueCentral ? SharedState.getOsEstoqueCentral() : [];
-    const pendentes = os.filter(o => o.status === 'Pendente' || o.status === 'Em Separação');
-    const emRisco = products.filter(p => (p.daysLeft || 0) <= 5);
-
-    el.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Almoxarifado Central SEMED — Campo Grande</div>
-        <div class="page-subtitle">Gestão de recebimentos, expedição de ordens de serviço e controle de inventário</div>
-      </div>
-
-      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-        <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${products.length}</div><div class="kpi-label">Itens no Inventário</div></div>
-        <div class="kpi-card orange"><div class="kpi-icon">⏳</div><div class="kpi-value">${pendentes.length}</div><div class="kpi-label">OS em Separação</div></div>
-        <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${emRisco.length}</div><div class="kpi-label">Itens em Risco (< 5 dias)</div></div>
-        <div class="kpi-card green"><div class="kpi-icon">📥</div><div class="kpi-value">100%</div><div class="kpi-label">Validação NFe XML</div></div>
-      </div>
-
-      <div class="card mb-24">
-        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-          <div class="card-title">📥 Ações de Entrada & Expedição</div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary btn-sm" onclick="window.abrirModalImportarNFeXML()">📥 Receber NF-e via XML</button>
-            <button class="btn btn-outline btn-sm" onclick="window.executarSimulacaoEngine7Passos()">⚡ Rodar Engine Abastecimento</button>
-          </div>
-        </div>
-        <div class="card-body">
-          <p style="font-size:0.88rem;color:var(--text-secondary);margin:0">
-            Dê entrada física de mercadorias no Almoxarifado Central via chave XML ou processe a Engine de 7 Passos para separar insumos destinados às escolas.
-          </p>
-        </div>
-      </div>
-
-      <div class="card">
-        <div class="card-header"><div class="card-title">📋 Ordens de Serviço Recentes no Estoque Central</div></div>
-        <div class="card-body" style="padding:0">
-          <table class="data-table">
-            <thead><tr><th>OS nº</th><th>Tipo</th><th>Produto</th><th>Quantidade</th><th>Destino/Origem</th><th>Status</th></tr></thead>
-            <tbody>
-              ${os.slice(0, 8).map(o => `
-                <tr>
-                  <td><strong>${o.numero_os || 'OS-001'}</strong></td>
-                  <td><span class="tag tag-blue">${o.tipo || 'Entrada'}</span></td>
-                  <td>${o.produto}</td>
-                  <td style="font-family:var(--font-mono);font-weight:700">${o.quantidade} ${o.unidade || 'kg'}</td>
-                  <td>${o.escola_destino || o.fornecedor || 'SEMED Central'}</td>
-                  <td><span class="status-badge ${o.status === 'Recebido' || o.status === 'Entregue' ? 'status-ok' : 'status-warning'}">${o.status || 'Pendente'}</span></td>
-                </tr>
-              `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px">Nenhuma OS registrada</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
-
-  // 2. PRODUTOS / CATÁLOGO
-  function renderEstoqueProdutos(el) {
-    const products = DATA.products || [];
-    el.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Inventário do Estoque Central</div>
-        <div class="page-subtitle">Posição física de insumos, lotes e autonomia estimada</div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Insumos em Estoque</div></div>
-        <div class="card-body" style="padding:0">
-          <table class="data-table">
-            <thead><tr><th>Produto</th><th>Categoria</th><th>Estoque Atual</th><th>Autonomia</th><th>Status</th></tr></thead>
-            <tbody>
-              ${products.map(p => `
-                <tr>
-                  <td><strong>${p.name}</strong></td>
-                  <td><span class="tag tag-blue">${p.category}</span></td>
-                  <td style="font-family:var(--font-mono);font-weight:700">${(p.stock || 0).toLocaleString('pt-BR')} ${p.unit}</td>
-                  <td style="font-family:var(--font-mono)">${p.daysLeft || 30} dias</td>
-                  <td><span class="status-badge ${p.stock === 0 ? 'status-danger' : 'status-ok'}">${p.stock === 0 ? 'Zerado' : 'OK'}</span></td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
-
-  // 3. ENTRADAS / RECEBIMENTOS
-  function renderEstoqueEntradas(el) {
-    const os = SharedState.getOsEstoqueCentral ? SharedState.getOsEstoqueCentral().filter(o => o.tipo === 'Entrada') : [];
-    el.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Recebimento de Mercadorias (Entradas)</div>
-        <div class="page-subtitle">Validação de NF-e e conferência física no Almoxarifado Central</div>
-      </div>
-      <div class="card mb-24">
-        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-          <div class="card-title">📥 Importação de NF-e</div>
-          <button class="btn btn-primary btn-sm" onclick="window.abrirModalImportarNFeXML()">📥 Ler XML de Nota Fiscal</button>
-        </div>
-        <div class="card-body" style="padding:0">
-          <table class="data-table">
-            <thead><tr><th>OS nº</th><th>Fornecedor</th><th>Produto</th><th>Qtd Entregue</th><th>Lote</th><th>Validade</th><th>Status</th></tr></thead>
-            <tbody>
-              ${os.map(o => `
-                <tr>
-                  <td><strong>${o.numero_os}</strong></td>
-                  <td>${o.fornecedor || '—'}</td>
-                  <td>${o.produto}</td>
-                  <td style="font-family:var(--font-mono);font-weight:700">${o.quantidade} ${o.unidade}</td>
-                  <td>${o.lote || '—'}</td>
-                  <td>${o.validade || '—'}</td>
-                  <td><span class="status-badge status-ok">${o.status}</span></td>
-                </tr>
-              `).join('') || '<tr><td colspan="7" style="text-align:center;padding:24px">Nenhuma entrada registrada. Utilize a importação XML acima.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
-
-  // 4. SEPARAÇÃO DE CARGA
-  function renderEstoqueSeparacao(el) {
-    const os = SharedState.getOsEstoqueCentral ? SharedState.getOsEstoqueCentral().filter(o => o.tipo === 'Saída' || o.tipo === 'Transferência') : [];
-    el.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Separação de Carga & Expedição</div>
-        <div class="page-subtitle">Montagem de rotas e ordens de fornecimento para as escolas</div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Ordens de Saída</div></div>
-        <div class="card-body" style="padding:0">
-          <table class="data-table">
-            <thead><tr><th>OS nº</th><th>Escola Destino</th><th>Produto</th><th>Quantidade</th><th>Status</th></tr></thead>
-            <tbody>
-              ${os.map(o => `
-                <tr>
-                  <td><strong>${o.numero_os}</strong></td>
-                  <td>${o.escola_destino || '—'}</td>
-                  <td>${o.produto}</td>
-                  <td style="font-family:var(--font-mono);font-weight:700">${o.quantidade} ${o.unidade}</td>
-                  <td><span class="status-badge status-warning">${o.status}</span></td>
-                </tr>
-              `).join('') || '<tr><td colspan="5" style="text-align:center;padding:24px">Nenhuma ordem em separação no momento.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
-
-  // 5. CARREGAMENTO E ENTREGAS
-  function renderEstoqueCarregamento(el) {
-    const orders = SharedState.getOrders ? SharedState.getOrders() : [];
-    el.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Ordens de Entrega & Carregamento</div>
-        <div class="page-subtitle">Acompanhamento de saídas de veículos do Almoxarifado Central</div>
-      </div>
-      <div class="card">
-        <div class="card-header"><div class="card-title">Entregas em Rota</div></div>
-        <div class="card-body" style="padding:0">
-          <table class="data-table">
-            <thead><tr><th>Pedido nº</th><th>Escola Destino</th><th>Fornecedor / Origem</th><th>Valor</th><th>Status</th></tr></thead>
-            <tbody>
-              ${orders.map(o => `
-                <tr>
-                  <td><strong>#${String(o.numero).padStart(3, '0')}</strong></td>
-                  <td>${o.school || o.escola}</td>
-                  <td>${o.cooperative || 'Almox. Central'}</td>
-                  <td style="font-family:var(--font-mono)">R$ ${(o.value || 0).toLocaleString('pt-BR')}</td>
-                  <td><span class="status-badge ${o.status === 'Entregue' ? 'status-ok' : 'status-warning'}">${o.status}</span></td>
-                </tr>
-              `).join('') || '<tr><td colspan="5" style="text-align:center;padding:24px">Nenhuma entrega em transporte</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
-
-  // 6. OS CENTRAL
-  // Direção única de delegação: estoque → gestor (o Gestor possui estas telas e o
-  // perfil Estoque as reaproveita). Nunca delegar de volta a partir do gestor.js,
-  // sob pena de recursão infinita. Ver nota nos itens 9–11 do js/modules/gestor.js.
-  function renderEstoqueOsCentral(el) {
-    if (typeof PAGE_RENDERERS['gestor_os-central'] === 'function') {
-      PAGE_RENDERERS['gestor_os-central'](el);
-      return;
-    }
-    renderEstoqueDashboard(el);
-  }
-
-  // 7. RELATÓRIOS
-  function renderEstoqueRelatorios(el) {
-    el.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">Relatórios do Estoque Central</div>
-        <div class="page-subtitle">Relatório de movimentação de inventário, FEFO e auditoria</div>
-      </div>
-      <div class="card">
-        <div class="card-body">
-          <p>Selecione o tipo de relatório desejado:</p>
-          <button class="btn btn-outline" onclick="window.abrirModalLogsAuditoria()">📜 Trilha de Auditoria de Movimentações</button>
-        </div>
-      </div>
-    `;
-  }
-
-  // 8. LISTA DE COMPRAS
-  function renderEstoqueListaCompras(el) {
-    if (typeof PAGE_RENDERERS['gestor_lista-compras'] === 'function') {
-      PAGE_RENDERERS['gestor_lista-compras'](el);
-      return;
-    }
-    renderEstoqueDashboard(el);
-  }
-
-  // 9. OS FORNECEDORES
-  function renderEstoqueOsFornecedores(el) {
-    if (typeof PAGE_RENDERERS['gestor_os-fornecedores'] === 'function') {
-      PAGE_RENDERERS['gestor_os-fornecedores'](el);
-      return;
-    }
-    renderEstoqueDashboard(el);
-  }
-
-  // ============================================================
-  // MIGRADO DO app.js NA FASE 4.3 (movido, nao reescrito)
-  // ============================================================
-  // estoque_dashboard, estoque_inventario, estoque_lotes e os 16 helpers de
-  // recebimento/separacao/bipagem (usados so por esta familia). As telas de OS
-  // (os-central/recebimentos/expedicao/ordens) seguem como aliases para o gestor
-  // no fim do app.js. As funcoes render* rasas acima ficaram como dead code.
+  // Telas reais do Estoque Central (movidas do app.js na Fase 4.3):
+  //   estoque_dashboard, estoque_inventario, estoque_lotes, estoque_escolas
+  //   + os helpers de recebimento/separacao/bipagem (usados so por esta familia).
+  // As telas de OS (os-central/recebimentos/expedicao/ordens) sao aliases para as
+  // telas de alta fidelidade do Gestor, registrados no fim do core_hub.js.
 
 PAGE_RENDERERS.estoque_dashboard = (el) => {
-  const empenhosAtivos = SharedState.getEmpenhos().filter(e => e.status !== 'Liquidado');
-  const nfsPendentes = empenhosAtivos.filter(e => (e.qtdConsumida || 0) < e.qtdTotal).length;
   const sharedOrders = SharedState.getOrders();
-  const parasSeparar = sharedOrders.filter(o => o.status === 'Pendente' || o.status === 'Em separação').length + DATA.separation_orders.filter(o => o.status === 'Pendente').length;
-  const emTransporte = sharedOrders.filter(o => o.status === 'Em transporte').length;
-  const central = SharedState.getCentralStock();
-  const lotesVencendo = central.reduce((s, p) => s + ((p.lotes||[]).filter(l => l.validade && new Date(l.validade) < new Date(Date.now() + 30*86400000)).length), 0) + 1;
+  // KPIs coerentes com as sub-telas do fluxo (mesmos getters).
+  const recebPendentes = SharedState.getRecebimentosPendentes ? SharedState.getRecebimentosPendentes().length : 0;
+  const osExped = SharedState.getOrdensServicoExpedicao ? SharedState.getOrdensServicoExpedicao() : [];
+  const aSeparar = osExped.filter(o => o.status === 'Aguardando Separação' || o.status === 'Em Separação').length;
+  const ordensEntrega = SharedState.getOrdensEntrega ? SharedState.getOrdensEntrega().length : 0;
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const lotes = DATA.lots || [];
+  const lotesRisco = lotes.filter(l => { if (!l.expirationDate) return false; const d = Math.ceil((new Date(l.expirationDate) - hoje) / 86400000); return d <= 30; }).length;
+  const lotesVencidos = lotes.filter(l => l.expirationDate && new Date(l.expirationDate) < hoje).length;
 
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Dashboard Operacional (CD)</div><div class="page-subtitle">Central de Distribuição · Entradas, Lotes e Expedição · Sincronizado com Gestor/Escolas</div></div>
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">Dashboard Operacional (CD)</div>
+        <div class="page-subtitle">Central de Distribuição · Recebimento → Expedição → Entrega · Sincronizado com Gestor/Escolas</div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary btn-sm" onclick="window.abrirModalImportarNFeXML()">📥 Receber NF-e via XML</button>
+        <button class="btn btn-outline btn-sm" onclick="window.executarSimulacaoEngine7Passos()">⚡ Rodar Engine Abastecimento</button>
+      </div>
+    </div>
 
-    <div class="grid-4 mb-24">
-      <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--warning);background:var(--warning-light)">📥</div>
-        <div class="stat-info"><div class="stat-num">${nfsPendentes}</div><div class="stat-name">Empenhos c/ NF Pendente</div></div>
-      </div></div>
-      <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--info);background:var(--info-light)">📦</div>
-        <div class="stat-info"><div class="stat-num">${parasSeparar}</div><div class="stat-name">Ordens p/ Separar</div></div>
-      </div></div>
-      <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--danger);background:var(--danger-light)">⚠️</div>
-        <div class="stat-info"><div class="stat-num">${lotesVencendo}</div><div class="stat-name">Lotes Vencendo (30d)</div></div>
-      </div></div>
-      <div class="card stat-card"><div class="card-body">
-        <div class="stat-icon" style="color:var(--success);background:var(--success-light)">🚚</div>
-        <div class="stat-info"><div class="stat-num">${emTransporte}</div><div class="stat-name">Em Transporte Agora</div></div>
-      </div></div>
+    <div class="kpi-grid" style="margin-bottom:24px">
+      <div class="kpi-card blue"><div class="kpi-icon">🚚</div><div class="kpi-value">${recebPendentes}</div><div class="kpi-label">Recebimentos Pendentes</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${aSeparar}</div><div class="kpi-label">OS a Separar (Expedição)</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">🚛</div><div class="kpi-value">${ordensEntrega}</div><div class="kpi-label">Ordens de Entrega Ativas</div></div>
+      <div class="kpi-card ${lotesVencidos ? 'red' : 'green'}"><div class="kpi-icon">${lotesVencidos ? '🚨' : '⏳'}</div><div class="kpi-value">${lotesRisco}</div><div class="kpi-label">Lotes em Risco (≤ 30d)${lotesVencidos ? ` · ${lotesVencidos} vencido(s)` : ''}</div></div>
     </div>
 
     <div class="grid-2">
@@ -333,9 +86,19 @@ PAGE_RENDERERS.estoque_dashboard = (el) => {
 PAGE_RENDERERS.estoque_inventario = (el) => {
   const prods = DATA.products.slice().sort((a,b) => a.daysLeft - b.daysLeft);
   const central = SharedState.getCentralStock();
+  const criticos = prods.filter(p => (p.daysLeft || 0) <= 5).length;
+  const atencao = prods.filter(p => (p.daysLeft || 0) > 5 && (p.daysLeft || 0) <= 10).length;
+  const zerados = prods.filter(p => (p.stock || 0) === 0).length;
 
   el.innerHTML = `
     <div class="page-header"><div class="page-title">Posição de Estoque Central</div><div class="page-subtitle">Acompanhamento em Tempo Real · Recebimentos via NF alimentam este estoque</div></div>
+
+    <div class="kpi-grid" style="margin-bottom:24px">
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${prods.length}</div><div class="kpi-label">Itens no Inventário</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${criticos}</div><div class="kpi-label">Estoque Crítico (≤ 5 dias)</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${atencao}</div><div class="kpi-label">Atenção (6–10 dias)</div></div>
+      <div class="kpi-card ${zerados ? 'red' : 'green'}"><div class="kpi-icon">${zerados ? '⛔' : '✅'}</div><div class="kpi-value">${zerados}</div><div class="kpi-label">Itens Zerados</div></div>
+    </div>
 
     ${central.length > 0 ? `
     <div class="card mb-24" style="border-left:4px solid var(--success)">
@@ -678,22 +441,54 @@ window.liberarCaminhao = (orderId) => {
 };
 
 PAGE_RENDERERS.estoque_lotes = (el) => {
+  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  const loteStatus = (validade) => {
+    if (!validade) return { txt: 'Sem validade', cls: 'status-warning', dias: null };
+    const dias = Math.ceil((new Date(validade) - hoje) / 86400000);
+    if (dias < 0) return { txt: `Vencido há ${Math.abs(dias)}d`, cls: 'status-danger', dias };
+    if (dias <= 30) return { txt: `Vence em ${dias}d`, cls: 'status-warning', dias };
+    return { txt: 'Vigente', cls: 'status-ok', dias };
+  };
+  // FEFO: ordena por validade (mais próximo do vencimento primeiro)
+  const lots = (DATA.lots || []).slice().sort((a, b) => new Date(a.expirationDate || '2099-12-31') - new Date(b.expirationDate || '2099-12-31'));
+  const vencidos = lots.filter(l => { const s = loteStatus(l.expirationDate); return s.dias !== null && s.dias < 0; });
+  const vencendo = lots.filter(l => { const s = loteStatus(l.expirationDate); return s.dias !== null && s.dias >= 0 && s.dias <= 30; });
+
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Controle de Lotes e Validade</div><div class="page-subtitle">Gestão de Shelf-life e Inventário detalhado</div></div>
-    <div class="card mb-24">
-      <div class="card-body" style="padding:0">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+      <div>
+        <div class="page-title">📋 Controle de Lotes & Rastreabilidade</div>
+        <div class="page-subtitle">Shelf-life por lote, ordenação FEFO (primeiro a vencer, primeiro a sair) e alerta de validade</div>
+      </div>
+      <button class="btn btn-outline" onclick="window.abrirModalLogsAuditoria()">📜 Trilha de Rastreabilidade</button>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${lots.length}</div><div class="kpi-label">Lotes Ativos</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⏳</div><div class="kpi-value">${vencendo.length}</div><div class="kpi-label">Vencendo (≤ 30 dias)</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${vencidos.length}</div><div class="kpi-label">Vencidos (bloqueio FEFO)</div></div>
+      <div class="kpi-card teal"><div class="kpi-icon">🏷️</div><div class="kpi-value">${new Set(lots.map(l => l.productId)).size}</div><div class="kpi-label">Produtos com Lote</div></div>
+    </div>
+    ${vencidos.length ? `<div class="card mb-24" style="border-left:4px solid var(--danger);margin-top:16px">
+      <div class="card-body" style="padding:12px 16px;font-size:0.86rem">
+        🚨 <strong>${vencidos.length} lote(s) vencido(s)</strong> — devem ser bloqueados para expedição e destinados a descarte/devolução: ${vencidos.map(l => `<span class="tag tag-red" style="font-size:0.72rem">${l.number}</span>`).join(' ')}
+      </div>
+    </div>` : ''}
+    <div class="card" style="margin-top:16px">
+      <div class="card-header"><strong>Lotes em Estoque (ordem FEFO)</strong><span class="tag tag-blue" style="font-size:0.75rem">Primeiro a vencer, primeiro a sair</span></div>
+      <div style="overflow-x:auto">
         <table class="data-table"><thead><tr><th>Lote</th><th>Produto</th><th>Entrada</th><th>Validade</th><th>Qtd</th><th>Status</th></tr></thead><tbody>
-          ${DATA.lots.map(l => {
+          ${lots.map(l => {
             const p = DATA.products.find(x => x.id === l.productId);
+            const st = loteStatus(l.expirationDate);
             return `<tr>
               <td style="font-family:var(--font-mono)"><strong>${l.number}</strong></td>
               <td>${p ? p.name : '—'}</td>
               <td>${formatDate(l.entryDate)}</td>
-              <td style="font-family:var(--font-mono);font-weight:700">${formatDate(l.expirationDate)}</td>
-              <td style="font-family:var(--font-mono)">${l.qtd.toLocaleString('pt-BR')} ${p?p.unit:''}</td>
-              <td><span class="status-badge status-ok">Vigente</span></td>
+              <td style="font-family:var(--font-mono);font-weight:700${st.dias !== null && st.dias < 0 ? ';color:var(--danger)' : ''}">${formatDate(l.expirationDate)}</td>
+              <td style="font-family:var(--font-mono)">${l.qtd.toLocaleString('pt-BR')} ${p ? p.unit : ''}</td>
+              <td><span class="status-badge ${st.cls}">${st.txt}</span></td>
             </tr>`;
-          }).join('')}
+          }).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum lote registrado.</td></tr>'}
         </tbody></table>
       </div>
     </div>
