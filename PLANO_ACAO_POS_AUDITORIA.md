@@ -84,13 +84,22 @@ Os dados gravados em `SharedState._data.trocasSazionais` também deixaram de ser
 
 Estes 4 itens são **pré-requisitos** da Fase 4. Nenhum módulo pode assumir de vez enquanto eles não existirem.
 
-### 3.1 Corrigir o `renderPage()` do `core_hub.js` ⚠️
+### 3.1 Corrigir o `renderPage()` do `core_hub.js` ✅ CONCLUÍDO (2026-08-19)
+A assinatura já havia sido corrigida para `renderer(container)`. Foram adicionados os 4 comportamentos que só existiam no `app.js`: reset do container, resolução dinâmica dos aliases do perfil `estoque`, fallback para o dashboard do perfil e error boundary. Agora é superconjunto real. *(Texto original abaixo, mantido como referência do contrato.)*
+
+### 3.1-ref Contrato do `renderPage()` ⚠️
 Hoje o `core_hub.js` tem uma versão que chama `PAGE_RENDERERS[key]()` **sem argumento** e espera **retorno** de string — incompatível com as ~110 telas, que usam `(el) => { el.innerHTML = ... }`. Está inerte apenas porque o `index.html` carrega `app.js` por último.
 **Do jeito que está, remover o `app.js` quebra o app inteiro.** Alinhar à Seção 4.3 do `PLANO_MODULARIZACAO_APP.md`: sempre `renderer(container)`. Incluir também a resolução dinâmica de aliases do perfil `estoque` que hoje só existe no `renderPage()` do `app.js`.
 
-### 3.2 Migrar `SharedState`, `DATA` e `AICardapioEngine`
-Os três só existem no `app.js` e são a dependência que trava tudo (Fase 2 do plano original, nunca executada). Enquanto isso não acontecer, o `app.js` é obrigatório.
-**Atenção:** `DATA` é declarado com `let/const`, então **não** é propriedade de `window` — código que fizer `window.DATA` recebe `undefined` (erro real já encontrado e corrigido em `resolverColaboradorParaProduto`). Ao migrar, expor explicitamente via `window.DATA = DATA`.
+### 3.2 Migrar `SharedState`, `DATA` e `AICardapioEngine` ✅ CONCLUÍDO (2026-08-19)
+`DATA` e `SharedState` (+ `SHARED_STATE_KEY`, `init()` e export) foram movidos para o `core_hub.js` — **1.165 linhas**, `app.js` 12.791 → 11.626. Funciona porque o Hub carrega antes do `app.js`, então os três seguem disponíveis como globais.
+`AICardapioEngine` **não precisou** de migração: já vivia em `ai_cardapio_engine.js`.
+`PROFILES` e `state` seguem no `app.js` — ver 3.5 abaixo.
+Corrigido de passagem: `DATA` era `const`, logo `window.DATA` era `undefined` (bug real em `resolverColaboradorParaProduto`); agora há export explícito e `DATA === window.DATA`.
+
+### 3.5 ⚠️ Pendência descoberta na 3.2: dono do `state`
+O `core_hub.js` define `window.state = {...}` e o `app.js` define `let state = {...}`. São **dois objetos distintos**: código que usa `state` (bare) enxerga o do `app.js` — que vence por carregar depois —, enquanto o que usa `window.state` enxerga o do Hub. Hoje é inofensivo porque o `renderPage()` do `app.js` é o vigente, mas **no dia em que o `app.js` sair, o `renderPage()` do Hub vai ler `window.state?.currentPage` enquanto o `navigateTo` grava no outro objeto** — a navegação para de funcionar.
+Resolver junto com a migração de `PROFILES`: eleger um único dono do `state` (o Hub) e remover a declaração do `app.js`, ou fazer o Hub referenciar o mesmo objeto.
 
 ### 3.3 Atribuir dono às funções cross-perfil
 Dezenas de `window.abrirModalX/salvarY/imprimirZ`, mais `EngineAbastecimento`, são chamadas por `onclick=` de vários perfis. Cada uma precisa de destino explícito (um módulo ou o próprio Hub) — nenhuma pode ficar esquecida no `app.js`.
