@@ -108,9 +108,19 @@
 
 ## 3. Menu final do perfil Estoque Central (estado-alvo)
 
-`Dashboard Operacional · Estoque Central (inventário + NF-e) · Expedição (OS Escolas) · Montagem de Carga · Ordens de Entrega · Rastreabilidade (Caminhões) · Frota · Controle de Lotes · Escolas Atendidas · Relatórios · Ocorrências`
+`Dashboard Operacional · Estoque Central (inventário + NF-e) · Recebimentos Pendentes · Expedição (OS Escolas) · Montagem de Carga · Ordens de Entrega · Rastreabilidade (Caminhões) · Frota · Controle de Lotes · Escolas Atendidas · Relatórios · Ocorrências`
 
-> "Posição de Estoque" e "OS Estoque Central" **desaparecem** — viram "Estoque Central" e "Expedição", respectivamente.
+> **⚠️ CORREÇÃO (2026-08-19):** a tela **"Recebimentos Pendentes" NÃO desaparece** — ela é
+> **o ponto de entrada de mercadoria no estoque** (fila de recebimento de fornecedores →
+> **Conferência Física RN01 dá entrada** → Confronto NF-e RN05). Deve continuar existindo
+> como item de menu próprio no perfil Estoque. O D12 só funde **"Posição de Estoque" + "OS
+> Estoque Central"** em **"Estoque Central"**, e redireciona as **O.S. de distribuição** para
+> **"Expedição (OS Escolas)"**. Nada disso remove "Recebimentos Pendentes".
+
+**Resumo do que muda no menu (D12):**
+- "Posição de Estoque" **→ vira** "Estoque Central" (inventário + posição + botão "Receber NF-e via XML").
+- "OS Estoque Central" **→ deixa de ser destino das O.S.**; as O.S. de distribuição vão para "Expedição (OS Escolas)".
+- "Recebimentos Pendentes" **→ permanece** (entrada de mercadoria por conferência física).
 
 ---
 
