@@ -16,8 +16,11 @@
   // que a ordem dos <script> mudasse. As funções seguem definidas abaixo,
   // prontas para assumir quando forem migradas de verdade.
   //
-  // Migradas e ativas (sem equivalente em app.js):
-  PAGE_RENDERERS['gestor_audit-log'] = renderGestorAuditLog;
+  // Nenhuma chave registrada por enquanto. A antiga `gestor_audit-log` foi
+  // removida por decisão do usuário (2026-08-19): não havia item de menu para ela
+  // e não deve entrar — a trilha de auditoria já é acessível pelo modal
+  // `abrirModalLogsAuditoria()` no Dashboard e na Lista de Compras. A função
+  // renderGestorAuditLog segue abaixo, caso vire tela própria no futuro.
 
   // 1. DASHBOARD EXECUTIVO GESTOR
   function renderGestorDashboard(el) {

@@ -581,7 +581,12 @@ const PROFILES = {
     ]
   }
 };
-PROFILES.diretor = PROFILES.escola;
+// NÃO reintroduzir `PROFILES.diretor = PROFILES.escola`.
+// O perfil `diretor` acima tem menu próprio (school-aware, com getters dinâmicos
+// de nome/escola/iniciais) e inclui "Restrições Alimentares" — item que o menu
+// genérico da escola não tem. O alias sobrescrevia tudo isso e deixava a tela
+// `diretor_restricoes` inatingível, apesar de existir e ser completa.
+// Todos os 10 renderers do menu do diretor estão registrados (verificado).
 
 // APP STATE
 
@@ -11356,50 +11361,9 @@ PAGE_RENDERERS['gestor_os-central'] = (el) => {
 };
 
 // ─── GESTOR: LISTA DE COMPRAS ────────────────────────────────────────
-PAGE_RENDERERS['gestor_lista-compras'] = (el) => {
-  const listas = SharedState.getListaCompras();
-  const fmt = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v) : '—';
-  const badge = (s) => {
-    const map = { Rascunho:'tag-gray', Enviada:'tag-blue', 'Em Análise':'tag-orange', Aprovada:'tag-green', Cancelada:'tag-red' };
-    return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
-  };
-  const rows = listas.length ? listas.map(l => {
-    const itens = Array.isArray(l.itens) ? l.itens : [];
-    return `<tr>
-      <td><strong>${l.titulo}</strong><br><small class="text-secondary">${l.referencia||''} · ${l.tipo}</small></td>
-      <td>${l.escola_name || '<em>SEMED (Consolidada)</em>'}</td>
-      <td>${itens.length} itens</td>
-      <td>${fmt(l.valor_estimado)}</td>
-      <td>${fmt(l.valor_aprovado)}</td>
-      <td>${l.data_necessidade||'—'}</td>
-      <td>${l.criado_por||'—'}</td>
-      <td>${badge(l.status)}</td>
-    </tr>`;
-  }).join('') : '<tr><td colspan="8" style="text-align:center;color:#94A3B8">Nenhuma lista carregada.</td></tr>';
-  el.innerHTML = `
-    <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
-      <div>
-        <div class="page-title">🛒 Listas de Compras</div>
-        <div class="page-subtitle">Solicitações de compra por escola e consolidadas SEMED</div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-primary" style="background:#15803d" onclick="window.executarSimulacaoEngine7Passos()">⚡ Processar Demanda (Engine 7 Passos)</button>
-        <button class="btn btn-outline" onclick="window.abrirModalLogsAuditoria()">📜 Trilha de Auditoria</button>
-      </div>
-    </div>
-    <div class="kpi-grid">
-      ${['Aprovada','Em Análise','Enviada','Rascunho'].map(s => `<div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${listas.filter(l=>l.status===s).length}</div><div class="kpi-label">${s}</div></div>`).join('')}
-    </div>
-    <div class="card" style="margin-top:16px">
-      <div class="card-header"><strong>Listas de Compras</strong></div>
-      <div style="overflow-x:auto">
-        <table class="data-table">
-          <thead><tr><th>Título</th><th>Escola</th><th>Itens</th><th>Valor Est.</th><th>Valor Apr.</th><th>Necessidade</th><th>Criado por</th><th>Status</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    </div>`;
-};
+// NOTA: a tela de Lista de Compras foi FUNDIDA em sprint_abc.js
+// (PAGE_RENDERERS.gestor_listacompras): a ferramenta de geracao no topo e o
+// registro de solicitacoes como 2a secao. O menu usa o id `listacompras`.
 
 // ─── GESTOR: OS FORNECEDORES ─────────────────────────────────────────
 PAGE_RENDERERS['gestor_os-fornecedores'] = (el) => {

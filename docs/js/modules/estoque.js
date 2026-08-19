@@ -16,10 +16,11 @@
   // as versões deste módulo são tabelas simples, sem essas ações. As funções seguem
   // definidas abaixo, prontas para assumir quando forem migradas de verdade.
   //
-  // Migradas e ativas (delegam para as telas ricas do Gestor, disponibilizando-as
-  // ao perfil Estoque; ainda não há item de menu apontando para elas):
-  PAGE_RENDERERS['estoque_lista-compras'] = renderEstoqueListaCompras;
-  PAGE_RENDERERS['estoque_os-fornecedores'] = renderEstoqueOsFornecedores;
+  // Nenhuma chave registrada por enquanto. As antigas `estoque_lista-compras` e
+  // `estoque_os-fornecedores` foram removidas por decisão do usuário (2026-08-19):
+  // não havia item de menu para elas no perfil Estoque e não devem entrar. As
+  // funções seguem abaixo, prontas para quando/se essas telas forem incorporadas
+  // ao menu do perfil.
 
   // 1. DASHBOARD ESTOQUE CENTRAL
   function renderEstoqueDashboard(el) {

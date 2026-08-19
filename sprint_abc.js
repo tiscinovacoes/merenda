@@ -519,6 +519,31 @@ PAGE_RENDERERS.gestor_listacompras = (el) => {
   const menus    = SharedState.getMenus().filter(m => m.status === 'Publicado');
   const totalAlunos = getPilotSchools().reduce((s, sc) => s + (sc.students||0), 0);
 
+  // Registro de solicitações de compra (2ª seção). Antes vivia numa tela separada
+  // em app.js sob a chave `gestor_lista-compras`, que nenhum item de menu
+  // alcançava — o menu usa o id `listacompras` (sem hífen). As duas telas foram
+  // fundidas aqui: em cima a ferramenta de geração, embaixo o registro do que já
+  // foi solicitado (é o destino que a Engine de Abastecimento 7 Passos alimenta).
+  const listas = (typeof SharedState.getListaCompras === 'function') ? SharedState.getListaCompras() : [];
+  const _fmtBRL = (v) => v ? new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v) : '—';
+  const _badgeLista = (s) => {
+    const map = { Rascunho:'tag-gray', Enviada:'tag-blue', 'Em Análise':'tag-orange', Aprovada:'tag-green', Cancelada:'tag-red' };
+    return `<span class="tag ${map[s]||'tag-gray'}">${s || '—'}</span>`;
+  };
+  const rowsListas = listas.length ? listas.map(l => {
+    const itensLista = Array.isArray(l.itens) ? l.itens : [];
+    return `<tr>
+      <td class="_td"><strong>${l.titulo || '—'}</strong><br><small style="color:var(--text-secondary)">${l.referencia||''} · ${l.tipo||''}</small></td>
+      <td class="_td">${l.escola_name || '<em>SEMED (Consolidada)</em>'}</td>
+      <td class="_td">${itensLista.length} itens</td>
+      <td class="_td">${_fmtBRL(l.valor_estimado)}</td>
+      <td class="_td">${_fmtBRL(l.valor_aprovado)}</td>
+      <td class="_td">${l.data_necessidade||'—'}</td>
+      <td class="_td">${l.criado_por||'—'}</td>
+      <td class="_td">${_badgeLista(l.status)}</td>
+    </tr>`;
+  }).join('') : '<tr><td class="_td" colspan="8" style="text-align:center;color:#94A3B8">Nenhuma solicitação registrada ainda. Use a Engine de Abastecimento para gerar.</td></tr>';
+
   el.innerHTML = `
 <div class="page-header">
   <div><h1 class="page-title">🛒 Lista de Compras</h1>
@@ -596,6 +621,32 @@ ${pctAFN < 30 ? `<div style="background:#ffebee;border-left:4px solid #C62828;pa
         <div style="font-size:1rem;font-weight:700;color:#1565C0">${cur(totalLic)}</div>
         <div style="font-size:.75rem;color:var(--text-secondary)">${itens.filter(i=>i.tipo==='Licitação').length} itens</div>
       </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:24px">
+  <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+    <div>
+      <div class="card-title">📑 Registro de Solicitações de Compra</div>
+      <div style="font-size:.78rem;color:var(--text-secondary)">Solicitações por escola e consolidadas SEMED · alimentado pela Engine de Abastecimento</div>
+    </div>
+    <div style="display:flex;gap:10px">
+      <button class="btn btn-primary" style="background:#15803d" onclick="window.executarSimulacaoEngine7Passos && window.executarSimulacaoEngine7Passos()">⚡ Processar Demanda (Engine 7 Passos)</button>
+      <button class="btn btn-secondary" onclick="window.abrirModalLogsAuditoria && window.abrirModalLogsAuditoria()">📜 Trilha de Auditoria</button>
+    </div>
+  </div>
+  <div class="card-body" style="padding:0">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px">
+      ${['Aprovada','Em Análise','Enviada','Rascunho'].map(s =>
+        `<div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${listas.filter(l=>l.status===s).length}</div><div class="kpi-label">${s}</div></div>`
+      ).join('')}
+    </div>
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>${['Título','Escola','Itens','Valor Est.','Valor Apr.','Necessidade','Criado por','Status'].map(h=>`<th class="_th">${h}</th>`).join('')}</tr></thead>
+        <tbody>${rowsListas}</tbody>
+      </table>
     </div>
   </div>
 </div>`;
