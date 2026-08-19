@@ -60,6 +60,23 @@
 - **Operador escolhe** o caminhão. **1 escola = 1 O.E.**; a **carga agrupa várias O.E.**
 - **AC:** o pool da montagem contém **só O.E. criadas e sem carga**; cada escola mantém sua O.E./comprovante; a carga soma o peso e respeita a trava; sugestão destaca o(s) caminhão(ões) viável(is). Uma O.E. já em carga não aparece para nova alocação.
 
+**A2b — Ciclo de vida da Carga & Liberação para Entrega** (Ajuste 03)
+- **Estados da Carga:** `Em Montagem` → `Liberada / Em Rota` → `Concluída`.
+- **1) Em Montagem:** operador adiciona **O.E. liberadas** (Aguardando carga). Aparece na ação/tela
+  **Montagem de Carga**. O caminhão **NÃO** aparece na Rastreabilidade ainda.
+- **2) Ação "Liberar para Entrega":** botão que fecha a montagem.
+  - Se `pesoTotal < capacidade` do caminhão → **pergunta de confirmação**: *"O caminhão não atingiu
+    o peso máximo (X / 5.400 kg). Liberar mesmo assim?"*. Só prossegue se confirmar.
+  - Ao liberar: Carga → **Em Rota**; cada **O.E. da carga → "Em transporte"** e é **despachada ao
+    Motorista** (`addOrder` por driver) — **este é o ponto de disparo** (não na criação da O.E.; ver A2/Ajuste 02).
+  - O caminhão passa a **aparecer na Rastreabilidade**.
+- **3) Concluída:** todas as O.E. entregues (dupla checagem B7).
+- **Dois modais / visões** (na Montagem de Carga e/ou Ordens de Entrega):
+  - **O.E. pendentes** — `Aguardando carga`, sem caminhão (pool para montar).
+  - **O.E. já anexadas a caminhões** — em carga (visão do que já está alocado, por caminhão/carga).
+- **AC:** não é possível liberar carga vazia; abaixo do peso máximo exige confirmação; ao liberar,
+  as O.E. viram "Em transporte", chegam ao Motorista e o caminhão entra na Rastreabilidade.
+
 **A3 — Roteirização (SÓ A TELA agora, ORS-ready)**
 - Tela que ordena as paradas da carga, **ajustável por prioridade, exigências e janela de horário** da escola.
 - **Adaptador plugável** `RoutingProvider` desenhado para **OpenRouteService (ORS)**: métodos `geocode(endereco) → {lat,lng}` e `optimize(veiculos, entregas) → rotaOrdenada`, mapeando para os endpoints ORS `/geocode/search` e `/optimization` (VROOM: suporta **capacidade** e **time windows** nativamente). **Sem chamada real agora** — implementação atual retorna **ordenação heurística** (região + prioridade + janela); trocar para ORS = só ligar a chave, sem refatorar as telas.
@@ -74,7 +91,11 @@
 **B6 — Filtros na tela de OE:** agrupar **por O.S. / por Escola / por Expedição (carga)** — filtro na mesma tela.
 **B7 — Remover "confirmar entrega" do Estoque; dupla checagem:** a OE fecha em **"Entregue"** apenas com **Motorista (entregou)** **+** confirmação da **Escola**. Do lado da escola confirmam **Resp. Estoque (repositor)** e **Diretor**.
 **B8 — Timeline de status:** histórico com **autor + data/hora** por transição (Separado → Em rota → Entregue → Recebido).
-**B9 — Rastreabilidade por caminhão:** tela de **acompanhamento logístico** (carga, escolas na rota, progresso das paradas, status). Sem GPS agora.
+**B9 — Rastreabilidade por caminhão:** tela de **acompanhamento logístico**. (Ajuste 03)
+- Lista **apenas caminhões com carga LIBERADA / em rota**. Caminhões `Em Montagem` ou `Standby`
+  **não aparecem** aqui — o caminhão "Em Montagem" pertence à ação **Montagem de Carga**, não ao rastreio.
+- Para cada caminhão em rota, mostrar a **parada atual** (em qual destino/escola ele está agora — A, B, …)
+  na sequência da rota, além da carga e do status. Sem GPS real agora (posição = parada corrente da rota).
 
 ### ÉPICO C — Dashboard / Cobertura
 
