@@ -186,31 +186,71 @@ window.applyPiloto = applyPiloto;
 
 // CONTRATO FIXO E IMUTÁVEL DO ROTEADOR: renderer(containerElement)
 // Assinatura universal: (el) => { el.innerHTML = ...; }
+//
+// ⚠️ Ver Seção 4.3 do PLANO_MODULARIZACAO_APP.md. Nenhum renderer deve depender
+// de valor de retorno. Esta função precisa ser um SUPERCONJUNTO do renderPage()
+// do app.js enquanto os dois coexistirem — o app.js carrega por último e a sua
+// versão é a vigente hoje; qualquer comportamento que exista lá e falte aqui
+// vira regressão silenciosa no dia em que o app.js sair.
+//
+// Paridade implementada com o app.js: reset do container, resolução dinâmica de
+// aliases do perfil `estoque`, fallback para o dashboard do perfil e error
+// boundary com tela de recuperação.
 window.renderPage = (pageKey) => {
   const targetPage = pageKey || window.state?.currentPage || 'dashboard';
   if (window.state) window.state.currentPage = targetPage;
-  
+
   const contentEl = document.getElementById('page-content');
   if (!contentEl) return;
 
   const profileKey = window.state?.currentProfile || 'gestor';
-  const fullRendererKey = `${profileKey}_${targetPage}`;
+  let key = `${profileKey}_${targetPage}`;
 
-  // 1. Tenta o renderer específico do perfil com assinatura (el)
-  if (typeof window.PAGE_RENDERERS[fullRendererKey] === 'function') {
-    window.PAGE_RENDERERS[fullRendererKey](contentEl);
+  // Telas da Central de Estoque compartilhadas com o Gestor: o menu do perfil
+  // `estoque` usa ids curtos que apontam para os módulos de alta fidelidade do
+  // Gestor. Mantém a mesma tabela do app.js.
+  if (!window.PAGE_RENDERERS[key] && profileKey === 'estoque') {
+    const aliasMap = {
+      'entradas': 'recebimentos-pendentes',
+      'separacao': 'expedicao-os',
+      'carregamento': 'ordens-entrega'
+    };
+    const targetAlias = aliasMap[targetPage] || targetPage;
+    if (window.PAGE_RENDERERS[`gestor_${targetAlias}`]) key = `gestor_${targetAlias}`;
+  }
+
+  contentEl.innerHTML = '';
+  contentEl.className = 'page-content';
+
+  const renderer = window.PAGE_RENDERERS[key]
+    || window.PAGE_RENDERERS[targetPage]
+    || window.PAGE_RENDERERS[`${profileKey}_dashboard`];
+
+  if (typeof renderer !== 'function') {
+    contentEl.innerHTML = `
+      <div style="padding:32px;text-align:center;">
+        <h2 style="color:var(--text-primary,#0f172a);">Tela não encontrada</h2>
+        <p style="color:var(--text-secondary,#64748b);">Página solicitada: <code>${escapeHTML(key)}</code></p>
+        <button class="btn btn-primary" onclick="renderPage('dashboard')">Voltar ao Dashboard</button>
+      </div>
+    `;
     return;
   }
-  
-  // 2. Tenta o renderer genérico com assinatura (el)
-  if (typeof window.PAGE_RENDERERS[targetPage] === 'function') {
-    window.PAGE_RENDERERS[targetPage](contentEl);
-    return;
-  }
 
-  // 3. Fallback se app.js original tiver função global
-  if (typeof window.renderPageOriginal === 'function') {
-    window.renderPageOriginal(pageKey);
+  try {
+    renderer(contentEl);
+  } catch (err) {
+    console.error(`[Router] Erro ao renderizar ${key}:`, err);
+    contentEl.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">⚠️ Visualização em Carregamento</div>
+        <div class="page-subtitle">${escapeHTML(err.message || 'Módulo em sincronização')}</div>
+      </div>
+      <div class="card" style="padding:24px;border-radius:12px">
+        <p style="color:var(--text-secondary);margin-bottom:16px">O módulo solicitou uma atualização de dados. Clique abaixo para retornar ao painel principal.</p>
+        <button class="btn btn-primary" onclick="navigateTo('${profileKey}','dashboard')">Voltar ao Início</button>
+      </div>
+    `;
   }
 };
 

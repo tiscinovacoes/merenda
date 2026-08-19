@@ -1843,6 +1843,17 @@ function renderPage() {
 function createChart(id, config) {
   const canvas = document.getElementById(id);
   if (!canvas) return null;
+
+  // Evita "Canvas is already in use. Chart with ID 'N' must be destroyed...".
+  // renderPage() limpa o #page-content e recria os canvases com os mesmos ids,
+  // mas os gráficos são criados dentro de setTimeout — o callback de um render
+  // anterior pode chegar depois que o novo canvas já existe, ou a mesma tela
+  // pode renderizar duas vezes em sequência. Em ambos os casos o Chart.js ainda
+  // tem uma instância registrada para o canvas e recusa a criação.
+  const registrado = (typeof Chart.getChart === 'function') ? Chart.getChart(canvas) : null;
+  if (registrado && registrado.destroy) registrado.destroy();
+  if (state.charts[id] && state.charts[id].destroy) state.charts[id].destroy();
+
   const ctx = canvas.getContext('2d');
   const chart = new Chart(ctx, config);
   state.charts[id] = chart;
