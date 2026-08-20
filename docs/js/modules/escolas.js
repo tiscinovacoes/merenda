@@ -682,6 +682,29 @@ PAGE_RENDERERS.escola_entregas = (el) => {
   const orders = (typeof DATA !== 'undefined' && DATA.orders) ? DATA.orders : [];
   const active = orders.filter(o=>o.status!=='Entregue').slice(0,5);
   const sharedActive = SharedState.getOrders().filter(o => o.school === sc.name && o.status !== 'Entregue');
+
+  // B7 — dupla checagem: O.E. desta escola aguardando a confirmação do lado da escola.
+  const oesEscola = (SharedState.getOrdensEntrega ? SharedState.getOrdensEntrega() : [])
+    .filter(o => o.escolaNome === sc.name && o.status !== 'Entregue' && !o.confirmacaoEscola
+                 && ['Em Transporte','Aguardando confirmação','Em Carga'].includes(o.status));
+  const duplaCard = oesEscola.length ? `
+    <div class="card mb-24" style="border-left:4px solid var(--success)">
+      <div class="card-header"><div class="card-title">✅ Recebimentos a Confirmar (Dupla Checagem — B7)</div><span class="status-badge status-warning">${oesEscola.length} pendente(s)</span></div>
+      <div class="card-body" style="padding:0">
+        <table class="data-table">
+          <thead><tr><th>O.E.</th><th>Itens</th><th>Motorista</th><th>Confirmações</th><th>Ação</th></tr></thead>
+          <tbody>
+            ${oesEscola.map(o => `<tr>
+              <td><strong>${o.numeroOe}</strong></td>
+              <td style="font-size:0.82rem">${(o.produtos||[]).map(p=>p.produto).slice(0,3).join(', ')||'—'}</td>
+              <td>👤 ${o.motorista||'—'}</td>
+              <td>${window._duplaChecagemBadge ? window._duplaChecagemBadge(o) : ''}</td>
+              <td><button class="btn btn-sm btn-primary" style="background:#15803d" onclick="window.abrirModalDuplaChecagemEscola('${o.id}')">✅ Confirmar (Repositor + Diretor)</button></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>` : '';
   el.innerHTML = `
     <div class="page-header">
       <div class="page-title">Recebimento de Entregas — ${sc.name}</div>
@@ -714,6 +737,7 @@ PAGE_RENDERERS.escola_entregas = (el) => {
         </table>
       </div>
     </div>
+    ${duplaCard}
     <div class="card">
       <div class="card-header"><div class="card-title">📍 Timeline da Entrega em Andamento</div></div>
       <div class="card-body">

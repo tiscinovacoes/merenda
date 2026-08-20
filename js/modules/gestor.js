@@ -1063,4 +1063,75 @@
   // === Cross-perfil *_escolas (Fase 4.7): closure para cooperativa_escolas ===
   PAGE_RENDERERS.gestor_escolas = (el) => PAGE_RENDERERS.cooperativa_escolas(el);
 
+  // ─── LIVRO DE OCORRÊNCIAS CONSOLIDADO (F15) ─────────────────────────────
+  // Reúne num só lugar as ocorrências de TODOS os módulos: incidentes do
+  // Motorista (getIncidents) + ocorrências logísticas do Estoque/Motorista
+  // (getOcorrencias). Filtro por módulo. É a visão consolidada do Gestor.
+  PAGE_RENDERERS.gestor_ocorrencias = (el) => {
+    const incs = (SharedState.getIncidents && SharedState.getIncidents()) || [];
+    const ocs  = (SharedState.getOcorrencias && SharedState.getOcorrencias()) || [];
+
+    const norm = [
+      ...incs.map(i => ({
+        data: i.criadoEm, modulo: 'Motorista', tipo: i.tipo || i.type || 'Ocorrência',
+        unidade: i.escola || i.school || '—', autor: i.motorista || 'Motorista',
+        descricao: i.descricao || i.desc || '', status: i.status || 'Aberta'
+      })),
+      ...ocs.map(o => ({
+        data: o.criadoEm, modulo: (o.modulo === 'motorista' ? 'Motorista' : 'Estoque'),
+        tipo: o.tipo || 'Ocorrência', unidade: o.escola || 'Estoque Central',
+        autor: o.autor || 'Operador', descricao: o.descricao || '',
+        status: o.status || 'Pendente', placa: o.placaVeiculo || ''
+      })),
+    ].sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
+
+    const total = norm.length;
+    const doMotorista = norm.filter(o => o.modulo === 'Motorista').length;
+    const doEstoque = norm.filter(o => o.modulo === 'Estoque').length;
+    const abertas = norm.filter(o => o.status === 'Aberta' || o.status === 'Pendente').length;
+
+    const rows = norm.length ? norm.map(o => `
+      <tr data-modulo="${o.modulo}">
+        <td style="font-size:0.8rem;white-space:nowrap">${o.data ? new Date(o.data).toLocaleString('pt-BR') : '—'}</td>
+        <td><span class="tag ${o.modulo === 'Motorista' ? 'tag-blue' : 'tag-teal'}">${o.modulo === 'Motorista' ? '🚚 Motorista' : '🏭 Estoque'}</span></td>
+        <td><strong>${o.tipo}</strong></td>
+        <td>${o.unidade}${o.placa ? `<br><small class="text-secondary">🚛 ${o.placa}</small>` : ''}</td>
+        <td>${o.autor}</td>
+        <td style="font-size:0.82rem">${o.descricao}</td>
+        <td><span class="status-badge ${o.status === 'Resolvido' || o.status === 'Fechada' ? 'status-ok' : 'status-danger'}">${o.status}</span></td>
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma ocorrência registrada nos módulos.</td></tr>';
+
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">⚠️ Livro de Ocorrências Consolidado (F15)</div>
+        <div class="page-subtitle">Todas as ocorrências da rede — Motorista (entrega) + Estoque (almoxarifado) num só lugar</div>
+      </div>
+
+      <div class="kpi-grid" style="margin-bottom:20px">
+        <div class="kpi-card blue"><div class="kpi-icon">📚</div><div class="kpi-value">${total}</div><div class="kpi-label">Total de Ocorrências</div></div>
+        <div class="kpi-card teal"><div class="kpi-icon">🚚</div><div class="kpi-value">${doMotorista}</div><div class="kpi-label">Do Motorista (Entrega)</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">🏭</div><div class="kpi-value">${doEstoque}</div><div class="kpi-label">Do Estoque (Almoxarifado)</div></div>
+        <div class="kpi-card red"><div class="kpi-icon">🔴</div><div class="kpi-value">${abertas}</div><div class="kpi-label">Em Aberto</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+          <strong>Registro Consolidado</strong>
+          <select class="form-control" style="width:auto" onchange="
+            const v=this.value; document.querySelectorAll('#tbl-ocorrencias tr[data-modulo]').forEach(tr=>{tr.style.display=(!v||tr.dataset.modulo===v)?'':'none'});
+          ">
+            <option value="">Todos os módulos</option>
+            <option value="Motorista">🚚 Motorista</option>
+            <option value="Estoque">🏭 Estoque</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="data-table">
+            <thead><tr><th>Data/Hora</th><th>Módulo</th><th>Tipo</th><th>Unidade / Veículo</th><th>Autor</th><th>Descrição</th><th>Status</th></tr></thead>
+            <tbody id="tbl-ocorrencias">${rows}</tbody>
+          </table>
+        </div>
+      </div>`;
+  };
+
 })();

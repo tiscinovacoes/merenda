@@ -1256,6 +1256,11 @@ const SharedState = {
         });
       });
     }
+    // B7: se o pedido veio de uma Carga (tem oeNumero), alimenta o lado do
+    // Motorista na dupla checagem da O.E. vinculada (fecha só com a Escola também).
+    if (o && o.oeNumero && typeof SharedState.registrarConfirmacaoEntrega === 'function') {
+      SharedState.registrarConfirmacaoEntrega(o.oeNumero, 'motorista', { por: receiver, doc, motorista: o.driver });
+    }
     this._persist(); this._emit('delivery:confirm');
     return d;
   },
@@ -1427,6 +1432,7 @@ const PROFILES = {
         { id: 'listacompras',         icon: '🛒', label: 'Lista de Compras',        badge: null },
         { id: 'os-fornecedores',       icon: '🤝', label: 'OS Fornecedores',         badge: null },
       ]},
+      { id: 'ocorrencias', icon: '⚠️', label: 'Livro de Ocorrências', badge: 'NEW' },
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
       { id: 'ia', icon: '🤖', label: 'IA de Previsão', badge: null },
     ]
@@ -1513,15 +1519,25 @@ const PROFILES = {
     initials: 'FM',
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard Operacional', badge: null },
-      { id: 'inventario', icon: '🏢', label: 'Posição de Estoque', badge: null },
-      { type: 'group', label: 'Gerenciamento Estoque', children: [
-        { id: 'os-central',            icon: '🏭', label: 'OS Estoque Central',      badge: null },
-        { id: 'recebimentos-pendentes',icon: '🚚', label: 'Recebimentos Pendentes', badge: 'NEW' },
+      { id: 'inventario', icon: '🏢', label: 'Estoque Central', badge: null },
+      { type: 'group', label: 'Recebimento & Expedição', children: [
+        { id: 'recebimentos-pendentes',icon: '🚚', label: 'Recebimentos Pendentes', badge: null },
         { id: 'expedicao-os',          icon: '📦', label: 'Expedição (OS Escolas)',   badge: null },
-        { id: 'ordens-entrega',        icon: '🚛', label: 'Ordens de Entrega',        badge: null },
       ]},
-      { id: 'lotes', icon: '📋', label: 'Controle de Lotes & Rastreabilidade', badge: null },
+      { type: 'group', label: 'Logística & Cargas', children: [
+        { id: 'montagem-carga',        icon: '🚛', label: 'Montagem de Carga',        badge: 'NEW' },
+        { id: 'ordens-entrega',        icon: '📋', label: 'Ordens de Entrega',        badge: null },
+        { id: 'roteirizacao',          icon: '🗺️', label: 'Roteirização',             badge: 'NEW' },
+        { id: 'rastreabilidade',       icon: '📡', label: 'Rastreabilidade (Caminhões)', badge: 'NEW' },
+        { id: 'frota',                 icon: '🚚', label: 'Frota',                    badge: 'NEW' },
+      ]},
+      { id: 'cobertura', icon: '📈', label: 'Cobertura Escolar', badge: 'NEW' },
+      { id: 'lotes', icon: '📋', label: 'Controle de Lotes', badge: null },
       { id: 'escolas', icon: '🏫', label: 'Escolas Atendidas', badge: null },
+      { type: 'group', label: 'Gestão', children: [
+        { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: 'NEW' },
+        { id: 'ocorrencias', icon: '⚠️', label: 'Ocorrências', badge: 'NEW' },
+      ]},
     ]
   },
   diretor: {
@@ -7605,6 +7621,627 @@ SharedState.getOrdensServicoExpedicao = () => [...(SharedState._data.ordensServi
 SharedState.getOrdensEntrega = () => [...(SharedState._data.ordensEntrega || [])];
 SharedState.getNotificacoesFornecedor = () => [...(SharedState._data.notificacoesFornecedor || [])];
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ÉPICO EXPEDIÇÃO & LOGÍSTICA — modelo de dados + helpers (Sprints 1–5)
+// Frota (A1b) · Cargas/Montagem (A1/A2/A2b) · Ocorrências (F14/F15) ·
+// Cobertura (C10). Camada = SharedState. Seeds idempotentes (funcionam tanto
+// para localStorage novo quanto para estado já persistido de versões antigas).
+// ═══════════════════════════════════════════════════════════════════════════
+(function initExpedicaoLogisticaModel() {
+  const S = SharedState;
+
+  // ── Seeds idempotentes ────────────────────────────────────────────────────
+  if (!S._data.frota) {
+    S._data.frota = [
+      { id: 'CAM-01', placa: 'OAB-1A23', modelo: 'Mercedes-Benz Accelo 1016',        capacidadeKg: 5400, refrigerado: true,  motoristaPadrao: 'José Souza',              status: 'ativo' },
+      { id: 'CAM-02', placa: 'NRD-2B45', modelo: 'VW Delivery 9.170',                 capacidadeKg: 4800, refrigerado: false, motoristaPadrao: 'Marcos Antônio Ribeiro', status: 'ativo' },
+      { id: 'CAM-03', placa: 'HTF-3C67', modelo: 'Iveco Daily 70C17 (Câmara Fria)',   capacidadeKg: 3200, refrigerado: true,  motoristaPadrao: 'Carlos Alberto Santos',   status: 'ativo' },
+    ];
+  }
+  if (!S._data.cargas) S._data.cargas = [];
+  if (!S._data.ocorrencias) S._data.ocorrencias = [];
+
+  // Garante O.E. pendentes ("Aguardando carga") para a Montagem de Carga operar.
+  S._data.ordensEntrega = S._data.ordensEntrega || [];
+  const _hoje = new Date().toISOString();
+  const _seedOes = [
+    { id: 'OE-SEED-201', numeroOe: 'OE-2026/201', osId: 'OS-EXP-2026/001', escolaId: 'esc-1', escolaNome: 'EMEF Prof. Henrique Scabello',
+      status: 'Aguardando carga', cargaId: null, dataEntrega: null, criadaEm: _hoje, historicoStatus: [{ status: 'Aguardando carga', autor: 'Estoque Central', data: _hoje }],
+      produtos: [ { produto: 'Arroz Tipo 1 (5kg)', quantidade: 150, unidade: 'kg' }, { produto: 'Feijão Carioca', quantidade: 60, unidade: 'kg' } ] },
+    { id: 'OE-SEED-202', numeroOe: 'OE-2026/202', osId: 'OS-EXP-2026/003', escolaId: 'esc-3', escolaNome: 'EMEF Vereador Antônio Alves',
+      status: 'Aguardando carga', cargaId: null, dataEntrega: null, criadaEm: _hoje, historicoStatus: [{ status: 'Aguardando carga', autor: 'Estoque Central', data: _hoje }],
+      produtos: [ { produto: 'Leite Integral (1L)', quantidade: 300, unidade: 'L' }, { produto: 'Banana Nanica', quantidade: 90, unidade: 'kg' } ] },
+    { id: 'OE-SEED-203', numeroOe: 'OE-2026/203', osId: 'OS-EXP-2026/004', escolaId: 'esc-4', escolaNome: 'EMEF Doutora Zulmira',
+      status: 'Aguardando carga', cargaId: null, dataEntrega: null, criadaEm: _hoje, historicoStatus: [{ status: 'Aguardando carga', autor: 'Estoque Central', data: _hoje }],
+      produtos: [ { produto: 'Frango (Coxa/Sobrecoxa)', quantidade: 200, unidade: 'kg' } ] },
+  ];
+  _seedOes.forEach(oe => { if (!S._data.ordensEntrega.some(x => x.id === oe.id)) S._data.ordensEntrega.unshift(oe); });
+
+  S._persist();
+
+  // ── Peso da O.E. (kg; regra 1 L = 1 kg) ──────────────────────────────────
+  S.pesoDaOe = (oe) => {
+    if (!oe) return 0;
+    if (typeof oe.pesoKg === 'number') return oe.pesoKg;
+    return (oe.produtos || []).reduce((s, p) => s + (Number(p.quantidade) || 0), 0);
+  };
+
+  // ── FROTA (A1b) ──────────────────────────────────────────────────────────
+  S.getFrota = () => [...(S._data.frota || [])];
+  S.addCaminhao = (c) => {
+    const id = 'CAM-' + Date.now().toString().slice(-6);
+    const novo = { id, status: 'ativo', capacidadeKg: 5400, refrigerado: false, ...c };
+    (S._data.frota = S._data.frota || []).push(novo);
+    S._persist(); S._emit('frota:add');
+    return novo;
+  };
+  S.updateCaminhao = (id, patch) => {
+    const c = (S._data.frota || []).find(x => x.id === id);
+    if (!c) return null;
+    Object.assign(c, patch); S._persist(); S._emit('frota:update');
+    return c;
+  };
+  S.deleteCaminhao = (id) => { S._data.frota = (S._data.frota || []).filter(x => x.id !== id); S._persist(); };
+
+  // ── CARGAS / MONTAGEM (A1/A2/A2b) ────────────────────────────────────────
+  S.getCargas = () => [...(S._data.cargas || [])];
+  S.criarCarga = ({ caminhaoId, motorista }) => {
+    const cam = (S._data.frota || []).find(c => c.id === caminhaoId);
+    const carga = {
+      id: 'CG-' + Date.now().toString().slice(-6),
+      caminhaoId,
+      motorista: motorista || (cam ? cam.motoristaPadrao : 'Motorista CD'),
+      pesoTotalKg: 0,
+      oes: [],
+      rotaOrdenada: [],
+      status: 'em_montagem',
+      criadaEm: new Date().toISOString(),
+      historicoStatus: [{ status: 'em_montagem', autor: 'Estoque Central', data: new Date().toISOString() }],
+    };
+    (S._data.cargas = S._data.cargas || []).unshift(carga);
+    S._persist(); S._emit('carga:create');
+    return carga;
+  };
+  S._recalcPesoCarga = (carga) => {
+    const oes = S._data.ordensEntrega || [];
+    carga.pesoTotalKg = (carga.oes || []).reduce((s, oeId) => s + S.pesoDaOe(oes.find(o => o.id === oeId)), 0);
+    return carga.pesoTotalKg;
+  };
+  // Trava de peso A1: retorna {ok:false, motivo:'excede'} se estourar a capacidade.
+  S.addOeNaCarga = (cargaId, oeId) => {
+    const carga = (S._data.cargas || []).find(c => c.id === cargaId);
+    const oe = (S._data.ordensEntrega || []).find(o => o.id === oeId);
+    if (!carga || !oe) return { ok: false, motivo: 'not-found' };
+    if (oe.cargaId && oe.cargaId !== cargaId) return { ok: false, motivo: 'ja-alocada' };
+    const cam = (S._data.frota || []).find(c => c.id === carga.caminhaoId);
+    const cap = cam ? cam.capacidadeKg : 5400;
+    const pesoOe = S.pesoDaOe(oe);
+    if ((carga.pesoTotalKg + pesoOe) > cap) return { ok: false, motivo: 'excede', pesoOe, restante: cap - carga.pesoTotalKg, placa: cam ? cam.placa : '' };
+    if (!carga.oes.includes(oeId)) carga.oes.push(oeId);
+    if (!(carga.rotaOrdenada || []).includes(oeId)) (carga.rotaOrdenada = carga.rotaOrdenada || []).push(oeId);
+    oe.cargaId = cargaId;
+    oe.status = 'Em Carga';
+    (oe.historicoStatus = oe.historicoStatus || []).push({ status: 'Em Carga', autor: 'Estoque Central', data: new Date().toISOString(), detalhe: 'Carga ' + cargaId });
+    S._recalcPesoCarga(carga);
+    S._persist(); S._emit('carga:oe:add');
+    return { ok: true, carga };
+  };
+  S.removerOeDaCarga = (cargaId, oeId) => {
+    const carga = (S._data.cargas || []).find(c => c.id === cargaId);
+    const oe = (S._data.ordensEntrega || []).find(o => o.id === oeId);
+    if (carga) { carga.oes = (carga.oes || []).filter(x => x !== oeId); carga.rotaOrdenada = (carga.rotaOrdenada || []).filter(x => x !== oeId); S._recalcPesoCarga(carga); }
+    if (oe) { oe.cargaId = null; oe.status = 'Aguardando carga'; }
+    S._persist(); S._emit('carga:oe:remove');
+  };
+  S.setStatusCarga = (cargaId, novoStatus, autor) => {
+    const carga = (S._data.cargas || []).find(c => c.id === cargaId);
+    if (!carga) return null;
+    carga.status = novoStatus;
+    (carga.historicoStatus = carga.historicoStatus || []).push({ status: novoStatus, autor: autor || 'Estoque Central', data: new Date().toISOString() });
+    S._persist(); S._emit('carga:status');
+    return carga;
+  };
+
+  // ── OCORRÊNCIAS (F14/F15) ────────────────────────────────────────────────
+  S.getOcorrencias = (modulo) => {
+    const all = [...(S._data.ocorrencias || [])];
+    return modulo ? all.filter(o => o.modulo === modulo) : all;
+  };
+  S.registrarOcorrencia = (oc) => {
+    const nova = {
+      id: 'OC-' + Date.now().toString().slice(-6),
+      modulo: oc.modulo || 'estoque',
+      status: 'Pendente',
+      criadoEm: new Date().toISOString(),
+      ...oc,
+    };
+    (S._data.ocorrencias = S._data.ocorrencias || []).unshift(nova);
+    S._persist(); S._emit('ocorrencia:add');
+    return nova;
+  };
+
+  // ── COBERTURA DE ESTOQUE ESCOLAR (C10) ───────────────────────────────────
+  // "Atendida" = escola com O.E. vinculada ao seu escolaId. Autonomia em dias é
+  // um cálculo determinístico (mock) até o estoque escolar real alimentar isso.
+  S.getCoberturaEscolas = (opts) => {
+    const schools = (typeof DATA !== 'undefined' && DATA.schools) ? DATA.schools : [];
+    const menuAtivo = (S._data.menus || []).find(m => m.status === 'Publicado');
+    return schools.map(sc => {
+      const base = sc.refeicoesDia ? (22 - (sc.refeicoesDia * 2) - (sc.students % 9)) : 10;
+      const dias = Math.max(1, base);
+      let status = 'adequada';
+      if (dias < 5) status = 'critica';
+      else if (dias > 15) status = 'abundante';
+      return {
+        escolaId: 'esc-' + sc.id,
+        escola: sc.name,
+        alunos: sc.students || 0,
+        cardapioAtivo: menuAtivo ? menuAtivo.nome : 'Cardápio Vigente',
+        diasCobertura: dias,
+        status,
+      };
+    });
+  };
+})();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ÉPICO EXPEDIÇÃO & LOGÍSTICA — handlers cross-perfil (Montagem, Liberação,
+// Rastreamento). Ficam no Hub porque tocam cargas + O.E. + despacho ao Motorista.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── MONTAGEM DE CARGA (A2 / A2b · Ajuste 02: gating por O.E. já criada) ──────
+// arg pode ser: undefined (nova carga) · id de carga (adicionar/ver O.E.) ·
+// id de O.E. pendente (pré-selecionar para alocar).
+window.abrirModalMontagemCarga = (arg) => {
+  const cargas = SharedState.getCargas();
+  const frota  = SharedState.getFrota().filter(c => c.status === 'ativo');
+  const oes    = SharedState.getOrdensEntrega();
+
+  let carga = cargas.find(c => c.id === arg);
+  const oePreSel = !carga ? oes.find(o => o.id === arg) : null;
+
+  // Carga já em rota/concluída → visão somente-leitura das O.E. da viagem.
+  if (carga && carga.status !== 'em_montagem') {
+    const cam = frota.concat(SharedState.getFrota()).find(c => c.id === carga.caminhaoId) || { placa: '—', modelo: '' };
+    const itens = (carga.oes || []).map(id => oes.find(o => o.id === id)).filter(Boolean);
+    const body = `
+      <div style="background:#eff6ff;padding:10px 12px;border-radius:8px;margin-bottom:12px;font-size:0.85rem;color:#1e40af">
+        🚚 Carga <strong>${carga.id}</strong> · ${cam.placa} · Motorista ${carga.motorista} · ${(carga.pesoTotalKg||0).toLocaleString('pt-BR')} kg · Status: <strong>${carga.status === 'em_transporte' ? 'Em Rota' : 'Concluída'}</strong>
+      </div>
+      <table class="data-table"><thead><tr><th>O.E.</th><th>Escola</th><th>Peso</th><th>Status</th></tr></thead><tbody>
+        ${itens.map(o => `<tr><td><strong>${o.numeroOe||o.id}</strong></td><td>${o.escolaNome||'—'}</td><td style="font-family:var(--font-mono)">${SharedState.pesoDaOe(o).toLocaleString('pt-BR')} kg</td><td><span class="status-badge status-info">${o.status}</span></td></tr>`).join('') || '<tr><td colspan="4" style="text-align:center;padding:16px;color:var(--text-secondary)">Sem O.E.</td></tr>'}
+      </tbody></table>
+      <div style="display:flex;justify-content:flex-end;margin-top:16px"><button class="btn btn-outline" onclick="closeModal()">Fechar</button></div>`;
+    window.showModal('🚚 O.E. da Carga — ' + carga.id, body, '640px');
+    return;
+  }
+
+  // Pool = O.E. "Aguardando carga" sem cargaId (gating do Ajuste 02).
+  const pool = oes.filter(o => o.status === 'Aguardando carga' && !o.cargaId);
+
+  const jaAlocado = carga ? (carga.pesoTotalKg || 0) : 0;
+  const caminhaoFixo = carga ? SharedState.getFrota().find(c => c.id === carga.caminhaoId) : null;
+
+  const camOptions = frota.map(c =>
+    `<option value="${c.id}" data-cap="${c.capacidadeKg}">${c.placa} — ${c.modelo} · ${c.capacidadeKg.toLocaleString('pt-BR')} kg${c.refrigerado ? ' ❄️' : ''}</option>`
+  ).join('');
+
+  const poolRows = pool.length ? pool.map(o => {
+    const peso = SharedState.pesoDaOe(o);
+    const pre = oePreSel && oePreSel.id === o.id ? 'checked' : '';
+    return `
+      <label style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer">
+        <input type="checkbox" class="mc-oe" value="${o.id}" data-peso="${peso}" ${pre} onchange="window._recalcMontagem()" style="width:18px;height:18px">
+        <div style="flex:1">
+          <strong>${o.numeroOe || o.id}</strong> — ${o.escolaNome || '—'}<br>
+          <small class="text-secondary">${(o.produtos||[]).map(p => `${p.produto} (${p.quantidade} ${p.unidade||''})`).join(' · ')}</small>
+        </div>
+        <span class="tag tag-blue" style="font-family:var(--font-mono)">${peso.toLocaleString('pt-BR')} kg</span>
+      </label>`;
+  }).join('') : '<div style="text-align:center;padding:20px;color:var(--text-secondary)">Nenhuma O.E. aguardando carga. Crie O.E. na tela Expedição (OS Escolas).</div>';
+
+  const caminhaoBloco = carga
+    ? `<div style="background:var(--surface-2);padding:10px 12px;border-radius:6px;margin-bottom:6px">
+         Caminhão da carga <strong>${carga.id}</strong>: <strong>${caminhaoFixo ? caminhaoFixo.placa : '—'}</strong> (${caminhaoFixo ? caminhaoFixo.capacidadeKg.toLocaleString('pt-BR') : '5.400'} kg) · já alocado ${jaAlocado.toLocaleString('pt-BR')} kg
+         <input type="hidden" id="mc-caminhao" value="${carga.caminhaoId}" data-cap="${caminhaoFixo ? caminhaoFixo.capacidadeKg : 5400}">
+       </div>`
+    : `<div class="form-group"><label class="form-label">Caminhão (só frota ativa) — sugestão por capacidade:</label>
+         <select id="mc-caminhao" class="form-control" onchange="window._recalcMontagem()">${camOptions || '<option value="">Sem caminhão ativo</option>'}</select>
+       </div>`;
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#fff7ed;padding:10px 12px;border-radius:8px;border:1px solid #fed7aa;margin-bottom:14px;font-size:0.82rem;color:#9a3412">
+        ⚖️ <strong>Trava de peso (A1):</strong> a soma das O.E. não pode exceder a capacidade do caminhão. O sistema bloqueia e sugere outro veículo.
+      </div>
+      ${caminhaoBloco}
+      <div id="mc-resumo" style="margin:10px 0;padding:10px 12px;border-radius:6px;font-weight:600"></div>
+      <div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">${poolRows}</div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="button" id="mc-confirm" class="btn btn-primary" onclick="window.confirmarAlocacaoCarga('${carga ? carga.id : ''}')">✅ Confirmar Alocação</button>
+      </div>
+    </div>`;
+
+  window._mcCtx = { cargaId: carga ? carga.id : null, jaAlocado };
+  window.showModal(carga ? ('➕ Adicionar O.E. — Carga ' + carga.id) : '🚚 Nova Montagem de Carga', content, '680px');
+  window._recalcMontagem();
+};
+
+// Recalcula peso selecionado × capacidade e liga/desliga a trava em tempo real.
+window._recalcMontagem = () => {
+  const ctx = window._mcCtx || { jaAlocado: 0 };
+  const sel = document.getElementById('mc-caminhao');
+  let cap = 5400;
+  if (sel) {
+    if (sel.tagName === 'SELECT') {
+      const opt = sel.options[sel.selectedIndex];
+      cap = opt ? parseFloat(opt.getAttribute('data-cap') || 5400) : 5400;
+    } else {
+      cap = parseFloat(sel.getAttribute('data-cap') || 5400);
+    }
+  }
+  let selecionado = 0;
+  document.querySelectorAll('.mc-oe:checked').forEach(cb => { selecionado += parseFloat(cb.getAttribute('data-peso') || 0); });
+  const total = (ctx.jaAlocado || 0) + selecionado;
+  const pct = Math.round((total / cap) * 100);
+  const excede = total > cap;
+  const resumo = document.getElementById('mc-resumo');
+  if (resumo) {
+    resumo.style.background = excede ? '#fee2e2' : '#dcfce7';
+    resumo.style.color = excede ? '#b91c1c' : '#15803d';
+    resumo.innerHTML = `${excede ? '⛔' : '✅'} ${total.toLocaleString('pt-BR')} / ${cap.toLocaleString('pt-BR')} kg (${pct}%)${excede ? ' — excede a capacidade! Remova O.E. ou use outro caminhão.' : ''}`;
+  }
+  const btn = document.getElementById('mc-confirm');
+  if (btn) { btn.disabled = excede; btn.style.opacity = excede ? '0.5' : '1'; btn.style.cursor = excede ? 'not-allowed' : 'pointer'; }
+};
+
+window.confirmarAlocacaoCarga = (cargaId) => {
+  const selecionadas = Array.from(document.querySelectorAll('.mc-oe:checked')).map(cb => cb.value);
+  if (!selecionadas.length) { alert('Selecione ao menos uma O.E. para alocar.'); return; }
+
+  let carga = cargaId ? SharedState.getCargas().find(c => c.id === cargaId) : null;
+  if (!carga) {
+    const camId = document.getElementById('mc-caminhao') ? document.getElementById('mc-caminhao').value : '';
+    if (!camId) { alert('Selecione um caminhão para a carga.'); return; }
+    carga = SharedState.criarCarga({ caminhaoId: camId });
+  }
+
+  let alocadas = 0, bloqueada = null;
+  for (const oeId of selecionadas) {
+    const r = SharedState.addOeNaCarga(carga.id, oeId);
+    if (r.ok) { alocadas++; }
+    else if (r.motivo === 'excede') { bloqueada = r; break; }
+  }
+
+  closeModal();
+  if (bloqueada) {
+    alert(`⚠️ Trava de peso (A1): a O.E. de ${bloqueada.pesoOe.toLocaleString('pt-BR')} kg excede a capacidade restante (${bloqueada.restante.toLocaleString('pt-BR')} kg) do caminhão ${bloqueada.placa}. Aloque em outro caminhão.`);
+  }
+  if (alocadas) showToast(`📦 ${alocadas} O.E. alocada(s) na carga ${carga.id}. Use "Liberar para Entrega" para despachar ao Motorista.`);
+  if (typeof renderPage === 'function') renderPage();
+};
+
+// ── LIBERAR CARGA PARA ENTREGA (A2b · Ajuste 03) ────────────────────────────
+// Único ponto de disparo ao Motorista (removido da criação da O.E.).
+window.liberarCarga = (cargaId) => {
+  const carga = SharedState.getCargas().find(c => c.id === cargaId);
+  if (!carga) return;
+  if (!carga.oes || carga.oes.length === 0) { alert('⛔ Não é possível liberar uma carga vazia. Aloque ao menos uma O.E.'); return; }
+
+  const cam = SharedState.getFrota().find(c => c.id === carga.caminhaoId);
+  const cap = cam ? cam.capacidadeKg : 5400;
+  if ((carga.pesoTotalKg || 0) < cap) {
+    if (!confirm(`O caminhão não atingiu o peso máximo (${(carga.pesoTotalKg||0).toLocaleString('pt-BR')} / ${cap.toLocaleString('pt-BR')} kg). Liberar mesmo assim?`)) return;
+  }
+
+  SharedState.setStatusCarga(cargaId, 'em_transporte', 'Estoque Central');
+
+  const oes = SharedState.getOrdensEntrega();
+  let despachadas = 0;
+  (carga.oes || []).forEach(oeId => {
+    const oe = SharedState._data.ordensEntrega.find(o => o.id === oeId);
+    if (!oe) return;
+    oe.status = 'Em Transporte';
+    oe.motorista = carga.motorista;
+    oe.veiculo = cam ? `${cam.modelo} (${cam.placa})` : oe.veiculo;
+    oe.cargaId = cargaId;
+    (oe.historicoStatus = oe.historicoStatus || []).push({ status: 'Em Transporte', autor: carga.motorista || 'Motorista', data: new Date().toISOString(), detalhe: 'Despachada na liberação da carga' });
+    // Despacho ao Motorista: cria um pedido "Em transporte" atribuído ao driver.
+    const pedido = SharedState.addOrder({
+      school: oe.escolaNome,
+      driver: carga.motorista,
+      status: 'Em transporte',
+      cooperative: 'Almoxarifado Central',
+      cardapioCodigo: oe.osId || oe.numeroOe,
+      oeNumero: oe.numeroOe,
+      veiculo: oe.veiculo,
+      cargaId: cargaId,
+      value: 0,
+      itens: (oe.produtos || []).map(p => ({ produto: p.produto, qtd: p.quantidade, unidade: p.unidade || 'kg', regra: 'Separação FEFO (RN06)' }))
+    });
+    oe.pedidoId = pedido ? pedido.id : null;
+    despachadas++;
+  });
+  SharedState._persist();
+  if (SharedState._emit) SharedState._emit('carga:liberada', carga);
+
+  showToast(`🚀 Carga ${carga.id} liberada — ${despachadas} O.E. despachada(s) ao motorista ${carga.motorista}. Caminhão agora aparece na Rastreabilidade.`);
+  if (typeof renderPage === 'function') renderPage();
+};
+
+// ── RASTREAMENTO DO CAMINHÃO EM MAPA (B9 · Ajuste 04) ───────────────────────
+// Fonte da posição isolada num provider (mock trocável por GPS real — igual ao
+// RoutingProvider). Hoje = simulação por timer entre as paradas da rota.
+window.RastreamentoProvider = {
+  _mode: 'mock',
+  // Retorna a parada corrente (índice base-0) de uma carga: 1ª O.E. não entregue.
+  paradaAtual(carga, oes) {
+    const seq = (carga.oes || []).map(id => oes.find(o => o.id === id)).filter(Boolean);
+    const idx = seq.findIndex(o => o.status !== 'Entregue' && o.status !== 'Recebido');
+    return idx === -1 ? Math.max(0, seq.length - 1) : idx;
+  }
+};
+
+window.abrirModalRastreamentoVeiculo = (cargaId) => {
+  const carga = SharedState.getCargas().find(c => c.id === cargaId);
+  if (!carga) { alert('Carga não encontrada.'); return; }
+  const cam = SharedState.getFrota().find(c => c.id === carga.caminhaoId) || { placa: '—', modelo: '', capacidadeKg: 5400, motoristaPadrao: carga.motorista };
+  const oes = SharedState.getOrdensEntrega();
+  const seq = (carga.oes || []).map(id => oes.find(o => o.id === id)).filter(Boolean);
+  const atual = window.RastreamentoProvider.paradaAtual(carga, oes);
+
+  // Coordenadas dos pontos no SVG (mock — distribui as paradas ao longo da rota).
+  const W = 560, H = 240, n = Math.max(seq.length, 1);
+  const pts = seq.map((o, i) => ({
+    x: 50 + (i * (W - 100) / Math.max(n - 1, 1)),
+    y: 120 + (i % 2 === 0 ? -40 : 40) * (i === 0 ? 0 : 1),
+    nome: o.escolaNome || o.id, status: o.status
+  }));
+  if (pts.length === 1) { pts[0].x = W / 2; pts[0].y = H / 2; }
+
+  const routeLine = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+  const doneLine = pts.slice(0, atual + 1).map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+  const stopMarkers = pts.map((p, i) => {
+    const done = i < atual;
+    const cur = i === atual;
+    const fill = done ? '#15803d' : (cur ? '#f59e0b' : '#3b82f6');
+    return `
+      <g>
+        <circle cx="${p.x}" cy="${p.y}" r="${cur ? 12 : 9}" fill="${fill}" stroke="#fff" stroke-width="2">
+          ${cur ? '<animate attributeName="r" values="12;15;12" dur="1.2s" repeatCount="indefinite"/>' : ''}
+        </circle>
+        <text x="${p.x}" y="${p.y + 4}" text-anchor="middle" font-size="10" fill="#fff" font-weight="700">${i + 1}</text>
+        <text x="${p.x}" y="${p.y - 16}" text-anchor="middle" font-size="9" fill="var(--text-secondary)">${(p.nome || '').slice(0, 16)}</text>
+      </g>`;
+  }).join('');
+
+  const stopsList = seq.map((o, i) => {
+    const done = i < atual, cur = i === atual;
+    return `<li style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:#fff;background:${done ? '#15803d' : (cur ? '#f59e0b' : '#3b82f6')}">${i + 1}</span>
+      <div style="flex:1"><strong>${o.escolaNome || o.id}</strong> <small class="text-secondary">${(o.produtos||[]).length} item(ns)</small></div>
+      <span class="status-badge ${o.status === 'Entregue' || o.status === 'Recebido' ? 'status-ok' : (cur ? 'status-warning' : 'status-info')}">${done ? '✓ OK' : (cur ? '▶ EM ROTA' : 'PENDENTE')}</span>
+    </li>`;
+  }).join('') || '<li style="padding:8px;color:var(--text-secondary)">Sem paradas.</li>';
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <span class="tag tag-blue">🚚 ${cam.placa}</span>
+        <span class="tag tag-teal">👤 ${carga.motorista}</span>
+        <span class="tag tag-gray">⚖️ ${(carga.pesoTotalKg||0).toLocaleString('pt-BR')} / ${cam.capacidadeKg.toLocaleString('pt-BR')} kg</span>
+        <span class="tag tag-red">📌 Parada ${Math.min(atual + 1, n)}/${n}</span>
+      </div>
+      <div style="background:#eff6ff;padding:6px 10px;border-radius:6px;font-size:0.75rem;color:#1e40af;margin-bottom:10px">
+        🛰️ Modo simulação (mock). Posição vinda do <strong>RastreamentoProvider</strong> — GPS real será plugado aqui depois (mesma abordagem do RoutingProvider).
+      </div>
+      <svg viewBox="0 0 ${W} ${H}" style="width:100%;background:#f8fafc;border:1px solid var(--border);border-radius:8px">
+        <rect x="0" y="0" width="${W}" height="${H}" fill="#f1f5f9"/>
+        ${[70, 120, 170].map(y => `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#e2e8f0" stroke-width="1"/>`).join('')}
+        ${[140, 280, 420].map(x => `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#e2e8f0" stroke-width="1"/>`).join('')}
+        <path d="${routeLine}" fill="none" stroke="#94a3b8" stroke-width="3" stroke-dasharray="6 5"/>
+        <path d="${doneLine}" fill="none" stroke="#15803d" stroke-width="4"/>
+        ${stopMarkers}
+        <text id="rastreio-truck" font-size="22" text-anchor="middle">🚚</text>
+      </svg>
+      <div style="margin-top:14px">
+        <div class="card-title" style="font-size:0.9rem;margin-bottom:6px">Sequência de Paradas</div>
+        <ul style="list-style:none;padding:0;margin:0">${stopsList}</ul>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-outline" onclick="closeModal()">Fechar</button></div>
+    </div>`;
+
+  window.showModal('📡 Rastreamento — ' + cam.placa, content, '640px');
+
+  // Simulação de posição em tempo real: o marcador percorre a rota em loop.
+  if (window._rastreioTimer) { clearInterval(window._rastreioTimer); window._rastreioTimer = null; }
+  const truck = document.getElementById('rastreio-truck');
+  if (truck && pts.length) {
+    let seg = atual, t = 0;
+    const place = (x, y) => { truck.setAttribute('x', x); truck.setAttribute('y', y - 16); };
+    place(pts[Math.min(seg, pts.length - 1)].x, pts[Math.min(seg, pts.length - 1)].y);
+    window._rastreioTimer = setInterval(() => {
+      // Para se o modal foi fechado (marcador saiu do DOM).
+      if (!document.body.contains(truck)) { clearInterval(window._rastreioTimer); window._rastreioTimer = null; return; }
+      if (pts.length < 2) return;
+      const a = pts[seg % pts.length];
+      const b = pts[(seg + 1) % pts.length];
+      t += 0.06;
+      if (t >= 1) { t = 0; seg = (seg + 1) % pts.length; place(pts[seg].x, pts[seg].y); return; }
+      place(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+    }, 200);
+  }
+};
+
+// ── B7 — DUPLA CHECAGEM DE ENTREGA (Motorista + Escola) ─────────────────────
+// A O.E. só fecha em "Entregue" com AS DUAS confirmações. A confirmação do lado
+// do Estoque foi removida (a tela de O.E. passa a ser só leitura do status).
+SharedState.registrarConfirmacaoEntrega = (oeRef, lado, dados) => {
+  const oes = SharedState._data.ordensEntrega || [];
+  const oe = oes.find(o => o.id === oeRef || o.numeroOe === oeRef);
+  if (!oe) return null;
+  const now = new Date().toISOString();
+  if (lado === 'motorista') oe.confirmacaoMotorista = { ...dados, data: now };
+  else if (lado === 'escola') oe.confirmacaoEscola = { ...dados, data: now };
+  (oe.historicoStatus = oe.historicoStatus || []).push({ status: lado === 'motorista' ? 'Confirmação do Motorista' : 'Confirmação da Escola', autor: (dados && (dados.por || dados.diretor)) || lado, data: now });
+
+  if (oe.confirmacaoMotorista && oe.confirmacaoEscola) {
+    oe.status = 'Entregue';
+    oe.dataRecebimentoReal = now;
+    oe.recebidoPor = (oe.confirmacaoEscola && oe.confirmacaoEscola.diretor) || oe.recebidoPor || null;
+    oe.historicoStatus.push({ status: 'Entregue', autor: 'Dupla checagem (Motorista + Escola)', data: now });
+    const os = (SharedState._data.ordensServicoExpedicao || []).find(o => o.numeroOs === oe.osId || o.id === oe.osId);
+    if (os) os.status = 'Entregue';
+    if (oe.cargaId) {
+      const carga = (SharedState._data.cargas || []).find(c => c.id === oe.cargaId);
+      if (carga) {
+        const todas = (carga.oes || []).every(id => { const x = oes.find(o => o.id === id); return x && x.status === 'Entregue'; });
+        if (todas) SharedState.setStatusCarga(carga.id, 'concluida', 'Sistema');
+      }
+    }
+  } else {
+    oe.status = 'Aguardando confirmação';
+  }
+  SharedState._persist();
+  if (SharedState._emit) SharedState._emit('oe:confirmacao');
+  return oe;
+};
+
+// Escola confirma o recebimento (dupla checagem: Resp. Estoque + Diretor).
+window.abrirModalDuplaChecagemEscola = (oeId) => {
+  const oe = SharedState.getOrdensEntrega().find(o => o.id === oeId);
+  if (!oe) return;
+  const jaMot = !!oe.confirmacaoMotorista;
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div style="background:#f0fdf4;padding:12px;border-radius:8px;border:1px solid #86efac;margin-bottom:14px;font-size:0.85rem;color:#166534">
+        ✅ <strong>Dupla checagem (B7)</strong>: o recebimento exige o <strong>Responsável pelo Estoque (repositor)</strong> e o <strong>Diretor</strong>. Confirmação do Motorista: <strong>${jaMot ? '✔️ feita' : '⏳ pendente'}</strong>. Com as duas, a O.E. fecha em "Entregue".
+      </div>
+      <div class="card mb-16" style="padding:12px;font-size:0.85rem">
+        <div>O.E.: <strong>${oe.numeroOe}</strong> · Escola: <strong>${oe.escolaNome}</strong></div>
+        <div>Motorista: <strong>${oe.motorista || '—'}</strong> · Itens: <strong>${(oe.produtos||[]).length}</strong></div>
+      </div>
+      <form onsubmit="window.confirmarRecebimentoEscolaOe(event, '${oe.id}')">
+        <div class="form-group"><label class="form-label">Responsável pelo Estoque (repositor):</label><input type="text" id="dc-repositor" class="form-control" required placeholder="Nome do repositor"></div>
+        <div class="form-group"><label class="form-label">Diretor(a):</label><input type="text" id="dc-diretor" class="form-control" required placeholder="Nome do(a) diretor(a)"></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary" style="background:#15803d">✅ Confirmar Recebimento (Escola)</button>
+        </div>
+      </form>
+    </div>`;
+  window.showModal('✅ Confirmação de Recebimento — ' + oe.numeroOe, content, '600px');
+};
+
+window.confirmarRecebimentoEscolaOe = (e, oeId) => {
+  e.preventDefault();
+  const repositor = document.getElementById('dc-repositor').value.trim();
+  const diretor = document.getElementById('dc-diretor').value.trim();
+  if (!repositor || !diretor) { alert('Informe o repositor e o diretor.'); return; }
+  const oe = SharedState.registrarConfirmacaoEntrega(oeId, 'escola', { respEstoque: repositor, diretor });
+  closeModal();
+  if (oe && oe.status === 'Entregue') showToast(`🎉 O.E. ${oe.numeroOe} ENTREGUE — dupla checagem completa (Motorista + Escola).`);
+  else showToast(`✅ Recebimento confirmado pela escola. Aguardando confirmação do Motorista para fechar a O.E.`);
+  renderPage();
+};
+
+// Badge do estado da dupla checagem (usado na tela de O.E., só leitura).
+window._duplaChecagemBadge = (oe) => {
+  const mot = oe.confirmacaoMotorista ? '<span class="tag tag-green">🚚 Motorista ✔</span>' : '<span class="tag tag-gray">🚚 Motorista ⏳</span>';
+  const esc = oe.confirmacaoEscola ? '<span class="tag tag-green">🏫 Escola ✔</span>' : '<span class="tag tag-gray">🏫 Escola ⏳</span>';
+  return `<div style="display:flex;gap:4px;flex-wrap:wrap">${mot} ${esc}</div>`;
+};
+
+// ── A3 — ROTEIRIZAÇÃO (só a tela agora; adaptador pronto p/ OpenRouteService) ──
+// geocode(endereco) e optimize(carga) mapeiam para os endpoints ORS
+// /geocode/search e /optimization (VROOM — capacidade + janelas). Enquanto
+// SUALE_CONFIG.ORS_KEY estiver vazia, roda em modo heurístico local (sem chamada
+// externa). Trocar para ORS = só ligar a chave; as telas não mudam.
+window.RoutingProvider = {
+  get _key() { return (window.SUALE_CONFIG && window.SUALE_CONFIG.ORS_KEY) || ''; },
+  get mode() { return this._key ? 'ors' : 'heuristic'; },
+  geocode(endereco) {
+    if (this._key) { /* TODO: chamar ORS /geocode/search com this._key */ }
+    let h = 0; const s = String(endereco || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) & 0xffff;
+    return { lat: -20.44 - (h % 100) / 1000, lng: -54.60 - ((h >> 4) % 100) / 1000, mock: true };
+  },
+  _infoParada(oe) {
+    const sc = (typeof DATA !== 'undefined' && DATA.schools) ? DATA.schools.find(s => ('esc-' + s.id) === oe.escolaId || s.name === oe.escolaNome) : null;
+    const os = (SharedState._data.ordensServicoExpedicao || []).find(o => o.numeroOs === oe.osId || o.id === oe.osId);
+    const prioridade = os && os.prioridade === 'Alta' ? 0 : (os && os.prioridade === 'Média' ? 1 : 2);
+    const janela = (sc && sc.janelaHorario && sc.janelaHorario.inicio) || '23:59';
+    const regiao = (sc && sc.region) || 'zzz';
+    return { regiao, prioridade, janela };
+  },
+  // Ordena as paradas por região → prioridade → janela de horário (heurística).
+  optimize(carga, oes) {
+    if (this._key) { /* TODO: chamar ORS /optimization (VROOM) e devolver a ordem */ }
+    const seq = (carga.rotaOrdenada && carga.rotaOrdenada.length ? carga.rotaOrdenada : (carga.oes || []))
+      .map(id => oes.find(o => o.id === id)).filter(Boolean);
+    return seq.slice().sort((a, b) => {
+      const ia = this._infoParada(a), ib = this._infoParada(b);
+      return ia.regiao.localeCompare(ib.regiao) || (ia.prioridade - ib.prioridade)
+        || ia.janela.localeCompare(ib.janela)
+        || String(a.escolaNome || '').localeCompare(String(b.escolaNome || ''));
+    }).map(o => o.id);
+  }
+};
+
+window.otimizarRotaCarga = (cargaId) => {
+  const carga = (SharedState._data.cargas || []).find(c => c.id === cargaId);
+  if (!carga) return;
+  carga.rotaOrdenada = window.RoutingProvider.optimize(carga, SharedState.getOrdensEntrega());
+  SharedState._persist();
+  showToast(`🧭 Rota otimizada (${window.RoutingProvider.mode === 'ors' ? 'ORS' : 'heurística'}) — ${carga.rotaOrdenada.length} paradas reordenadas.`);
+  renderPage();
+};
+
+window._moverParadaRota = (cargaId, oeId, dir) => {
+  const carga = (SharedState._data.cargas || []).find(c => c.id === cargaId);
+  if (!carga) return;
+  const arr = (carga.rotaOrdenada && carga.rotaOrdenada.length ? carga.rotaOrdenada : (carga.oes || [])).slice();
+  const i = arr.indexOf(oeId);
+  const j = dir === 'up' ? i - 1 : i + 1;
+  if (i < 0 || j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  carga.rotaOrdenada = arr;
+  SharedState._persist();
+  renderPage();
+};
+
+// ── B8 — TIMELINE DE STATUS DA O.E. (histórico com autor + data/hora) ───────
+window.abrirTimelineOe = (oeId) => {
+  const oe = SharedState.getOrdensEntrega().find(o => o.id === oeId);
+  if (!oe) return;
+  const hist = (oe.historicoStatus || []).slice();
+  const itens = hist.length ? hist.map((h, i) => {
+    const ultimo = i === hist.length - 1;
+    return `
+      <div style="display:flex;gap:12px;padding:8px 0;${i < hist.length - 1 ? 'border-bottom:1px solid var(--border)' : ''}">
+        <div style="width:14px;height:14px;border-radius:50%;background:${ultimo ? '#15803d' : '#3b82f6'};margin-top:3px;flex-shrink:0"></div>
+        <div style="flex:1">
+          <div style="font-weight:700">${h.status}${h.detalhe ? ` <small class="text-secondary">· ${h.detalhe}</small>` : ''}</div>
+          <div style="font-size:0.8rem;color:var(--text-secondary)">👤 ${h.autor || '—'} · 🕓 ${h.data ? new Date(h.data).toLocaleString('pt-BR') : '—'}</div>
+        </div>
+      </div>`;
+  }).join('') : '<div style="padding:12px;color:var(--text-secondary)">Sem histórico registrado.</div>';
+
+  const content = `
+    <div style="font-family:Inter,sans-serif">
+      <div class="card mb-16" style="padding:12px;font-size:0.85rem">
+        <div>O.E.: <strong>${oe.numeroOe}</strong> · Escola: <strong>${oe.escolaNome}</strong> · Status atual: <strong>${oe.status}</strong></div>
+      </div>
+      ${itens}
+      <div style="display:flex;justify-content:flex-end;margin-top:14px"><button class="btn btn-outline" onclick="closeModal()">Fechar</button></div>
+    </div>`;
+  window.showModal('🕓 Linha do Tempo — ' + oe.numeroOe, content, '560px');
+};
+
+// __EXPEDICAO_HANDLERS_MARKER__
+
 // ─── TELA 01: RECEBIMENTOS PENDENTES ──────────────────────────────────
 PAGE_RENDERERS['gestor_recebimentos-pendentes'] = (el) => {
   const recs = SharedState.getRecebimentosPendentes();
@@ -7784,31 +8421,35 @@ PAGE_RENDERERS['gestor_ordens-entrega'] = (el) => {
   const oes = SharedState.getOrdensEntrega();
   const badgeStatus = (s) => {
     const map = {
-      'Criada': 'tag-gray', 'Aguardando Coleta': 'tag-orange', 'Em Transporte': 'tag-blue',
-      'Em Rota': 'tag-blue', 'Entregue': 'tag-green', 'Entrega Parcial': 'tag-orange',
-      'Não Entregue': 'tag-red', 'Devolvida': 'tag-red'
+      'Criada': 'tag-gray', 'Aguardando carga': 'tag-orange', 'Em Carga': 'tag-blue',
+      'Aguardando Coleta': 'tag-orange', 'Em Transporte': 'tag-blue',
+      'Aguardando confirmação': 'tag-orange', 'Em Rota': 'tag-blue', 'Entregue': 'tag-green',
+      'Entrega Parcial': 'tag-orange', 'Não Entregue': 'tag-red', 'Devolvida': 'tag-red'
     };
     return `<span class="tag ${map[s]||'tag-gray'}">${s}</span>`;
   };
 
   const rows = oes.length ? oes.map(o => `
-    <tr>
-      <td><strong>${o.numeroOe}</strong></td>
-      <td><small>${o.osId}</small></td>
+    <tr data-escola="${(o.escolaNome||'').replace(/"/g,'')}" data-carga="${o.cargaId||''}" data-status="${o.status||''}">
+      <td><strong>${o.numeroOe}</strong> <button class="btn btn-sm btn-outline" title="Linha do tempo" onclick="window.abrirTimelineOe('${o.id}')">🕓</button></td>
+      <td><small>${o.osId||'—'}</small></td>
       <td><strong>${o.escolaNome}</strong></td>
-      <td>👤 ${o.motorista}</td>
-      <td>🚛 ${o.veiculo}<br><small class="text-secondary">🗺️ ${o.rota}</small></td>
-      <td>${o.dataEntrega}</td>
+      <td>👤 ${o.motorista||'<span class="text-secondary">— (definido na carga)</span>'}</td>
+      <td>${o.veiculo ? '🚛 '+o.veiculo : '<span class="text-secondary">—</span>'}${o.cargaId ? `<br><small class="text-secondary">📦 ${o.cargaId}</small>` : ''}</td>
+      <td>${o.dataEntrega||'—'}</td>
       <td>${badgeStatus(o.status)}</td>
       <td>
-        ${o.status === 'Entregue' ? `<span class="tag tag-green">✍️ Assinado por ${o.recebidoPor||'Escola'}</span>` : `
-          <button class="btn btn-sm btn-primary" onclick="window.abrirModalAssinaturaEntregaEscola('${o.id}')">
-            🖊️ Assinatura & Entrega (RN10)
-          </button>
-        `}
+        ${o.status === 'Entregue'
+          ? `<span class="tag tag-green">✍️ Recebido por ${o.recebidoPor||'Escola'}</span>`
+          : window._duplaChecagemBadge(o)}
       </td>
     </tr>
   `).join('') : '<tr><td colspan="8" style="text-align:center;color:#94A3B8">Nenhuma Ordem de Entrega criada.</td></tr>';
+
+  // B6 — opções de filtro (por Escola / por Carga / por Status)
+  const escolasOpt = [...new Set(oes.map(o => o.escolaNome).filter(Boolean))].map(e => `<option value="${e.replace(/"/g,'')}">${e}</option>`).join('');
+  const cargasOpt = [...new Set(oes.map(o => o.cargaId).filter(Boolean))].map(c => `<option value="${c}">${c}</option>`).join('');
+  const statusOpt = [...new Set(oes.map(o => o.status).filter(Boolean))].map(s => `<option value="${s}">${s}</option>`).join('');
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
@@ -7826,7 +8467,14 @@ PAGE_RENDERERS['gestor_ordens-entrega'] = (el) => {
       <div class="kpi-card green"><div class="kpi-icon">✍️</div><div class="kpi-value">${oes.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues com Assinatura</div></div>
     </div>
     <div class="card" style="margin-top:16px">
-      <div class="card-header"><strong>Ordens de Entrega para Escolas</strong></div>
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+        <strong>Ordens de Entrega para Escolas</strong>
+        <div style="display:flex;gap:8px;flex-wrap:wrap" id="oe-filtros">
+          <select class="form-control" style="width:auto;font-size:0.82rem" data-f="escola" onchange="window._filtrarOe()"><option value="">Todas as escolas</option>${escolasOpt}</select>
+          <select class="form-control" style="width:auto;font-size:0.82rem" data-f="carga" onchange="window._filtrarOe()"><option value="">Todas as cargas</option>${cargasOpt}</select>
+          <select class="form-control" style="width:auto;font-size:0.82rem" data-f="status" onchange="window._filtrarOe()"><option value="">Todos os status</option>${statusOpt}</select>
+        </div>
+      </div>
       <div style="overflow-x:auto">
         <table class="data-table" style="font-size:0.85rem">
           <thead>
@@ -7835,16 +8483,26 @@ PAGE_RENDERERS['gestor_ordens-entrega'] = (el) => {
               <th>OS Origem</th>
               <th>Escola Destino</th>
               <th>Entregador / Motorista</th>
-              <th>Veículo & Rota</th>
+              <th>Veículo & Carga</th>
               <th>Data Entrega</th>
               <th>Status</th>
-              <th>Confirmação de Recebimento</th>
+              <th>Confirmação (Dupla Checagem)</th>
             </tr>
           </thead>
-          <tbody>${rows}</tbody>
+          <tbody id="oe-tbody">${rows}</tbody>
         </table>
       </div>
     </div>`;
+};
+
+// B6 — aplica os filtros (Escola / Carga / Status) escondendo linhas na tabela de O.E.
+window._filtrarOe = () => {
+  const get = (f) => { const s = document.querySelector(`#oe-filtros [data-f="${f}"]`); return s ? s.value : ''; };
+  const fe = get('escola'), fc = get('carga'), fs = get('status');
+  document.querySelectorAll('#oe-tbody tr[data-escola]').forEach(tr => {
+    const ok = (!fe || tr.dataset.escola === fe) && (!fc || tr.dataset.carga === fc) && (!fs || tr.dataset.status === fs);
+    tr.style.display = ok ? '' : 'none';
+  });
 };
 
 // ─── TELA 04: RASTREABILIDADE 5-WAY (RN13) ───────────────────────────
@@ -8304,6 +8962,29 @@ window.concluirSeparacaoFEFO = (osId) => {
     if (SharedState.consumeCentralStock) SharedState.consumeCentralStock(p.produto, p.quantidade);
   });
 
+  // A16 — Fracionar O.S.: o saldo NÃO separado (itens não bipados) vira uma
+  // nova OS pendente, com sufixo no número e prioridade herdada. A OS original
+  // segue como "Separado parcial".
+  let saldoOs = null;
+  if (!totalSeparado) {
+    const saldoItens = os.produtos
+      .filter(p => !p._bipado)
+      .map(p => { const c = { ...p }; delete c._bipado; delete c._qtdSeparada; return c; });
+    if (saldoItens.length) {
+      saldoOs = {
+        ...os,
+        id: `${os.id}-2`,
+        numeroOs: `${os.numeroOs}/2`,
+        produtos: saldoItens,
+        status: 'Aguardando Separação',
+        fracionadaDe: os.numeroOs,
+      };
+      (SharedState._data.ordensServicoExpedicao = SharedState._data.ordensServicoExpedicao || []).unshift(saldoOs);
+      // A OS original mantém apenas os itens separados.
+      os.produtos = os.produtos.filter(p => p._bipado);
+    }
+  }
+
   SharedState.registrarLogAuditoria({
     acao: `Separação de Estoque FEFO (RN06) — ${totalSeparado ? 'Total' : 'Parcial'}`,
     produto: os.produtos.filter(p => p._bipado).map(p => p.produto).join(', '),
@@ -8316,109 +8997,91 @@ window.concluirSeparacaoFEFO = (osId) => {
 
   showToast(totalSeparado
     ? `✅ Separação FEFO concluída — OS ${os.numeroOs} SEPARADA. Já pode gerar a Ordem de Entrega.`
-    : `⚠️ Separação PARCIAL registrada (${bipados}/${total} itens) — OS ${os.numeroOs}.`);
+    : `⚠️ Separação PARCIAL — OS ${os.numeroOs}. Saldo gerou a nova OS ${saldoOs ? saldoOs.numeroOs : ''} (Aguardando Separação).`);
   closeModal();
   renderPage();
 };
 
 // MODAL 4: CRIAR ORDEM DE ENTREGA (RN08/RN09)
-window.abrirModalNovaOrdemEntrega = (osId) => {
-  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
-  if (!os) return;
+window.abrirModalNovaOrdemEntrega = (arg) => {
+  // Aceita id de OS de Expedição OU escolaId (botão de reposição da Cobertura C10).
+  const osList = SharedState.getOrdensServicoExpedicao();
+  let os = osList.find(o => o.id === arg);
+  if (!os) os = osList.find(o => o.escolaId === arg && (o.status === 'Aguardando Separação' || o.status === 'Separado' || o.status === 'OE Criada'));
+  if (!os) { showToast('⚠️ Sem OS de expedição pendente para esta escola. Gere a OS na tela Expedição (OS Escolas).'); return; }
 
+  const peso = (os.produtos || []).reduce((s, p) => s + (Number(p.quantidade) || 0), 0);
   const content = `
     <div style="font-family:Inter,sans-serif">
       <div style="background:#eff6ff;padding:12px;border-radius:8px;border:1px solid #bfdbfe;margin-bottom:14px;font-size:0.85rem;color:#1e40af">
-        🚛 <strong>Ordem de Entrega (RN08/RN09)</strong>: Vinculação obrigatória de OS + Escola + Motorista + Veículo + Rota. Cada Ordem de Entrega pertence estritamente a 1 escola.
+        🚛 <strong>Ordem de Entrega (RN08)</strong>: 1 escola = 1 O.E. A O.E. nasce <strong>"Aguardando carga"</strong> e é liberada para a <strong>Montagem de Carga</strong> — motorista, veículo e rota são definidos na carga, não aqui (Ajuste 02).
       </div>
       <form onsubmit="window.salvarNovaOrdemEntrega(event, '${os.id}')">
-        <div style="margin-bottom:12px">
-          <label class="form-label">Escola de Destino (1 Escola por OE):</label>
-          <input type="text" class="form-control" value="${os.escolaNome}" readonly>
-        </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
           <div>
-            <label class="form-label">Motorista / Entregador (RN09):</label>
-            <select id="oe-motorista" class="form-control" required>
-              <option value="José Souza">José Souza — CNH E</option>
-              <option value="Marcos Antônio Ribeiro">Marcos Antônio Ribeiro — CNH D</option>
-              <option value="Carlos Alberto Santos">Carlos Alberto Santos — CNH D</option>
-            </select>
+            <label class="form-label">Escola de Destino:</label>
+            <input type="text" class="form-control" value="${os.escolaNome}" readonly>
           </div>
           <div>
-            <label class="form-label">Veículo de Transporte (Placa/Modelo):</label>
-            <select id="oe-veiculo" class="form-control" required>
-              <option value="Furgão IVECO Daily (ABC-1234)">Furgão IVECO Daily (ABC-1234)</option>
-              <option value="Caminhão VW Delivery (DEF-5678)">Caminhão VW Delivery (DEF-5678)</option>
-              <option value="Van Renault Master refrigerada (GHI-9012)">Van Renault Master refrigerada (GHI-9012)</option>
-            </select>
+            <label class="form-label">OS de referência:</label>
+            <input type="text" class="form-control" value="${os.numeroOs}" readonly>
           </div>
         </div>
-        <div style="margin-bottom:14px">
-          <label class="form-label">Rota Logística / Itinerário:</label>
-          <select id="oe-rota" class="form-control" required>
-            <option value="Rota 03 — Zona Norte (Anhanduízinho)">Rota 03 — Zona Norte (Anhanduízinho)</option>
-            <option value="Rota 07 — Zona Sul (Aero Rancho)">Rota 07 — Zona Sul (Aero Rancho)</option>
-            <option value="Rota 12 — Centro / Segredo">Rota 12 — Centro / Segredo</option>
-          </select>
+        <div class="card" style="margin-bottom:12px">
+          <div class="card-header" style="padding:8px 12px"><strong>Itens da O.E.</strong><span class="tag tag-blue">${peso.toLocaleString('pt-BR')} kg</span></div>
+          <table class="data-table"><thead><tr><th>Produto</th><th>Qtd</th><th>Unid.</th></tr></thead><tbody>
+            ${(os.produtos||[]).map(p => `<tr><td>${p.produto}</td><td style="font-family:var(--font-mono)">${p.quantidade}</td><td>${p.unidade||''}</td></tr>`).join('')}
+          </tbody></table>
+        </div>
+        <div style="background:#f0fdf4;padding:8px 12px;border-radius:6px;font-size:0.8rem;color:#166534;margin-bottom:12px">
+          ➡️ Próximo passo: <strong>Montagem de Carga</strong> aloca esta O.E. a um caminhão; o despacho ao Motorista ocorre ao <strong>Liberar para Entrega</strong>.
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
-          <button type="submit" class="btn btn-primary">🚛 Gerar Ordem de Entrega</button>
+          <button type="submit" class="btn btn-primary">🚛 Criar O.E. (Aguardando carga)</button>
         </div>
       </form>
     </div>
   `;
 
-  window.showModal(`🚛 Gerar Ordem de Entrega — ${os.numeroOs}`, content, '650px');
+  window.showModal(`🚛 Criar Ordem de Entrega — ${os.numeroOs}`, content, '650px');
 };
 
 window.salvarNovaOrdemEntrega = (e, osId) => {
   e.preventDefault();
-  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  // Busca real no array (getOrdensServicoExpedicao retorna cópia) para poder mutar status.
+  const os = (SharedState._data.ordensServicoExpedicao || []).find(o => o.id === osId);
   if (!os) return;
 
-  const motorista = document.getElementById('oe-motorista').value;
-  const veiculo = document.getElementById('oe-veiculo').value;
-  const rota = document.getElementById('oe-rota').value;
   const numeroOe = `OE-2026/${Math.floor(100 + Math.random() * 900)}`;
+  const pesoKg = (os.produtos || []).reduce((s, p) => s + (Number(p.quantidade) || 0), 0);
 
+  // Ajuste 02: a O.E. NASCE "Aguardando carga" — sem motorista/veículo/rota e
+  // SEM disparo ao Motorista. O despacho acontece só ao Liberar a Carga (Ajuste 03).
   const novaOe = {
     id: `OE-${Date.now()}`,
     numeroOe,
     osId: os.numeroOs,
     escolaId: os.escolaId,
     escolaNome: os.escolaNome,
-    motorista, veiculo, rota,
-    dataEntrega: new Date().toISOString().slice(0, 10),
-    status: 'Em Transporte',
+    status: 'Aguardando carga',
+    cargaId: null,
+    dataEntrega: null,
     produtos: os.produtos,
+    pesoKg,
+    criadaEm: new Date().toISOString(),
+    historicoStatus: [{ status: 'Aguardando carga', autor: 'Estoque Central', data: new Date().toISOString() }],
     assinaturaDigital: null,
     recebidoPor: null
   };
 
   // Persiste a OE no array real (getOrdensEntrega retorna cópia — não usar push nela).
   (SharedState._data.ordensEntrega = SharedState._data.ordensEntrega || []).unshift(novaOe);
-  os.status = 'Em Rota';
-
-  // DISPARA a ordem para o módulo Motorista: cria um pedido "Em transporte"
-  // atribuído ao motorista escolhido (o app do Motorista lê getOrders() por driver).
-  const pedido = SharedState.addOrder({
-    school: os.escolaNome,
-    driver: motorista,
-    status: 'Em transporte',
-    cooperative: 'Almoxarifado Central',
-    cardapioCodigo: os.numeroOs,
-    oeNumero: numeroOe,
-    veiculo, rota,
-    value: 0,
-    itens: os.produtos.map(p => ({ produto: p.produto, qtd: p.quantidade, unidade: p.unidade, regra: 'Separação FEFO (RN06)' }))
-  });
-  novaOe.pedidoId = pedido ? pedido.id : null;
+  os.status = 'OE Criada';
   SharedState._persist();
   if (SharedState._emit) SharedState._emit('oe:created', novaOe);
 
-  showToast(`🚛 Ordem de Entrega ${numeroOe} gerada e DISPARADA para o motorista ${motorista} (${veiculo}).`);
+  showToast(`🚛 Ordem de Entrega ${numeroOe} criada (Aguardando carga). Já disponível na Montagem de Carga.`);
   closeModal();
   renderPage();
 };
