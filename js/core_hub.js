@@ -2012,7 +2012,10 @@ function renderSidebar() {
     return _renderMenuItem(item, state.currentProfile);
   }).join('');
   nav.querySelectorAll('.sidebar-nav-item').forEach(btn => {
-    btn.addEventListener('click', () => navigateTo(null, btn.dataset.page));
+    btn.addEventListener('click', () => {
+      document.getElementById('sidebar')?.classList.remove('mobile-open');
+      navigateTo(null, btn.dataset.page);
+    });
   });
   nav.querySelectorAll('.sidebar-group-toggle').forEach(btn => {
     btn.addEventListener('click', () => {
