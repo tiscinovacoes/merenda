@@ -4802,9 +4802,11 @@ window.abrirGuiaEntregaParaColaborador = (nomeColaborador) => {
   navigateTo('nutricionista', 'guiasentrega');
 };
 
-window.gerarOrdensDeServicoPorEscola = (menuObj) => {
+window.gerarOrdensDeServicoPorEscola = (menuObj, opts) => {
+  opts = opts || {};
   menuObj = menuObj || window.currentActiveIAMenu || window.tempIAMenuPreview;
   if (!menuObj || !window.AICardapioEngine) {
+    if (opts.silent) return [];
     return alert('Nenhum cardápio ativo para fracionamento de Ordem de Serviço.');
   }
 
@@ -4853,6 +4855,27 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
           escolaId: sc.id,
           itens: orderItens,
           status: 'Pendente'
+        });
+      }
+
+      // O.S. de separação por escola → tela de Separação da Central de Estoque
+      if (typeof SharedState.addOrdemServicoExpedicao === 'function') {
+        SharedState.addOrdemServicoExpedicao({
+          escolaId: sc.id,
+          escolaNome: sc.name,
+          escolaCodigo: escCodigo,
+          municipio: sc.region ? `${sc.region} — Campo Grande - MS` : 'Campo Grande - MS',
+          cardapioCodigo: cardapioCod,
+          produtos: orderItens.map(i => ({
+            produto: i.produto,
+            quantidade: i.qtd,
+            unidade: i.unidade || 'kg',
+            loteSugerido: 'A definir (FEFO)',
+            af: !!i.af
+          })),
+          dataPrevista: (menuObj.periodo ? String(menuObj.periodo).split(' a ')[0] : '2026-08-07'),
+          prioridade: 'Média',
+          status: 'Aguardando Separação'
         });
       }
 
@@ -4948,6 +4971,9 @@ window.gerarOrdensDeServicoPorEscola = (menuObj) => {
       });
     });
   }
+
+  // Modo silencioso: apenas gera/persiste as O.S. (usado pelo disparo manual) sem abrir o modal
+  if (opts.silent) return ordensPorEscola;
 
   // Renderiza Modal de Ordens de Serviço
   const content = `
@@ -5331,7 +5357,21 @@ window.confirmarDisparoManualOS = () => {
     return alert('Selecione ao menos uma escola ou fornecedor para efetuar o disparo.');
   }
 
-  showToast(`✅ Disparo de Ordens de Serviço concluído! ${escolasMarcadas.length} Escola(s) e ${coopsMarcadas.length} Fornecedor(es) notificados com sucesso.`);
+  // Resolve o cardápio ativo para fracionar as Ordens de Serviço de separação
+  const menus = (SharedState.getMenus ? SharedState.getMenus() : []);
+  const menuObj = window.currentActiveIAMenu || window.tempIAMenuPreview
+    || menus.find(m => m.status === 'Publicado') || menus[0] || null;
+
+  // Gera as O.S. de separação por escola (chegam à Central de Estoque) restritas
+  // às escolas efetivamente selecionadas neste disparo.
+  let osGeradas = 0;
+  if (menuObj && escolasMarcadas.length > 0 && typeof window.gerarOrdensDeServicoPorEscola === 'function') {
+    window.gerarOrdensDeServicoPorEscola({ ...menuObj, escolasVinculadas: escolasMarcadas }, { silent: true });
+    osGeradas = escolasMarcadas.length;
+  }
+
+  const msgOS = osGeradas > 0 ? ` ${osGeradas} O.S. de separação enviadas à Central de Estoque.` : '';
+  showToast(`✅ Disparo de Ordens de Serviço concluído! ${escolasMarcadas.length} Escola(s) e ${coopsMarcadas.length} Fornecedor(es) notificados.${msgOS}`);
   closeModal();
 };
 
@@ -7867,6 +7907,28 @@ window.abrirModalLogsAuditoria = () => {
 
 SharedState.getRecebimentosPendentes = () => [...(SharedState._data.recebimentosPendentes || [])];
 SharedState.getOrdensServicoExpedicao = () => [...(SharedState._data.ordensServicoExpedicao || [])];
+// Cria (ou atualiza, se já existir p/ mesma escola+cardápio ainda não separada) a
+// O.S. de separação por escola que aparece na tela de Separação da Central de Estoque.
+SharedState.addOrdemServicoExpedicao = (os) => {
+  const arr = SharedState._data.ordensServicoExpedicao = SharedState._data.ordensServicoExpedicao || [];
+  const jaExiste = arr.find(o => o.escolaId === os.escolaId && o.cardapioCodigo === os.cardapioCodigo && o.status === 'Aguardando Separação');
+  if (jaExiste) {
+    Object.assign(jaExiste, os);
+    SharedState._persist(); SharedState._emit('osExpedicao:update');
+    return jaExiste;
+  }
+  const seq = String(arr.length + 1).padStart(3, '0');
+  const numero = os.numeroOs || `OS-EXP-2026/${seq}`;
+  const entry = {
+    id: numero, numeroOs: numero,
+    municipio: 'Campo Grande - MS', produtos: [],
+    dataPrevista: '2026-08-07', prioridade: 'Média', status: 'Aguardando Separação',
+    ...os
+  };
+  arr.unshift(entry);
+  SharedState._persist(); SharedState._emit('osExpedicao:add');
+  return entry;
+};
 SharedState.getOrdensEntrega = () => [...(SharedState._data.ordensEntrega || [])];
 SharedState.getNotificacoesFornecedor = () => [...(SharedState._data.notificacoesFornecedor || [])];
 
