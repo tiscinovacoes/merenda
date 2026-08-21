@@ -654,6 +654,62 @@ const SharedState = {
   getMenus()       { return [...(this._data.menus || [])]; },
   getMenu()        { return this.getMenus(); },
   getCardapios()   { return this.getMenus(); },
+  getCardapio(cardapioId) {
+    if (!cardapioId) return null;
+    const menus = this._data.menus || [];
+    return menus.find(m => m.id === cardapioId)
+        || menus.find(m => m.nome === cardapioId)
+        || null;
+  },
+  getSemanasDoCardapio(cardapioId) {
+    if (!cardapioId) return [];
+    return (this._data.weeklyMenus || [])
+      .filter(w => w.cardapioId === cardapioId)
+      .sort((a, b) => (a.indiceSemana || 0) - (b.indiceSemana || 0))
+      .map(w => ({ ...w }));
+  },
+  // Semanas úteis (Seg–Sex) que tocam o mês de referência (4 ou 5).
+  // Dias fora do mês na 1ª/última semana vêm marcados como desabilitado.
+  // mes = 1-based (1=Janeiro … 12=Dezembro).
+  calcularSemanasDoMes(mes, ano) {
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const ddmm = s => `${s.slice(8, 10)}/${s.slice(5, 7)}`;
+    const nomesDia = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex'];
+
+    const primeiroDoMes = new Date(ano, mes - 1, 1);
+    const ultimoDoMes = new Date(ano, mes, 0); // dia 0 do mês seguinte = último dia do mês atual
+
+    // Segunda-feira da semana que contém o dia 1º
+    const dow = primeiroDoMes.getDay(); // 0=Dom … 6=Sáb
+    const offsetSegunda = (dow === 0) ? -6 : (1 - dow);
+    const cursor = new Date(ano, mes - 1, 1 + offsetSegunda);
+
+    const semanas = [];
+    let indice = 1;
+    while (cursor <= ultimoDoMes) {
+      const dias = [];
+      for (let i = 0; i < 5; i++) { // Seg..Sex
+        const d = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate() + i);
+        const dentroDoMes = (d.getMonth() === (mes - 1) && d.getFullYear() === ano);
+        dias.push({ dia: nomesDia[i], diaData: fmt(d), desabilitado: !dentroDoMes });
+      }
+      // Só conta a semana se ao menos um dia útil cair dentro do mês
+      if (dias.some(d => !d.desabilitado)) {
+        const inicio = dias[0].diaData;
+        const fim = dias[4].diaData;
+        semanas.push({
+          inicio,
+          fim,
+          label: `Semana ${indice} (${ddmm(inicio)} a ${ddmm(fim)})`,
+          dias
+        });
+        indice++;
+      }
+      cursor.setDate(cursor.getDate() + 7);
+    }
+    return semanas;
+  },
   getWeeklyMenus() { return [...(this._data.weeklyMenus || [])]; },
   getFichas()      { return [...(this._data.fichas || [])]; },
   getFicha()       { return this.getFichas(); },
@@ -3795,7 +3851,8 @@ window.publicarCardapio = (id) => {
 
 window.editarCardapio = (idOrIdx) => {
   if (typeof window.showMenuPlanner === 'function') {
-    window.showMenuPlanner();
+    window._activePlannerWeekIndex = 1;
+    window.showMenuPlanner(idOrIdx);
     if (typeof showToast === 'function') showToast('✏️ Cardápio carregado no planejador para edição.');
   }
 };
@@ -3939,7 +3996,7 @@ window.abrirModalNovoCardapio = () => {
       </div>
     </div>
   `;
-  openModal('📋 Novo Cardápio por Período', content);
+  window.showModal('📋 Novo Cardápio por Período', content);
 };
 
 window.confirmarCriarNovoCardapio = () => {
@@ -4012,27 +4069,27 @@ window.generatePlannerDays = (targetCardapioId, targetWeekIndex) => {
   const optAlmoco = window.buildPlannerSelectOptions('Almoço', window._lastPreselectRecipeId);
   const optLanche = window.buildPlannerSelectOptions('Lanche', window._lastPreselectRecipeId);
 
-  const daysOfWeek = ['Domingo', 'Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado'];
   let html = '';
 
   const refeicoesList = (semanaAtiva.refeicoes && semanaAtiva.refeicoes.length > 0)
     ? semanaAtiva.refeicoes
     : [
-        { dia: 'Seg', diaData: '2026-06-01', item: 'Arroz com Frango Ensopado', kcal: 680 },
-        { dia: 'Ter', diaData: '2026-06-02', item: 'Feijoada Vegetariana', kcal: 740 },
-        { dia: 'Qua', diaData: '2026-06-03', item: 'Macarrão Bolonhesa', kcal: 710 },
-        { dia: 'Qui', diaData: '2026-06-04', item: 'Carne Moída com Mandioca', kcal: 750 },
-        { dia: 'Sex', diaData: '2026-06-05', item: 'Risoto de Frango', kcal: 720 },
+        { dia: 'Seg', diaData: '2026-06-01', almoco: 'Arroz com Frango Ensopado', kcal: 680 },
+        { dia: 'Ter', diaData: '2026-06-02', almoco: 'Feijoada Vegetariana', kcal: 740 },
+        { dia: 'Qua', diaData: '2026-06-03', almoco: 'Macarrão Bolonhesa', kcal: 710 },
+        { dia: 'Qui', diaData: '2026-06-04', almoco: 'Carne Moída com Mandioca', kcal: 750 },
+        { dia: 'Sex', diaData: '2026-06-05', almoco: 'Risoto de Frango', kcal: 720 },
       ];
 
   refeicoesList.forEach((r, idx) => {
     const isDisabled = !!r.desabilitado;
     const dateFormatted = r.diaData ? r.diaData.split('-').reverse().join('/') : '';
     const dayName = r.dia ? `${r.dia}-feira` : `Dia ${idx + 1}`;
+    const resumo = r.almoco || r.item || r.nomePrato || 'Personalizar';
 
     if (isDisabled) {
       html += `
-        <div style="border: 1px solid #e2e8f0; border-radius: var(--radius); padding:14px; margin-bottom:12px; background:#f8fafc; opacity:0.6;" class="planner-day-block disabled-day">
+        <div style="border: 1px solid #e2e8f0; border-radius: var(--radius); padding:14px; margin-bottom:12px; background:#f8fafc; opacity:0.6;" class="planner-day-block disabled-day" data-idx="${idx}" data-dia="${r.dia || ''}" data-date="${dateFormatted}" data-disabled="1">
           <div style="font-weight:700;margin-bottom:6px;color:#94a3b8;display:flex;align-items:center;justify-content:space-between;">
             <span>${dayName} (${dateFormatted})</span>
             <span class="status-badge" style="background:#e2e8f0;color:#64748b;font-size:0.75rem;">🚫 Dia fora do mês de referência</span>
@@ -4042,27 +4099,27 @@ window.generatePlannerDays = (targetCardapioId, targetWeekIndex) => {
       `;
     } else {
       html += `
-        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; margin-bottom:12px" class="planner-day-block" data-date="${dateFormatted}">
+        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; margin-bottom:12px" class="planner-day-block" data-idx="${idx}" data-dia="${r.dia || ''}" data-date="${dateFormatted}">
           <div style="font-weight:700;margin-bottom:10px;color:var(--primary);display:flex;justify-content:space-between;align-items:center">
             <span>${dayName} (${dateFormatted})</span>
-            <span style="font-size:0.8rem;color:var(--text-tertiary)">${r.item || 'Personalizar'}</span>
+            <span style="font-size:0.8rem;color:var(--text-tertiary)">${resumo}</span>
           </div>
           <div class="grid-3">
             <div class="form-group">
               <label>Café da Manhã</label>
-              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-bkf-${idx}" onchange="calculatePlannerKcal()">
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-bkf-${idx}" onchange="window.onPlannerDayChange()">
                 ${optDesjejum}
               </select>
             </div>
             <div class="form-group">
               <label>Almoço</label>
-              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-lun-${idx}" onchange="calculatePlannerKcal()">
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-lun-${idx}" onchange="window.onPlannerDayChange()">
                 ${optAlmoco}
               </select>
             </div>
             <div class="form-group">
               <label>Lanche da Tarde</label>
-              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-snk-${idx}" onchange="calculatePlannerKcal()">
+              <select class="btn btn-outline planner-select-kcal" style="width:100%;text-align:left;padding:8px" id="planner-snk-${idx}" onchange="window.onPlannerDayChange()">
                 ${optLanche}
               </select>
             </div>
@@ -4074,7 +4131,111 @@ window.generatePlannerDays = (targetCardapioId, targetWeekIndex) => {
 
   if (!html) html = '<div style="padding:16px;color:var(--text-secondary)">Nenhum dia útil selecionado no período.</div>';
   container.innerHTML = html;
+
+  // Repõe as refeições já salvas em cada dia (ao reabrir para editar)
+  const _selByName = (sel, nome) => {
+    if (!sel || !nome) return;
+    const alvo = String(nome).split(' (')[0].trim().toLowerCase();
+    if (!alvo || alvo.startsWith('selecione')) return;
+    for (const opt of sel.options) {
+      if (opt.text.split(' (')[0].trim().toLowerCase() === alvo) { sel.value = opt.value; return; }
+    }
+  };
+  container.querySelectorAll('.planner-day-block:not(.disabled-day)').forEach(block => {
+    const idx = parseInt(block.dataset.idx, 10);
+    const r = refeicoesList[idx] || {};
+    _selByName(block.querySelector('select[id^="planner-bkf-"]'), r.desjejum);
+    _selByName(block.querySelector('select[id^="planner-lun-"]'), r.almoco || r.item || r.nomePrato);
+    _selByName(block.querySelector('select[id^="planner-snk-"]'), r.lanche || r.fruta);
+  });
+
+  // Re-exibe o card de resumo da IA (verde=aprovado / amarelo=rascunho) se esta
+  // semana já foi gerada/aprovada pela IA — persiste para visualização posterior.
+  if (semanaAtiva.iaResumo && semanaAtiva.iaResumo.metricasSemanais && typeof window.renderAISummaryCard === 'function') {
+    window.currentActiveIAMenu = {
+      statusAprovacao: semanaAtiva.iaResumo.statusAprovacao,
+      aprovadoEm: semanaAtiva.iaResumo.aprovadoEm,
+      metricasSemanais: semanaAtiva.iaResumo.metricasSemanais,
+      insumosResumoSemanal: semanaAtiva.iaResumo.insumosResumoSemanal || [],
+      refeicoes: semanaAtiva.iaResumo.refeicoes || []
+    };
+    window.tempIAMenuPreview = window.currentActiveIAMenu;
+    window.renderAISummaryCard(window.currentActiveIAMenu, container);
+  }
+
   calculatePlannerKcal();
+};
+
+// Guarda o resumo da IA (métricas + insumos + status de aprovação) na semana ativa,
+// para o card verde/amarelo reaparecer ao reabrir/trocar de semana.
+window._salvarResumoIANaSemana = (menuObj) => {
+  const cardapioId = window._activePlannerCardapioId;
+  const weekIdx = window._activePlannerWeekIndex || 1;
+  if (!cardapioId || !menuObj || !window.SharedState) return;
+  const slot = SharedState.getSemanasDoCardapio(cardapioId).find(s => s.indiceSemana === weekIdx);
+  if (!slot) return;
+  SharedState.updateWeeklyMenu(slot.id, {
+    iaResumo: {
+      statusAprovacao: menuObj.statusAprovacao || 'rascunho_ia',
+      aprovadoEm: menuObj.aprovadoEm || null,
+      metricasSemanais: menuObj.metricasSemanais || null,
+      insumosResumoSemanal: menuObj.insumosResumoSemanal || [],
+      refeicoes: menuObj.refeicoes || []
+    }
+  });
+};
+
+// Salva o rascunho da semana ativa nos slots do cardápio (auto-save, sem publicar)
+window.persistirRascunhoSemana = () => {
+  const cardapioId = window._activePlannerCardapioId;
+  const weekIdx = window._activePlannerWeekIndex || 1;
+  if (!cardapioId || !window.SharedState) return;
+  const semanas = SharedState.getSemanasDoCardapio(cardapioId);
+  const slot = semanas.find(s => s.indiceSemana === weekIdx) || semanas[0];
+  if (!slot) return;
+  const container = document.getElementById('planner-days-container');
+  if (!container) return;
+  const blocks = container.querySelectorAll('.planner-day-block');
+  if (!blocks.length) return;
+
+  const _nome = sel => {
+    if (!sel) return '';
+    const t = sel.options[sel.selectedIndex]?.text || '';
+    if (!t || /^selecione/i.test(t)) return '';
+    return t.split(' (')[0].trim();
+  };
+  const _kcal = sel => sel ? (parseInt(sel.value) || 0) : 0;
+
+  const refeicoes = [];
+  let somaKcal = 0, diasComItem = 0;
+  blocks.forEach(block => {
+    const dia = block.dataset.dia || '';
+    const diaData = block.dataset.date ? block.dataset.date.split('/').reverse().join('-') : '';
+    if (block.classList.contains('disabled-day')) {
+      refeicoes.push({ dia, diaData, desabilitado: true, tipo: '—', item: 'Dia fora do mês', kcal: 0 });
+      return;
+    }
+    const bkf = block.querySelector('select[id^="planner-bkf-"]');
+    const lun = block.querySelector('select[id^="planner-lun-"]');
+    const snk = block.querySelector('select[id^="planner-snk-"]');
+    const desjejum = _nome(bkf), almoco = _nome(lun), lanche = _nome(snk);
+    const kcalDia = _kcal(bkf) + _kcal(lun) + _kcal(snk);
+    if (desjejum || almoco || lanche) diasComItem++;
+    somaKcal += kcalDia;
+    refeicoes.push({
+      dia, diaData, desabilitado: false,
+      desjejum, almoco, lanche,
+      tipo: 'Almoço', item: almoco, kcal: kcalDia
+    });
+  });
+  const kcalMedia = diasComItem > 0 ? Math.round(somaKcal / diasComItem) : 0;
+  SharedState.updateWeeklyMenu(slot.id, { refeicoes, kcalMedia });
+};
+
+// onchange dos selects do planejador: recalcula kcal + salva rascunho
+window.onPlannerDayChange = () => {
+  window.calculatePlannerKcal();
+  window.persistirRascunhoSemana();
 };
 
 window.showMenuPlanner = (cardapioId, preselectRecipeId) => {
@@ -4086,10 +4247,14 @@ window.showMenuPlanner = (cardapioId, preselectRecipeId) => {
   if (!container) return;
 
   const menus = SharedState.getMenus();
-  const menuObj = cardapioId
-    ? SharedState.getCardapio(cardapioId)
-    : (menus.find(m => m.status === 'Em Elaboração') || menus[0] || { id: 'menu-jun-reg', nome: 'Cardápio Junho/2026 — Regular', periodicidade: 'mensal', numSemanas: 5 });
+  const menuObj = (cardapioId ? SharedState.getCardapio(cardapioId) : null)
+    || menus.find(m => m.status === 'Em Elaboração') || menus[0]
+    || { id: 'menu-jun-reg', nome: 'Cardápio Junho/2026 — Regular', periodicidade: 'mensal', numSemanas: 5 };
 
+  // Ao abrir um cardápio diferente do anterior, começa pela Semana 1
+  if (window._activePlannerCardapioId !== menuObj.id) {
+    window._activePlannerWeekIndex = 1;
+  }
   window._activePlannerCardapioId = menuObj.id;
   window._activePlannerWeekIndex = window._activePlannerWeekIndex || 1;
 
@@ -4149,7 +4314,7 @@ window.showMenuPlanner = (cardapioId, preselectRecipeId) => {
           <div class="page-title">Planejador de Cardápio por Período</div>
           <div class="page-subtitle">Cardápio: <strong>${menuObj.nome}</strong> · Periodicidade: <span class="tag tag-blue">${(menuObj.periodicidade || 'mensal').toUpperCase()}</span> (${numSemanas} Semanas)</div>
         </div>
-        <button class="btn btn-outline btn-sm" onclick="PAGE_RENDERERS.nutricionista_cardapios(document.getElementById('page-content'))">🔙 Voltar para Cardápios</button>
+        <button class="btn btn-outline btn-sm" onclick="window.sairDoPlanejador()">🔙 Voltar para Cardápios</button>
       </div>
     </div>
 
@@ -4195,7 +4360,7 @@ window.showMenuPlanner = (cardapioId, preselectRecipeId) => {
 
         <div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end">
           <button class="btn btn-outline" onclick="PAGE_RENDERERS.nutricionista_cardapios(document.getElementById('page-content'))">Cancelar</button>
-          <button class="btn btn-primary" onclick="saveWeeklyMenu()">Publicar Cardápio (${numSemanas} Semanas)</button>
+          <button class="btn btn-primary" onclick="saveWeeklyMenu()">💾 Salvar Cardápio (${numSemanas} Semanas)</button>
         </div>
       </div>
     </div>
@@ -4205,42 +4370,9 @@ window.showMenuPlanner = (cardapioId, preselectRecipeId) => {
 };
 
 window.switchPlannerWeek = (weekIndex) => {
+  window.persistirRascunhoSemana(); // salva a semana atual antes de trocar
   window._activePlannerWeekIndex = weekIndex;
   window.showMenuPlanner(window._activePlannerCardapioId);
-};
-                    <strong>${s.name}</strong> <span style="color:var(--text-tertiary);font-size:0.78rem">· ${s.region}</span>
-                  </div>
-                  ${restrBadge}
-                </label>
-              `;
-            }).join('')}
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Elaboração do Menu</div></div>
-      <div class="card-body">
-        <div id="planner-days-container" style="display:flex;gap:12px;flex-direction:column">
-        </div>
-
-        <div style="margin-top:20px;padding:16px;background:var(--primary-light);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center">
-          <div>
-            <div style="font-weight:700">Média Nutricional Diária Calculada</div>
-            <div style="font-size:0.85rem;color:var(--text-secondary)">Meta recomendada PNAE: 650 a 800 kcal/dia</div>
-          </div>
-          <div style="font-size:1.6rem;font-weight:800;color:var(--primary)" id="planner-total-kcal">0 kcal</div>
-        </div>
-
-        <div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end">
-          <button class="btn btn-outline" onclick="cancelMenuPlanner()">Cancelar</button>
-          <button class="btn btn-primary" onclick="saveWeeklyMenu()">Publicar Cardápio</button>
-        </div>
-      </div>
-    </div>
-  `;
-  setTimeout(() => window.generatePlannerDays(), 50);
 };
 
 window.abrirModalGeradorIA = () => {
@@ -4463,24 +4595,10 @@ window.executarGeracaoCardapioIA = (evt) => {
       if (typeof window.calculatePlannerKcal === 'function') {
         window.calculatePlannerKcal();
       }
-    }
-
-    // 4. Grava no SharedState — status Em Elaboracao até aprovação explícita
-    if (window.SharedState) {
-      const d1 = startDate ? startDate.split('-').reverse().join('/') : new Date().toLocaleDateString('pt-BR');
-      const d2 = endDate ? endDate.split('-').reverse().join('/') : new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
-      SharedState.addMenu({
-        nome: `Cardápio IA — ${selectedSchoolNames.length} Escola(s)`,
-        periodo: `${d1} a ${d2}`,
-        escolas: selectedSchoolNames.length,
-        escolasVinculadas: selectedSchoolNames,
-        status: 'Em Elaboração',
-        tipo: 'Semanal',
-        autor: 'Dra. Lilian Droppa (CRN 12345/MS)',
-        refeicoes: resultadoIA.refeicoes || [],
-        insumosResumoSemanal: resultadoIA.insumosResumoSemanal || [],
-      });
-      // addWeeklyMenu é chamado apenas ao Publicar via botão Publicar
+      // 4. Persiste o cardápio gerado pela IA na semana ativa do cardápio atual,
+      //    para que a nutricionista possa revisar/adaptar e não perca ao sair.
+      window.persistirRascunhoSemana();
+      window._salvarResumoIANaSemana(resultadoIA);
     }
 
     // 5. Abre o modal de pré-visualização interativa
@@ -4611,37 +4729,8 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
 
   window.currentActiveIAMenu = menuObj;
 
-  // Registrar no SharedState (Planejamento Alimentar & Visão Escolas)
-  if (window.SharedState) {
-    const d1 = new Date().toLocaleDateString('pt-BR');
-    const d2 = new Date(Date.now() + 5*86400000).toLocaleDateString('pt-BR');
-    SharedState.addMenu({
-      nome: `Cardápio IA — ${menuObj.modalidade || 'PNAE'} (${new Date().toLocaleDateString('pt-BR')})`,
-      periodo: `${d1} a ${d2}`,
-      escolas: (DATA.schools||[]).length,
-      escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
-      status: aprovarDireto ? 'Publicado' : 'Em Elaboração',
-      tipo: 'Semanal',
-      autor: 'Dra. Lilian Droppa (CRN 12345/MS)',
-      refeicoes: menuObj.refeicoes || [],
-      insumosResumoSemanal: menuObj.insumosResumoSemanal || [],
-    });
-    // addWeeklyMenu apenas ao aprovar definitivamente
-    if (aprovarDireto) {
-      SharedState.addWeeklyMenu({
-        nome: `Cardápio Semanal IA PNAE (${menuObj.metricasSemanais?.numAlunos || 3992} Alunos)`,
-        periodo: `${d1} a ${d2}`,
-        semana: `${d1} a ${d2}`,
-        escola: 'Toda a Rede Piloto',
-        escolasVinculadas: (DATA.schools||[]).map(s=>s.name),
-        refeicoes: (menuObj.refeicoes||[]).map(r => ({ dia: r.dia, tipo: 'Almoço', item: `${r.nomePrato} (${r.kcal} kcal)`, kcal: r.kcal })),
-        kcalMedia: menuObj.metricasSemanais?.mediaKcal || 700,
-        autor: 'Dra. Lilian Droppa (CRN 12345/MS)'
-      });
-    }
-  }
-
-  // Carregar no planejador semanal se a tela de planejamento estiver aberta
+  // Carregar no planejador e persistir na semana ativa do cardápio atual
+  // (não cria mais menus separados — grava no cardápio que está sendo editado)
   const container = document.getElementById('planner-days-container');
   if (container) {
     window.generatePlannerDays();
@@ -4650,7 +4739,7 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
       const currentContainer = document.getElementById('planner-days-container');
       if (!currentContainer) return;
 
-      const dayBlocks = currentContainer.querySelectorAll('.planner-day-block');
+      const dayBlocks = currentContainer.querySelectorAll('.planner-day-block:not(.disabled-day)');
       dayBlocks.forEach((block, idx) => {
         const refeicao = menuObj.refeicoes[idx % menuObj.refeicoes.length];
         if (!refeicao) return;
@@ -4673,12 +4762,14 @@ window.aplicarIAMenuAoPlanejador = (menuObj, aprovarDireto) => {
 
       window.renderAISummaryCard(menuObj, currentContainer);
       window.calculatePlannerKcal();
+      window.persistirRascunhoSemana();
+      window._salvarResumoIANaSemana(menuObj);
     }, 100);
   }
 
   if (aprovarDireto) {
     if (typeof showToast === 'function') {
-      showToast('✅ Cardápio aprovado e registrado em Planejamento Alimentar & Cardápios da Escola!');
+      showToast('✅ Cardápio da IA aplicado à semana atual! Revise e publique pela lista quando estiver pronto.');
     }
     setTimeout(() => window.abrirRelatorioPNAE(), 200);
   } else {
@@ -5737,6 +5828,7 @@ window.aprovarCardapioIA = () => {
   if (container) {
     window.renderAISummaryCard(window.currentActiveIAMenu, container);
   }
+  window._salvarResumoIANaSemana(window.currentActiveIAMenu);
 
   showToast('✅ Cardápio aprovado com sucesso pela Dra. Lilian Droppa! Notificações automáticas disparadas.');
   window.dispararNotificacoesProdutores();
@@ -5858,72 +5950,25 @@ window.cancelMenuPlanner = () => {
 };
 
 window.saveWeeklyMenu = () => {
-  const start = document.getElementById('planner-start-date').value;
-  const end = document.getElementById('planner-end-date').value;
   const daysCount = document.querySelectorAll('.planner-day-block').length;
-
   if (daysCount === 0) return alert('Gere e preencha os dias do cardápio antes de salvar.');
 
-  const d1 = start.split('-').reverse().join('/');
-  const d2 = end.split('-').reverse().join('/');
-  const name = `Cardápio Personalizado — ${d1} a ${d2}`;
+  // Grava a semana ativa nos slots do cardápio (mantém "Em Elaboração").
+  // As demais semanas já foram salvas ao navegar entre elas.
+  window.persistirRascunhoSemana();
 
-  // Calcula média nutricional
-  const selects = document.querySelectorAll('.planner-select-kcal');
-  let total = 0;
-  selects.forEach(s => total += parseInt(s.value) || 0);
-  const kcalMedia = daysCount > 0 ? Math.round(total / daysCount) : 0;
-
-  const totalSchools = (DATA.schools||[]).length || 183;
-  const prof = PROFILES[state.currentProfile] || {};
-
-  // Coleta escolas vinculadas
-  const escopoRede = document.getElementById('planner-escopo-rede')?.checked !== false;
-  let escolasVinculadas = [];
-  let escolaLabel = 'Toda a Rede';
-  if (escopoRede) {
-    escolasVinculadas = (DATA.schools || []).map(s => s.name);
-  } else {
-    escolasVinculadas = Array.from(document.querySelectorAll('.planner-escola-chk:checked')).map(c => c.value);
-    if (escolasVinculadas.length === 0) return alert('Marque ao menos uma escola ou selecione "Toda a rede".');
-    escolaLabel = escolasVinculadas.length + ' escola(s)';
+  if (typeof showToast === 'function') {
+    showToast('💾 Cardápio salvo! Continua em Elaboração — use o botão "🚀 Publicar" na lista para enviar às escolas.');
   }
-
-  // Coleta refeições dia a dia
-  const refeicoes = [];
-  document.querySelectorAll('.planner-day-block').forEach(block => {
-    const dia = block.dataset.date;
-    block.querySelectorAll('.planner-select-kcal').forEach(sel => {
-      const id = sel.id || '';
-      let tipo = 'Almoço';
-      if (id.includes('bkf') || id.includes('breakfast')) tipo = 'Café da Manhã';
-      else if (id.includes('snk') || id.includes('snack')) tipo = 'Lanche';
-      const itemText = sel.options[sel.selectedIndex]?.text || '';
-      const kcal = parseInt(sel.value) || 0;
-      if (itemText && !itemText.startsWith('Selecione')) refeicoes.push({ dia, tipo, item: itemText, kcal });
-    });
-  });
-
-  // Salva como Em Elaboração — só vai para Publicados após clicar em Publicar
-  SharedState.addMenu({
-    nome: name,
-    periodo: `${d1} a ${d2}`,
-    escolas: escolasVinculadas.length,
-    escolasVinculadas,
-    status: 'Em Elaboração',
-    tipo: 'Semanal',
-    autor: prof.name || 'Dra. Lilian Droppa',
-    refeicoes,
-    kcalMedia,
-    insumosResumoSemanal: (window.currentActiveIAMenu && window.currentActiveIAMenu.insumosResumoSemanal)
-      ? window.currentActiveIAMenu.insumosResumoSemanal
-      : [],
-  });
-  // Não grava no localStorage legado como Publicado
-
-  showToast('📝 Cardápio salvo em Elaboração! Use o botão "🚀 Publicar" para enviar às escolas.');
   const container = document.getElementById('page-content');
-  PAGE_RENDERERS.nutricionista_cardapios(container);
+  if (container && PAGE_RENDERERS.nutricionista_cardapios) PAGE_RENDERERS.nutricionista_cardapios(container);
+};
+
+// Sai do planejador salvando o rascunho da semana atual antes de voltar à lista
+window.sairDoPlanejador = () => {
+  window.persistirRascunhoSemana();
+  const container = document.getElementById('page-content');
+  if (container && PAGE_RENDERERS.nutricionista_cardapios) PAGE_RENDERERS.nutricionista_cardapios(container);
 };
 
 window.showMenuViewer = () => {
