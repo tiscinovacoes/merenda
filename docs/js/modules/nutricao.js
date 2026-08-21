@@ -974,19 +974,21 @@
     // Helper para linha da tabela principal
     const _row = (c, i, allowEdit, allowPublish) => {
       const periodoStr = c.periodo || `${(c.data_inicio||'').split('-').reverse().join('/')} a ${(c.data_fim||'').split('-').reverse().join('/')}`;
+      const periodicidadeTag = `<span class="tag tag-green" style="font-size:0.7rem;margin-left:4px;font-weight:700">${(c.periodicidade || 'mensal').toUpperCase()} (${c.numSemanas || 5} sem)</span>`;
       return `
         <tr>
           <td>
             <span class="tag tag-blue" style="font-size:0.75rem; font-family:var(--font-mono); margin-right:4px;">${c.codigoCardapio || 'CARD-2026/08-101'}</span>
             <strong>${c.nome}</strong>
+            ${periodicidadeTag}
           </td>
           <td>${periodoStr}</td>
           <td style="font-family:var(--font-mono)">${c.escolas || '—'}</td>
           <td style="font-size:0.82rem">${c.autor || '—'} <span style="font-size:0.7rem; color:#64748b;">(${c.criadoPorUserId || 'ID-002'})</span></td>
           <td>
             <div style="display:flex;gap:4px;flex-wrap:wrap">
-              <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(c.nome||'').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
-              ${allowEdit ? `<button class="table-action" onclick="editarCardapio('${c.id || i}')">✏️ Editar</button>` : ''}
+              <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(c.id || c.nome || '').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
+              ${allowEdit ? `<button class="table-action" onclick="showMenuPlanner('${c.id || i}')">✏️ Editar</button>` : ''}
               ${allowPublish && !readOnly ? `<button class="table-action" style="color:#16a34a;font-weight:700;border:1px solid #16a34a;border-radius:4px;padding:2px 8px" onclick="window.publicarCardapio('${c.id || i}')">🚀 Publicar</button>` : ''}
               ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${c.id || i}')">🗑️ Excluir</button>` : ''}
             </div>
@@ -1007,12 +1009,12 @@
       <div class="card mb-24">
         <div class="card-body" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
           <div>
-            <div style="font-weight:600">Planejador de Cardápios</div>
-            <div style="font-size:0.82rem;color:var(--text-secondary)">Cardápios publicados aqui aparecem imediatamente nas ${totalSchools} escolas da rede e no painel do Gestor</div>
+            <div style="font-weight:600">Planejador de Cardápios por Período</div>
+            <div style="font-size:0.82rem;color:var(--text-secondary)">Cardápios mensais (padrão), quinzenais ou semanais publicados aqui aparecem imediatamente nas ${totalSchools} escolas da rede</div>
           </div>
           <div style="display:flex;gap:10px">
-            <button class="btn btn-secondary" onclick="window.abrirRelatorioMensal4Paginas()">📄 Relatório Mensal (4 Páginas/Mês)</button>
-            <button class="btn btn-primary" onclick="showMenuPlanner()">+ Abrir Planejador Semanal</button>
+            <button class="btn btn-secondary" onclick="window.abrirRelatorioMensal4Paginas()">📄 Relatório Mensal Multi-Semana</button>
+            <button class="btn btn-primary" onclick="window.abrirModalNovoCardapio()">+ Criar Novo Cardápio</button>
           </div>
         </div>
       </div>` : `
@@ -1022,7 +1024,7 @@
             <div style="font-weight:700">📖 Cardápios recebidos da SEMED</div>
             <div style="font-size:0.82rem;color:var(--text-secondary)">Visão somente leitura — apenas a Nutricionista SEMED pode editar</div>
           </div>
-          <button class="btn btn-outline btn-sm" onclick="navigateTo('escola','planejamento')">Ver Planejamento Semanal →</button>
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('escola','planejamento')">Ver Planejamento da Escola →</button>
         </div>
       </div>`}
   

@@ -739,51 +739,57 @@
     const menus = SharedState.getMenus();
     const weekly = SharedState.getWeeklyMenus();
     const perfilAtivo = state.currentProfile;
-  
+    const activeMenu = menus.find(m => m.status === 'Publicado') || menus[0] || {};
+    const periodicidadeStr = (activeMenu.periodicidade || 'mensal').toUpperCase();
+    const numSemanas = activeMenu.numSemanas || 5;
+
     el.innerHTML = `
       <div class="page-header">
         <div class="page-title">Planejamento Alimentar</div>
-        <div class="page-subtitle">Visão consolidada dos cardápios e necessidades futuras · Sincronizado com Nutricionista e escolas</div>
+        <div class="page-subtitle">Visão consolidada dos cardápios por período (${periodicidadeStr} · ${numSemanas} Semanas) · Sincronizado com Nutricionista e Escolas</div>
       </div>
       <div class="grid-2">
         <div class="card">
           <div class="card-header">
-            <div class="card-title">📅 Cardápios Ativos</div>
+            <div class="card-title">📅 Cardápios por Período</div>
             <span class="status-badge status-info">${menus.length}</span>
           </div>
           <div class="card-body" style="padding:0">
-            <table class="data-table"><thead><tr><th>Cardápio</th><th>Período</th><th>Escolas</th><th>Autor</th><th>Status</th></tr></thead><tbody>
+            <table class="data-table"><thead><tr><th>Cardápio</th><th>Periodicidade</th><th>Período</th><th>Escolas</th><th>Status</th></tr></thead><tbody>
               ${menus.map(m => `
                 <tr>
                   <td><strong>${m.nome}</strong></td>
+                  <td><span class="tag tag-blue" style="font-size:0.75rem">${(m.periodicidade || 'mensal').toUpperCase()} (${m.numSemanas || 5} sem)</span></td>
                   <td>${m.periodo}</td>
                   <td style="font-family:var(--font-mono)">${m.escolas || 0}</td>
-                  <td style="font-size:0.82rem">${m.autor || '—'}</td>
                   <td><span class="status-badge ${m.status === 'Publicado' ? 'status-ok' : 'status-info'}">${m.status === 'Publicado' ? 'Ativo' : m.status}</span></td>
                 </tr>
               `).join('')}
             </tbody></table>
           </div>
         </div>
-        <div class="card"><div class="card-header"><div class="card-title">📊 Necessidades Futuras (30 dias)</div></div><div class="card-body">
+        <div class="card"><div class="card-header"><div class="card-title">📊 Demanda Agregada por Período (${periodicidadeStr})</div></div><div class="card-body">
           <div class="chart-container h-250"><canvas id="chart-necessidades"></canvas></div>
         </div></div>
       </div>
   
       ${weekly.length > 0 ? `
       <div class="card" style="margin-top:20px">
-        <div class="card-header"><div class="card-title">🗓️ Cardápios Semanais Recentemente Publicados</div><span class="status-badge status-ok">${weekly.length}</span></div>
+        <div class="card-header"><div class="card-title">🗓️ Semanário de Refeições Publicadas</div><span class="status-badge status-ok">${weekly.length} Semanas</span></div>
         <div class="card-body" style="padding:0">
-          <table class="data-table"><thead><tr><th>Nome</th><th>Período</th><th>Autor</th><th>Publicado em</th><th>Média Kcal</th></tr></thead><tbody>
-            ${weekly.slice(0, 6).map(w => `
-              <tr>
-                <td><strong>${w.nome || 'Cardápio Semanal'}</strong></td>
-                <td>${w.periodo || '—'}</td>
-                <td style="font-size:0.82rem">${w.autor || '—'}</td>
-                <td style="font-size:0.82rem">${new Date(w.publicadoEm).toLocaleString('pt-BR')}</td>
-                <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${w.kcalMedia || '—'} kcal/dia</td>
-              </tr>
-            `).join('')}
+          <table class="data-table"><thead><tr><th>Semana / Título</th><th>Cardápio Pai</th><th>Autor</th><th>Publicado em</th><th>Média Kcal</th></tr></thead><tbody>
+            ${weekly.slice(0, 8).map(w => {
+              const menuPai = SharedState.getCardapio(w.cardapioId);
+              return `
+                <tr>
+                  <td><strong>${w.semana || 'Semana 1'}</strong></td>
+                  <td><span class="tag tag-purple" style="font-size:0.75rem">${menuPai ? menuPai.nome : 'Cardápio Principal'}</span></td>
+                  <td style="font-size:0.82rem">${w.autor || 'Dra. Lilian Droppa'}</td>
+                  <td style="font-size:0.82rem">${w.publicadoEm ? new Date(w.publicadoEm).toLocaleDateString('pt-BR') : '25/05/2026'}</td>
+                  <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${w.kcalMedia || '720'} kcal/dia</td>
+                </tr>
+              `;
+            }).join('')}
           </tbody></table>
         </div>
       </div>` : ''}

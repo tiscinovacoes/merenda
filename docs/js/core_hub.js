@@ -504,15 +504,51 @@ const SharedState = {
   _defaults() {
     return {
       menus: [
-        { id: 'menu-jun-reg',   nome: 'Cardápio Junho/2026 — Regular',  periodo: '01/06 a 30/06', escolas: 152, status: 'Publicado',    tipo: 'Regular',  autor: 'Dra. Lilian Droppa', criadoEm: '2026-05-25' },
-        { id: 'menu-jun-int',   nome: 'Cardápio Junho/2026 — Integral', periodo: '01/06 a 30/06', escolas: 31,  status: 'Publicado',    tipo: 'Integral', autor: 'Dra. Lilian Droppa', criadoEm: '2026-05-25' },
-        { id: 'menu-jul-reg',   nome: 'Cardápio Julho/2026 — Regular',  periodo: '01/07 a 31/07', escolas: 0,   status: 'Em Elaboração', tipo: 'Regular', autor: 'Dra. Lilian Droppa', criadoEm: '2026-06-18' },
+        { id: 'menu-jun-reg', nome: 'Cardápio Junho/2026 — Regular', periodicidade: 'mensal', mesReferencia: { mes: 6, ano: 2026 }, numSemanas: 5, periodo: '01/06 a 30/06', escolas: 152, status: 'Publicado', tipo: 'Regular', autor: 'Dra. Lilian Droppa', criadoEm: '2026-05-25' },
+        { id: 'menu-jun-int', nome: 'Cardápio Junho/2026 — Integral', periodicidade: 'mensal', mesReferencia: { mes: 6, ano: 2026 }, numSemanas: 5, periodo: '01/06 a 30/06', escolas: 31, status: 'Publicado', tipo: 'Integral', autor: 'Dra. Lilian Droppa', criadoEm: '2026-05-25' },
+        { id: 'menu-jul-reg', nome: 'Cardápio Julho/2026 — Regular', periodicidade: 'mensal', mesReferencia: { mes: 7, ano: 2026 }, numSemanas: 5, periodo: '01/07 a 31/07', escolas: 0, status: 'Em Elaboração', tipo: 'Regular', autor: 'Dra. Lilian Droppa', criadoEm: '2026-06-18' },
       ],
-      weeklyMenus: [],   // { id, semana, escola|'REDE', refeicoes:[{dia,tipo,item,kcal}], kcalMedia, publicadoEm, autor }
-      fichas: [],        // fichas criadas em runtime (as demo ficam em _FICHAS_DEMO)
-      orders: [],        // pedidos criados pela escola em runtime
-      deliveries: [],    // eventos de entrega (status, confirmação, foto, assinatura)
-      incidents: [],     // ocorrências do motorista
+      weeklyMenus: [
+        { id: 'wm-jun-reg-w1', cardapioId: 'menu-jun-reg', indiceSemana: 1, semana: 'Semana 1 (01/06 a 05/06)', escola: 'REDE', kcalMedia: 720, publicadoEm: '2026-05-25', autor: 'Dra. Lilian Droppa', refeicoes: [
+          { dia: 'Seg', diaData: '2026-06-01', tipo: 'Almoço', item: 'Arroz com Frango Ensopado e Legumes', kcal: 680 },
+          { dia: 'Ter', diaData: '2026-06-02', tipo: 'Almoço', item: 'Feijoada Vegetariana e Laranja', kcal: 740 },
+          { dia: 'Qua', diaData: '2026-06-03', tipo: 'Almoço', item: 'Macarrão Bolonhesa e Salada', kcal: 710 },
+          { dia: 'Qui', diaData: '2026-06-04', tipo: 'Almoço', item: 'Carne Moída com Mandioca e Abóbora', kcal: 750 },
+          { dia: 'Sex', diaData: '2026-06-05', tipo: 'Almoço', item: 'Risoto de Frango com Salada Verde', kcal: 720 },
+        ]},
+        { id: 'wm-jun-reg-w2', cardapioId: 'menu-jun-reg', indiceSemana: 2, semana: 'Semana 2 (08/06 a 12/06)', escola: 'REDE', kcalMedia: 730, publicadoEm: '2026-05-25', autor: 'Dra. Lilian Droppa', refeicoes: [
+          { dia: 'Seg', diaData: '2026-06-08', tipo: 'Almoço', item: 'Arroz, Feijão e Iscas de Carne Média', kcal: 710 },
+          { dia: 'Ter', diaData: '2026-06-09', tipo: 'Almoço', item: 'Polenta com Frango Desfiado', kcal: 740 },
+          { dia: 'Qua', diaData: '2026-06-10', tipo: 'Almoço', item: 'Sopa Nutritiva de Legumes e Carne', kcal: 690 },
+          { dia: 'Qui', diaData: '2026-06-11', tipo: 'Almoço', item: 'Galinhada com Milho e Salada', kcal: 760 },
+          { dia: 'Sex', diaData: '2026-06-12', tipo: 'Almoço', item: 'Peixe Assado com Purê de Batata', kcal: 720 },
+        ]},
+        { id: 'wm-jun-reg-w3', cardapioId: 'menu-jun-reg', indiceSemana: 3, semana: 'Semana 3 (15/06 a 19/06)', escola: 'REDE', kcalMedia: 715, publicadoEm: '2026-05-25', autor: 'Dra. Lilian Droppa', refeicoes: [
+          { dia: 'Seg', diaData: '2026-06-15', tipo: 'Almoço', item: 'Arroz Integral, Feijão e Ovos Mexidos', kcal: 700 },
+          { dia: 'Ter', diaData: '2026-06-16', tipo: 'Almoço', item: 'Cozido de Carne com Batata Doce', kcal: 730 },
+          { dia: 'Qua', diaData: '2026-06-17', tipo: 'Almoço', item: 'Macarrão com Molho de Tomate Fresco', kcal: 710 },
+          { dia: 'Qui', diaData: '2026-06-18', tipo: 'Almoço', item: 'Strogonoff de Frango com Salada', kcal: 750 },
+          { dia: 'Sex', diaData: '2026-06-19', tipo: 'Almoço', item: 'Feijão Tropeiro Leve e Couve', kcal: 720 },
+        ]},
+        { id: 'wm-jun-reg-w4', cardapioId: 'menu-jun-reg', indiceSemana: 4, semana: 'Semana 4 (22/06 a 26/06)', escola: 'REDE', kcalMedia: 725, publicadoEm: '2026-05-25', autor: 'Dra. Lilian Droppa', refeicoes: [
+          { dia: 'Seg', diaData: '2026-06-22', tipo: 'Almoço', item: 'Arroz, Feijão Preto e Carne de Panela', kcal: 720 },
+          { dia: 'Ter', diaData: '2026-06-23', tipo: 'Almoço', item: 'Frango Xadrez com Vegetais Orgânicos', kcal: 730 },
+          { dia: 'Qua', diaData: '2026-06-24', tipo: 'Almoço', item: 'Canja de Galinha com Torrada Integral', kcal: 680 },
+          { dia: 'Qui', diaData: '2026-06-25', tipo: 'Almoço', item: 'Escondidinho de Mandioquinha com Frango', kcal: 740 },
+          { dia: 'Sex', diaData: '2026-06-26', tipo: 'Almoço', item: 'Baião de Dois com Queijo Coalho AF', kcal: 750 },
+        ]},
+        { id: 'wm-jun-reg-w5', cardapioId: 'menu-jun-reg', indiceSemana: 5, semana: 'Semana 5 (29/06 a 30/06)', escola: 'REDE', kcalMedia: 710, publicadoEm: '2026-05-25', autor: 'Dra. Lilian Droppa', refeicoes: [
+          { dia: 'Seg', diaData: '2026-06-29', tipo: 'Almoço', item: 'Arroz, Feijão e Moqueca de Peixe', kcal: 710 },
+          { dia: 'Ter', diaData: '2026-06-30', tipo: 'Almoço', item: 'Carne Ensopada com Cenoura e Vagem', kcal: 710 },
+          { dia: 'Qua', diaData: '2026-07-01', desabilitado: true, tipo: '—', item: 'Dia fora do mês', kcal: 0 },
+          { dia: 'Qui', diaData: '2026-07-02', desabilitado: true, tipo: '—', item: 'Dia fora do mês', kcal: 0 },
+          { dia: 'Sex', diaData: '2026-07-03', desabilitado: true, tipo: '—', item: 'Dia fora do mês', kcal: 0 },
+        ]},
+      ],
+      fichas: [],
+      orders: [],
+      deliveries: [],
+      incidents: [],
       productions: [],   // atualizações de produção do agricultor
       stockAdjust: [],   // ajustes de estoque (audit-log de movimentações)
       // ── FINANCEIRO / CONTRATOS (v2.1.0) ──
@@ -3892,37 +3928,152 @@ window.buildPlannerSelectOptions = (mealType, preselectRecipeId) => {
   return options;
 };
 
-window.generatePlannerDays = () => {
-  const start = document.getElementById('planner-start-date').value;
-  const end = document.getElementById('planner-end-date').value;
-  if (!start || !end) return alert('Selecione as datas de início e fim.');
-  
-  const [sY, sM, sD] = start.split('-');
-  const [eY, eM, eD] = end.split('-');
-  const startDate = new Date(sY, sM - 1, sD);
-  const endDate = new Date(eY, eM - 1, eD);
-  if (endDate < startDate) return alert('A data final deve ser maior ou igual à inicial.');
-  
+window.abrirModalNovoCardapio = () => {
+  const content = `
+    <div style="padding:10px 0">
+      <div style="font-size:0.9rem; color:var(--text-secondary); margin-bottom:16px">
+        Defina a periodicidade (Mensal por padrão, Quinzenal ou Semanal) e o mês de referência para gerar as semanas do cardápio.
+      </div>
+      <div class="form-group" style="margin-bottom:14px">
+        <label style="font-weight:600;display:block;margin-bottom:6px">Nome do Cardápio</label>
+        <input type="text" id="novo-cardapio-nome" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" placeholder="Ex: Cardápio Agosto/2026 — Regular" value="Cardápio Agosto/2026 — Regular">
+      </div>
+      <div class="grid-2" style="gap:12px;margin-bottom:14px">
+        <div class="form-group">
+          <label style="font-weight:600;display:block;margin-bottom:6px">Periodicidade</label>
+          <select id="novo-cardapio-periodicidade" class="btn btn-outline" style="width:100%;text-align:left;padding:8px">
+            <option value="mensal" selected>🗓️ Mensal (Padrão — Conforme o Mês)</option>
+            <option value="quinzenal">🌓 Quinzenal (2 semanas)</option>
+            <option value="semanal">📅 Semanal (1 semana)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label style="font-weight:600;display:block;margin-bottom:6px">Mês / Ano de Referência</label>
+          <input type="month" id="novo-cardapio-mes" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="2026-08">
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:20px">
+        <label style="font-weight:600;display:block;margin-bottom:6px">Público / Tipo</label>
+        <select id="novo-cardapio-tipo" class="btn btn-outline" style="width:100%;text-align:left;padding:8px">
+          <option value="Regular" selected>Escolar Regular (Urbana e Rural)</option>
+          <option value="Integral">Escolar Integral</option>
+          <option value="EMEI">Educação Infantil (EMEI)</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-primary" onclick="confirmarCriarNovoCardapio()">🚀 Criar e Abrir Planejador</button>
+      </div>
+    </div>
+  `;
+  openModal('📋 Novo Cardápio por Período', content);
+};
+
+window.confirmarCriarNovoCardapio = () => {
+  const nome = document.getElementById('novo-cardapio-nome')?.value || 'Novo Cardápio';
+  const periodicidade = document.getElementById('novo-cardapio-periodicidade')?.value || 'mensal';
+  const monthVal = document.getElementById('novo-cardapio-mes')?.value || '2026-08';
+  const tipo = document.getElementById('novo-cardapio-tipo')?.value || 'Regular';
+
+  const [ano, mes] = monthVal.split('-').map(Number);
+  const semanasCalculadas = SharedState.calcularSemanasDoMes(mes, ano);
+  let numSemanas = semanasCalculadas.length;
+  if (periodicidade === 'quinzenal') numSemanas = 2;
+  if (periodicidade === 'semanal') numSemanas = 1;
+
+  const d1 = semanasCalculadas[0] ? semanasCalculadas[0].inicio.split('-').reverse().join('/') : '01/08/2026';
+  const d2 = semanasCalculadas[numSemanas - 1] ? semanasCalculadas[numSemanas - 1].fim.split('-').reverse().join('/') : '31/08/2026';
+  const periodoStr = `${d1} a ${d2}`;
+
+  const novoMenu = SharedState.addMenu({
+    nome,
+    periodicidade,
+    mesReferencia: { mes, ano },
+    numSemanas,
+    periodo: periodoStr,
+    escolas: (typeof DATA !== 'undefined' && DATA.schools) ? DATA.schools.length : 183,
+    status: 'Em Elaboração',
+    tipo,
+    autor: 'Dra. Lilian Droppa'
+  });
+
+  for (let i = 1; i <= numSemanas; i++) {
+    const semInfo = semanasCalculadas[i - 1] || { label: `Semana ${i}`, dias: [] };
+    SharedState.addWeeklyMenu({
+      cardapioId: novoMenu.id,
+      indiceSemana: i,
+      semana: semInfo.label || `Semana ${i}`,
+      escola: 'REDE',
+      kcalMedia: 720,
+      autor: 'Dra. Lilian Droppa',
+      refeicoes: (semInfo.dias || []).map(d => ({
+        dia: d.dia,
+        diaData: d.diaData,
+        desabilitado: !!d.desabilitado,
+        tipo: d.desabilitado ? '—' : 'Almoço',
+        item: d.desabilitado ? 'Dia fora do mês' : 'Selecione a refeição...',
+        kcal: 0
+      }))
+    });
+  }
+
+  closeModal();
+  if (typeof showToast === 'function') {
+    showToast(`✅ Cardápio ${periodicidade} (${numSemanas} semanas) criado com sucesso!`);
+  }
+  showMenuPlanner(novoMenu.id);
+};
+
+window.generatePlannerDays = (targetCardapioId, targetWeekIndex) => {
+  const cardapioId = targetCardapioId || window._activePlannerCardapioId || 'menu-jun-reg';
+  const menu = SharedState.getCardapio(cardapioId) || (SharedState.getMenus()[0] || { id: 'menu-jun-reg', nome: 'Cardápio Junho/2026' });
+  const semanas = SharedState.getSemanasDoCardapio(menu.id);
+  const currentWeekIdx = targetWeekIndex || window._activePlannerWeekIndex || 1;
+  const semanaAtiva = semanas.find(s => s.indiceSemana === currentWeekIdx) || semanas[0] || { refeicoes: [] };
+
   const container = document.getElementById('planner-days-container');
+  if (!container) return;
   container.innerHTML = '';
-  
+
   const optDesjejum = window.buildPlannerSelectOptions('Desjejum', window._lastPreselectRecipeId);
   const optAlmoco = window.buildPlannerSelectOptions('Almoço', window._lastPreselectRecipeId);
   const optLanche = window.buildPlannerSelectOptions('Lanche', window._lastPreselectRecipeId);
 
-  let current = new Date(startDate);
   const daysOfWeek = ['Domingo', 'Segunda-Feira', 'Terça-Feira', 'Quarta-Feira', 'Quinta-Feira', 'Sexta-Feira', 'Sábado'];
-  
   let html = '';
-  let dayIndex = 0;
-  while (current <= endDate) {
-    const dayName = daysOfWeek[current.getDay()];
-    if (current.getDay() !== 0 && current.getDay() !== 6) { 
-      const dateStr = current.toLocaleDateString('pt-BR');
-      const idx = dayIndex++;
+
+  const refeicoesList = (semanaAtiva.refeicoes && semanaAtiva.refeicoes.length > 0)
+    ? semanaAtiva.refeicoes
+    : [
+        { dia: 'Seg', diaData: '2026-06-01', item: 'Arroz com Frango Ensopado', kcal: 680 },
+        { dia: 'Ter', diaData: '2026-06-02', item: 'Feijoada Vegetariana', kcal: 740 },
+        { dia: 'Qua', diaData: '2026-06-03', item: 'Macarrão Bolonhesa', kcal: 710 },
+        { dia: 'Qui', diaData: '2026-06-04', item: 'Carne Moída com Mandioca', kcal: 750 },
+        { dia: 'Sex', diaData: '2026-06-05', item: 'Risoto de Frango', kcal: 720 },
+      ];
+
+  refeicoesList.forEach((r, idx) => {
+    const isDisabled = !!r.desabilitado;
+    const dateFormatted = r.diaData ? r.diaData.split('-').reverse().join('/') : '';
+    const dayName = r.dia ? `${r.dia}-feira` : `Dia ${idx + 1}`;
+
+    if (isDisabled) {
       html += `
-        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; margin-bottom:12px" class="planner-day-block" data-date="${dateStr}">
-          <div style="font-weight:700;margin-bottom:10px;color:var(--primary)">${dayName} (${dateStr})</div>
+        <div style="border: 1px solid #e2e8f0; border-radius: var(--radius); padding:14px; margin-bottom:12px; background:#f8fafc; opacity:0.6;" class="planner-day-block disabled-day">
+          <div style="font-weight:700;margin-bottom:6px;color:#94a3b8;display:flex;align-items:center;justify-content:space-between;">
+            <span>${dayName} (${dateFormatted})</span>
+            <span class="status-badge" style="background:#e2e8f0;color:#64748b;font-size:0.75rem;">🚫 Dia fora do mês de referência</span>
+          </div>
+          <div style="font-size:0.85rem;color:#94a3b8;font-style:italic">Este dia pertence ao mês anterior/seguinte e foi desabilitado automaticamente do cálculo de demanda e PNAE.</div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div style="border: 1px solid var(--border); border-radius: var(--radius); padding:16px; margin-bottom:12px" class="planner-day-block" data-date="${dateFormatted}">
+          <div style="font-weight:700;margin-bottom:10px;color:var(--primary);display:flex;justify-content:space-between;align-items:center">
+            <span>${dayName} (${dateFormatted})</span>
+            <span style="font-size:0.8rem;color:var(--text-tertiary)">${r.item || 'Personalizar'}</span>
+          </div>
           <div class="grid-3">
             <div class="form-group">
               <label>Café da Manhã</label>
@@ -3946,25 +4097,28 @@ window.generatePlannerDays = () => {
         </div>
       `;
     }
-    current.setDate(current.getDate() + 1);
-  }
+  });
+
   if (!html) html = '<div style="padding:16px;color:var(--text-secondary)">Nenhum dia útil selecionado no período.</div>';
   container.innerHTML = html;
   calculatePlannerKcal();
 };
 
-window.showMenuPlanner = (preselectRecipeId) => {
+window.showMenuPlanner = (cardapioId, preselectRecipeId) => {
   window._lastPreselectRecipeId = preselectRecipeId;
   const container = document.getElementById('page-content');
-  
-  const today = new Date();
-  const nextMonday = new Date(today);
-  nextMonday.setDate(today.getDate() + ((1 + 7 - today.getDay()) % 7 || 7));
-  const nextFriday = new Date(nextMonday);
-  nextFriday.setDate(nextMonday.getDate() + 4);
-  
-  const dStart = nextMonday.toISOString().split('T')[0];
-  const dEnd = nextFriday.toISOString().split('T')[0];
+  if (!container) return;
+
+  const menus = SharedState.getMenus();
+  const menuObj = cardapioId
+    ? SharedState.getCardapio(cardapioId)
+    : (menus.find(m => m.status === 'Em Elaboração') || menus[0] || { id: 'menu-jun-reg', nome: 'Cardápio Junho/2026 — Regular', periodicidade: 'mensal', numSemanas: 5 });
+
+  window._activePlannerCardapioId = menuObj.id;
+  window._activePlannerWeekIndex = window._activePlannerWeekIndex || 1;
+
+  const semanas = SharedState.getSemanasDoCardapio(menuObj.id);
+  const numSemanas = menuObj.numSemanas || (semanas.length > 0 ? semanas.length : 5);
 
   const activeRestricoes = (SharedState.getRestricoes() || []).filter(r => r.status === 'ativo').map(r => ({
     ...r,
@@ -3996,28 +4150,43 @@ window.showMenuPlanner = (preselectRecipeId) => {
     </div>
   ` : '';
 
+  // Renderizar abas de semanas (Semana 1..N)
+  let weekTabsHtml = '<div style="display:flex;gap:6px;margin-bottom:16px;overflow-x:auto;padding-bottom:4px;" id="planner-week-tabs">';
+  for (let i = 1; i <= numSemanas; i++) {
+    const sem = semanas.find(s => s.indiceSemana === i) || { semana: `Semana ${i}` };
+    const isActive = i === window._activePlannerWeekIndex;
+    const activeStyle = isActive
+      ? 'background:var(--primary);color:#fff;font-weight:700;border-color:var(--primary);'
+      : 'background:#f1f5f9;color:#475569;border-color:#cbd5e1;';
+    weekTabsHtml += `
+      <button class="btn btn-sm" style="${activeStyle}border-radius:20px;padding:6px 16px;" onclick="window.switchPlannerWeek(${i})">
+        📅 ${sem.semana || `Semana ${i}`}
+      </button>
+    `;
+  }
+  weekTabsHtml += '</div>';
+
   container.innerHTML = `
-    <div class="page-header"><div class="page-title">Planejador Semanal de Cardápio</div><div class="page-subtitle">Monte as refeições diárias e verifique o valor nutricional acumulado</div></div>
-    
-    ${restricoesSummaryHtml}
-    
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Período e Escopo</div></div>
-      <div class="card-body">
-        <div class="grid-3" style="align-items:end">
-          <div class="form-group">
-            <label>Data Inicial</label>
-            <input type="date" id="planner-start-date" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${dStart}">
-          </div>
-          <div class="form-group">
-            <label>Data Final</label>
-            <input type="date" id="planner-end-date" class="btn btn-outline" style="width:100%;text-align:left;padding:8px" value="${dEnd}">
-          </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-primary" onclick="generatePlannerDays()">Gerar Dias</button>
-            <button class="btn btn-outline" style="background:var(--primary-light,#e0f2fe);color:var(--primary);border-color:var(--primary-light,#e0f2fe);font-weight:700" onclick="abrirModalGeradorIA()">🤖 Gerar com IA</button>
-          </div>
+    <div class="page-header">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Planejador de Cardápio por Período</div>
+          <div class="page-subtitle">Cardápio: <strong>${menuObj.nome}</strong> · Periodicidade: <span class="tag tag-blue">${(menuObj.periodicidade || 'mensal').toUpperCase()}</span> (${numSemanas} Semanas)</div>
         </div>
+        <button class="btn btn-outline btn-sm" onclick="PAGE_RENDERERS.nutricionista_cardapios(document.getElementById('page-content'))">🔙 Voltar para Cardápios</button>
+      </div>
+    </div>
+
+    ${restricoesSummaryHtml}
+
+    <div class="card mb-24">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="card-title">Navegação Multi-Semana</div>
+        <button class="btn btn-outline btn-sm" style="background:var(--primary-light,#e0f2fe);color:var(--primary);border-color:var(--primary-light,#e0f2fe);font-weight:700" onclick="abrirModalGeradorIA()">🤖 Preencher N Semanas com IA</button>
+      </div>
+      <div class="card-body">
+        ${weekTabsHtml}
+        
         <div style="margin-top:14px">
           <label style="font-weight:600;font-size:0.9rem;display:block;margin-bottom:6px">Escolas Vinculadas</label>
           <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px">
@@ -4030,18 +4199,39 @@ window.showMenuPlanner = (preselectRecipeId) => {
               <span>Escolas específicas</span>
             </label>
           </div>
-          <div id="planner-escolas-list" style="display:none;padding:10px;border:1px solid var(--border);border-radius:8px;max-height:220px;overflow-y:auto">
-            ${(DATA.schools||[]).map(s => {
-              const restrEscola = activeRestricoes.filter(r => r.schoolId === s.id || (r.schoolName || '').toLowerCase() === s.name.toLowerCase());
-              const totalAlunosRestr = restrEscola.reduce((acc, r) => acc + (r.quantidade || 1), 0);
-              const tiposText = Array.from(new Set(restrEscola.map(r => r.tipo))).join(', ');
-              const restrBadge = totalAlunosRestr > 0 
-                ? `<span class="status-badge warning" style="font-size:0.75rem;padding:3px 8px;font-weight:700" title="${totalAlunosRestr} alunos com restrição (${tiposText})">⚠️ ${totalAlunosRestr} Alunos c/ Restrição (${tiposText})</span>`
-                : '';
-              return `
-                <label style="display:flex;align-items:center;justify-content:space-between;padding:6px 4px;font-size:0.85rem;cursor:pointer;border-bottom:1px dashed var(--border,#e2e8f0)">
-                  <div>
-                    <input type="checkbox" class="planner-escola-chk" value="${s.name.replace(/"/g,'&quot;')}" style="margin-right:6px">
+        </div>
+      </div>
+    </div>
+
+    <div class="card mb-24">
+      <div class="card-header"><div class="card-title">Elaboração da Semana ${window._activePlannerWeekIndex} de ${numSemanas}</div></div>
+      <div class="card-body">
+        <div id="planner-days-container" style="display:flex;gap:12px;flex-direction:column">
+        </div>
+
+        <div style="margin-top:20px;padding:16px;background:var(--primary-light);border-radius:var(--radius);display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-weight:700">Média Nutricional Diária Calculada (Semana ${window._activePlannerWeekIndex})</div>
+            <div style="font-size:0.85rem;color:var(--text-secondary)">Meta recomendada PNAE: 650 a 800 kcal/dia</div>
+          </div>
+          <div style="font-size:1.6rem;font-weight:800;color:var(--primary)" id="planner-total-kcal">0 kcal</div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:20px;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="PAGE_RENDERERS.nutricionista_cardapios(document.getElementById('page-content'))">Cancelar</button>
+          <button class="btn btn-primary" onclick="saveWeeklyMenu()">Publicar Cardápio (${numSemanas} Semanas)</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  setTimeout(() => window.generatePlannerDays(menuObj.id, window._activePlannerWeekIndex), 50);
+};
+
+window.switchPlannerWeek = (weekIndex) => {
+  window._activePlannerWeekIndex = weekIndex;
+  window.showMenuPlanner(window._activePlannerCardapioId);
+};
                     <strong>${s.name}</strong> <span style="color:var(--text-tertiary);font-size:0.78rem">· ${s.region}</span>
                   </div>
                   ${restrBadge}
@@ -5404,55 +5594,79 @@ window.excluirAlunoEspecial = (id) => {
 // salvarSubstituicaoSazonal / removerSubstituicaoSazonal) vivem lá agora.
 
 // Helper de Relatório Mensal 4 Páginas por Mês (Requisito PDF nº 5)
-window.abrirRelatorioMensal4Paginas = (cardapioNome) => {
+window.abrirRelatorioMensal4Paginas = (cardapioIdOrNome) => {
+  const menus = SharedState.getMenus();
+  const menuObj = SharedState.getCardapio(cardapioIdOrNome) || menus.find(m => m.nome === cardapioIdOrNome) || menus[0] || { nome: 'Cardápio Oficial', numSemanas: 5 };
+  const semanas = SharedState.getSemanasDoCardapio(menuObj.id);
+  const numSemanas = menuObj.numSemanas || (semanas.length > 0 ? semanas.length : 5);
+
   const content = `
     <div id="print-4-pages-container" style="font-family:Inter,sans-serif">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px" class="no-print">
-        <h3>📄 Relatório de Cardápio Mensal — 4 Páginas por Mês</h3>
-        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir 4 Páginas para a Escola</button>
+        <div>
+          <h3 style="margin:0">📄 Relatório de Cardápio por Período — ${menuObj.nome}</h3>
+          <div style="font-size:0.85rem;color:var(--text-secondary)">Periodicidade: ${(menuObj.periodicidade || 'mensal').toUpperCase()} (${numSemanas} Páginas / Semanas)</div>
+        </div>
+        <button class="btn btn-primary" onclick="window.print()">🖨️ Imprimir (${numSemanas} Páginas para o Mural)</button>
       </div>
 
-      ${[1, 2, 3, 4].map(semana => `
-        <div style="background:#fff;padding:24px;border:1px solid #ccc;margin-bottom:24px;page-break-after:always">
-          <div style="border-bottom:2px solid #1565C0;padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between">
-            <div>
-              <h2 style="margin:0;color:#1565C0">PREFEITURA MUNICIPAL DE CAMPO GRANDE — SEMED</h2>
-              <div style="font-size:0.9rem;font-weight:700;color:#333">SUPERINTENDÊNCIA DE ALIMENTAÇÃO ESCOLAR (SUAL)</div>
-              <div style="font-size:0.85rem;color:#666">Cardápio Oficial — <strong>SEMANA ${semana} DE 4</strong> (${cardapioNome || 'Ensino Fundamental Regular'})</div>
+      ${Array.from({ length: numSemanas }, (_, i) => i + 1).map(semanaIdx => {
+        const semData = semanas.find(s => s.indiceSemana === semanaIdx) || { semana: `Semana ${semanaIdx}`, refeicoes: [] };
+        const refeicoes = (semData.refeicoes && semData.refeicoes.length > 0)
+          ? semData.refeicoes
+          : [
+              { dia: 'Segunda-feira', tipo: 'Almoço', item: 'Arroz, Feijão Carioca, Coxa de Frango Assada e Salada 🌽' },
+              { dia: 'Terça-feira', tipo: 'Almoço', item: 'Arroz Integral, Feijão Preto, Carne Moída Ensopada e Salada 🌽' },
+              { dia: 'Quarta-feira', tipo: 'Almoço', item: 'Macarrão Espaguete ao Molho de Tomate 🌽 c/ Carne Moída' },
+              { dia: 'Quinta-feira', tipo: 'Almoço', item: 'Arroz Branco, Feijão Carioca, Ovos Mexidos 🌽 e Salada 🌽' },
+              { dia: 'Sexta-feira', tipo: 'Almoço', item: 'Polenta c/ Carne Bovina Ensopada e Mandioca Cozida 🌽' }
+            ];
+
+        return `
+          <div style="background:#fff;padding:24px;border:1px solid #ccc;margin-bottom:24px;page-break-after:always">
+            <div style="border-bottom:2px solid #1565C0;padding-bottom:10px;margin-bottom:16px;display:flex;justify-content:space-between">
+              <div>
+                <h2 style="margin:0;color:#1565C0">PREFEITURA MUNICIPAL DE CAMPO GRANDE — SEMED</h2>
+                <div style="font-size:0.9rem;font-weight:700;color:#333">SUPERINTENDÊNCIA DE ALIMENTAÇÃO ESCOLAR (SUAL)</div>
+                <div style="font-size:0.85rem;color:#666">Cardápio Oficial — <strong>${semData.semana || `SEMANA ${semanaIdx} DE ${numSemanas}`}</strong> (${menuObj.nome})</div>
+              </div>
+              <div style="text-align:right;font-size:0.8rem">
+                <div>RT: Dra. Lilian Droppa</div>
+                <div>CRN 12345/MS</div>
+              </div>
             </div>
-            <div style="text-align:right;font-size:0.8rem">
-              <div>RT: Dra. Lilian Droppa</div>
-              <div>CRN 12345/MS</div>
+
+            <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
+              <thead>
+                <tr style="background:#1565C0;color:#fff">
+                  <th style="padding:8px;border:1px solid #999">Dia da Semana</th>
+                  <th style="padding:8px;border:1px solid #999">Desjejum (Manhã)</th>
+                  <th style="padding:8px;border:1px solid #999">Almoço Principal</th>
+                  <th style="padding:8px;border:1px solid #999">Lanche da Tarde</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${refeicoes.map(r => `
+                  <tr style="${r.desabilitado ? 'background:#f1f5f9;color:#94a3b8;' : ''}">
+                    <td style="padding:8px;border:1px solid #999"><strong>${r.dia}${r.diaData ? ` (${r.diaData.split('-').reverse().join('/')})` : ''}</strong></td>
+                    <td style="padding:8px;border:1px solid #999">${r.desabilitado ? '— (Dia fora do mês)' : (r.desjejum || 'Pão c/ Manteiga e Leite UHT 🌽')}</td>
+                    <td style="padding:8px;border:1px solid #999"><strong>${r.desabilitado ? '— (Sem atividade letiva no mês)' : (r.almoco || r.item || 'Arroz, Feijão e Proteína 🌽')}</strong></td>
+                    <td style="padding:8px;border:1px solid #999">${r.desabilitado ? '—' : (r.lanche || 'Fruta da Safra AF 🌽')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div style="margin-top:20px;display:flex;justify-content:space-between;font-size:0.78rem;border-top:1px solid #ddd;padding-top:10px">
+              <div>🌽 Alimentos advindos da Agricultura Familiar Local · PNAE/FNDE</div>
+              <div>Página ${semanaIdx} de ${numSemanas} — Afixar no Mural da Escola</div>
             </div>
           </div>
-
-          <table style="width:100%;border-collapse:collapse;font-size:0.85rem">
-            <thead>
-              <tr style="background:#1565C0;color:#fff">
-                <th style="padding:8px;border:1px solid #999">Dia da Semana</th>
-                <th style="padding:8px;border:1px solid #999">Desjejum (Manhã)</th>
-                <th style="padding:8px;border:1px solid #999">Almoço Principal</th>
-                <th style="padding:8px;border:1px solid #999">Lanche da Tarde</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr><td style="padding:8px;border:1px solid #999"><strong>Segunda-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite c/ Cacau + Pão c/ Manteiga 🌽</td><td style="padding:8px;border:1px solid #999">Arroz, Feijão Carioca, Coxa de Frango Assada e Salada de Alface/Tomate 🌽</td><td style="padding:8px;border:1px solid #999">Banana Nanica 🌽</td></tr>
-              <tr><td style="padding:8px;border:1px solid #999"><strong>Terça-feira</strong></td><td style="padding:8px;border:1px solid #999">Suco Natural de Laranja 🌽 + Bisnaguinha</td><td style="padding:8px;border:1px solid #999">Arroz Integral, Feijão Preto, Carne Bovina Refogada e Cenoura Ralada 🌽</td><td style="padding:8px;border:1px solid #999">Maçã Gala</td></tr>
-              <tr><td style="padding:8px;border:1px solid #999"><strong>Quarta-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite UHT + Biscoito Doce</td><td style="padding:8px;border:1px solid #999">Macarrão Espaguete ao Molho de Tomate 🌽 c/ Carne Moída e Abóbora Cabotiá 🌽</td><td style="padding:8px;border:1px solid #999">Melancia em Cubos 🌽</td></tr>
-              <tr><td style="padding:8px;border:1px solid #999"><strong>Quinta-feira</strong></td><td style="padding:8px;border:1px solid #999">Vitamina de Banana 🌽 + Pão de Milho</td><td style="padding:8px;border:1px solid #999">Arroz Branco, Feijão Carioca, Ovos Mexidos 🌽 e Salada de Beterraba 🌽</td><td style="padding:8px;border:1px solid #999">Sucos de Frutas da Safra AF 🌽</td></tr>
-              <tr><td style="padding:8px;border:1px solid #999"><strong>Sexta-feira</strong></td><td style="padding:8px;border:1px solid #999">Leite c/ Cereais + Fruta Fresca 🌽</td><td style="padding:8px;border:1px solid #999">Polenta c/ Carne Bovina Ensopada, Mandioca Cozida 🌽 e Couve Manteiga 🌽</td><td style="padding:8px;border:1px solid #999">Bolo Caseiro de Cenoura 🌽</td></tr>
-            </tbody>
-          </table>
-
-          <div style="margin-top:20px;display:flex;justify-content:space-between;font-size:0.78rem;border-top:1px solid #ddd;padding-top:10px">
-            <div>🌽 Alimentos advindos da Agricultura Familiar Local</div>
-            <div>Página ${semana} de 4 — Afixar no Mural da Escola</div>
-          </div>
-        </div>
-      `).join('')}
+        `;
+      }).join('')}
     </div>
   `;
-  window.showModal('📄 Modelo de Cardápio Mensal (4 Páginas/Mês)', content, '900px');
+  window.showModal(`📄 Relatório Impresso — ${menuObj.nome} (${numSemanas} Páginas)`, content, '900px');
 };
 
 window.renderAISummaryCard = (menuObj, container) => {

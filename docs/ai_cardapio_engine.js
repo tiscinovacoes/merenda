@@ -620,6 +620,9 @@
     calcularDemandaPorEscola: function (menuObj, escolaObj) {
       if (!menuObj || !escolaObj) return [];
       const numAlunos = escolaObj.students || 100;
+      const numSemanas = menuObj.numSemanas || (menuObj.periodicidade === 'quinzenal' ? 2 : (menuObj.periodicidade === 'semanal' ? 1 : 5));
+      const numDiasMultiSemana = numSemanas * 5;
+
       let insumos = (menuObj && menuObj.insumosResumoSemanal && menuObj.insumosResumoSemanal.length > 0)
         ? menuObj.insumosResumoSemanal
         : [];
@@ -633,26 +636,26 @@
               if (!tempMap[ing.nome]) {
                 tempMap[ing.nome] = { nome: ing.nome, unidade: ing.unidade || 'kg', perCapitaGramos: ing.perCapita || 80, totalSemanalKg: 0, af: ing.af || false };
               }
-              tempMap[ing.nome].totalSemanalKg += Math.round(((ing.perCapita || 80) * numAlunos * 5) / 1000);
+              tempMap[ing.nome].totalSemanalKg += Math.round(((ing.perCapita || 80) * numAlunos * numDiasMultiSemana) / 1000);
             });
           }
         });
         insumos = Object.values(tempMap);
       }
 
-      // Fallback Nível 3 (Garantia Universal PNAE): Se insumos continuar vazio, gera a cesta semanal padrão PNAE por aluno
+      // Fallback Nível 3 (Garantia Universal PNAE): Se insumos continuar vazio, gera a cesta padrão PNAE por aluno para o período
       if (insumos.length === 0) {
         insumos = [
-          { nome: 'Arroz Polido Tipo 1 (Saco 5kg)', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * 5) / 1000), af: false },
-          { nome: 'Feijão Carioca Novo (Pct 1kg)', unidade: 'kg', perCapitaGramos: 80, totalSemanalKg: Math.round((80 * numAlunos * 5) / 1000), af: false },
-          { nome: 'Peito de Frango Desfiado Congelado', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * 5) / 1000), af: false },
-          { nome: 'Carne Moída Bov. de 1ª', unidade: 'kg', perCapitaGramos: 90, totalSemanalKg: Math.round((90 * numAlunos * 5) / 1000), af: false },
-          { nome: 'Macarrão Espaguete com Ovos', unidade: 'kg', perCapitaGramos: 70, totalSemanalKg: Math.round((70 * numAlunos * 5) / 1000), af: false },
-          { nome: 'Leite Integral UHT (Frasco 1L)', unidade: 'L', perCapitaGramos: 150, totalSemanalKg: Math.round((150 * numAlunos * 5) / 1000), af: false },
-          { nome: 'Óleo de Soja Refinado (1L)', unidade: 'L', perCapitaGramos: 15, totalSemanalKg: Math.round((15 * numAlunos * 5) / 1000), af: false },
-          { nome: 'Melancia em cubos (Safra Local AF)', unidade: 'kg', perCapitaGramos: 120, totalSemanalKg: Math.round((120 * numAlunos * 5) / 1000), af: true },
-          { nome: 'Banana prata orgânica (Safra Local AF)', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * 5) / 1000), af: true },
-          { nome: 'Cenoura e Legumes Frescos AF', unidade: 'kg', perCapitaGramos: 60, totalSemanalKg: Math.round((60 * numAlunos * 5) / 1000), af: true }
+          { nome: 'Arroz Polido Tipo 1 (Saco 5kg)', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * numDiasMultiSemana) / 1000), af: false },
+          { nome: 'Feijão Carioca Novo (Pct 1kg)', unidade: 'kg', perCapitaGramos: 80, totalSemanalKg: Math.round((80 * numAlunos * numDiasMultiSemana) / 1000), af: false },
+          { nome: 'Peito de Frango Desfiado Congelado', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * numDiasMultiSemana) / 1000), af: false },
+          { nome: 'Carne Moída Bov. de 1ª', unidade: 'kg', perCapitaGramos: 90, totalSemanalKg: Math.round((90 * numAlunos * numDiasMultiSemana) / 1000), af: false },
+          { nome: 'Macarrão Espaguete com Ovos', unidade: 'kg', perCapitaGramos: 70, totalSemanalKg: Math.round((70 * numAlunos * numDiasMultiSemana) / 1000), af: false },
+          { nome: 'Leite Integral UHT (Frasco 1L)', unidade: 'L', perCapitaGramos: 150, totalSemanalKg: Math.round((150 * numAlunos * numDiasMultiSemana) / 1000), af: false },
+          { nome: 'Óleo de Soja Refinado (1L)', unidade: 'L', perCapitaGramos: 15, totalSemanalKg: Math.round((15 * numAlunos * numDiasMultiSemana) / 1000), af: false },
+          { nome: 'Melancia em cubos (Safra Local AF)', unidade: 'kg', perCapitaGramos: 120, totalSemanalKg: Math.round((120 * numAlunos * numDiasMultiSemana) / 1000), af: true },
+          { nome: 'Banana prata orgânica (Safra Local AF)', unidade: 'kg', perCapitaGramos: 100, totalSemanalKg: Math.round((100 * numAlunos * numDiasMultiSemana) / 1000), af: true },
+          { nome: 'Cenoura e Legumes Frescos AF', unidade: 'kg', perCapitaGramos: 60, totalSemanalKg: Math.round((60 * numAlunos * numDiasMultiSemana) / 1000), af: true }
         ];
       }
 
@@ -674,7 +677,7 @@
 
       const resultadoDemanda = insumos.map(ins => {
         const perCapitaG = ins.perCapitaGramos || 50;
-        const totalBrutoKg = parseFloat(((numAlunos * perCapitaG * 5) / 1000).toFixed(2));
+        const totalBrutoKg = parseFloat(((numAlunos * perCapitaG * numDiasMultiSemana) / 1000).toFixed(2));
         
         const nomeLower = (ins.nome || '').toLowerCase();
         let packRule = null;
