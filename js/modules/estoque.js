@@ -14,21 +14,32 @@
 
 PAGE_RENDERERS.estoque_dashboard = (el) => {
   const sharedOrders = SharedState.getOrders();
-  // KPIs coerentes com as sub-telas do fluxo (mesmos getters).
-  const recebPendentes = SharedState.getRecebimentosPendentes ? SharedState.getRecebimentosPendentes().filter(r => r.status !== 'Recebido').length : 0;
-  const osExped = SharedState.getOrdensServicoExpedicao ? SharedState.getOrdensServicoExpedicao() : [];
-  const aSeparar = osExped.filter(o => o.status === 'Aguardando Separação' || o.status === 'Em Separação').length;
-  const ordensEntrega = SharedState.getOrdensEntrega ? SharedState.getOrdensEntrega().length : 0;
-  const hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  const lotes = DATA.lots || [];
-  const lotesRisco = lotes.filter(l => { if (!l.expirationDate) return false; const d = Math.ceil((new Date(l.expirationDate) - hoje) / 86400000); return d <= 30; }).length;
-  const lotesVencidos = lotes.filter(l => l.expirationDate && new Date(l.expirationDate) < hoje).length;
+  const cargas = SharedState.getCargas ? SharedState.getCargas() : [];
+  const oes = SharedState.getOrdensEntrega ? SharedState.getOrdensEntrega() : [];
+  const frota = SharedState.getFrota ? SharedState.getFrota() : [];
+  const cobertura = SharedState.getCoberturaEscolas ? SharedState.getCoberturaEscolas() : [];
+
+  // 1. Caminhões em Rota
+  const cargasEmRota = cargas.filter(c => c.status === 'em_transporte');
+  const caminhoesEmRotaInfo = cargasEmRota.map(c => {
+    const cam = frota.find(f => f.id === c.caminhaoId);
+    const placa = cam ? cam.placa : (c.caminhaoId || 'Veículo');
+    const paradaAtual = (c.rotaOrdenada || [])[0] || 'Em rota';
+    return { id: c.id, placa, motorista: c.motorista, paradaAtual };
+  });
+
+  // 2. Pendentes de Entrega (OE não entregues)
+  const oesPendentes = oes.filter(o => o.status !== 'Entregue');
+
+  // 3. Escolas Abastecidas
+  const escolasAbastecidas = cobertura.filter(c => c.status === 'abastecida');
+  const totalEscolas = cobertura.length;
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div>
         <div class="page-title">Dashboard Operacional (CD)</div>
-        <div class="page-subtitle">Central de Distribuição · Recebimento → Expedição → Entrega · Sincronizado com Gestor/Escolas</div>
+        <div class="page-subtitle">Central de Distribuição · Monitoramento em Tempo Real de Frota, Entregas e Escolas</div>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary btn-sm" onclick="window.abrirModalImportarNFeXML()">📥 Receber NF-e via XML</button>
@@ -37,32 +48,61 @@ PAGE_RENDERERS.estoque_dashboard = (el) => {
     </div>
 
     <div class="kpi-grid" style="margin-bottom:24px">
-      <div class="kpi-card blue"><div class="kpi-icon">🚚</div><div class="kpi-value">${recebPendentes}</div><div class="kpi-label">Recebimentos Pendentes</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📦</div><div class="kpi-value">${aSeparar}</div><div class="kpi-label">OS a Separar (Expedição)</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">🚛</div><div class="kpi-value">${ordensEntrega}</div><div class="kpi-label">Ordens de Entrega Ativas</div></div>
-      <div class="kpi-card ${lotesVencidos ? 'red' : 'green'}"><div class="kpi-icon">${lotesVencidos ? '🚨' : '⏳'}</div><div class="kpi-value">${lotesRisco}</div><div class="kpi-label">Lotes em Risco (≤ 30d)${lotesVencidos ? ` · ${lotesVencidos} vencido(s)` : ''}</div></div>
+      <div class="kpi-card blue" style="cursor:pointer" onclick="navigateTo(null, 'rastreabilidade')">
+        <div class="kpi-icon">🚚</div>
+        <div class="kpi-value">${cargasEmRota.length}</div>
+        <div class="kpi-label">Caminhões em Rota</div>
+        <small style="color:var(--text-tertiary);margin-top:4px;display:block">
+          ${caminhoesEmRotaInfo.length ? caminhoesEmRotaInfo.map(i => `${i.placa} (${i.motorista})`).join(' · ') : 'Nenhum veículo em rota'}
+        </small>
+      </div>
+
+      <div class="kpi-card orange" style="cursor:pointer" onclick="navigateTo(null, 'ordens-entrega')">
+        <div class="kpi-icon">📋</div>
+        <div class="kpi-value">${oesPendentes.length}</div>
+        <div class="kpi-label">Pendentes de Entrega</div>
+        <small style="color:var(--text-tertiary);margin-top:4px;display:block">
+          ${oesPendentes.length ? `${oesPendentes.length} O.E.(s) aguardando dupla checagem` : 'Todas entregues'}
+        </small>
+      </div>
+
+      <div class="kpi-card green" style="cursor:pointer" onclick="navigateTo(null, 'cobertura')">
+        <div class="kpi-icon">🏫</div>
+        <div class="kpi-value">${escolasAbastecidas.length} / ${totalEscolas}</div>
+        <div class="kpi-label">Escolas Abastecidas</div>
+        <small style="color:var(--text-tertiary);margin-top:4px;display:block">
+          ${totalEscolas ? `${Math.round((escolasAbastecidas.length/totalEscolas)*100)}% de atendimento completo` : '0 escolas'}
+        </small>
+      </div>
     </div>
 
     <div class="grid-2">
-      <div class="card"><div class="card-header"><div class="card-title">💰 Saldo de Empenhos Vigentes</div></div>
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">🚚 Frota em Rota Ativa</div>
+          <button class="btn btn-sm btn-outline" onclick="navigateTo(null, 'rastreabilidade')">Ver Rastreamento</button>
+        </div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
-            <thead><tr><th>Empenho</th><th>Produto</th><th>Consumido</th><th>Total</th><th>Status</th></tr></thead>
+            <thead><tr><th>Veículo / Placa</th><th>Motorista</th><th>Status Rota</th></tr></thead>
             <tbody>
-              ${SharedState.getEmpenhos().slice(0,5).map(e => `
+              ${caminhoesEmRotaInfo.length ? caminhoesEmRotaInfo.map(c => `
                 <tr>
-                  <td><strong>${e.numero}</strong><br><small>${e.ataNumero}</small></td>
-                  <td>${e.produto}</td>
-                  <td style="font-family:var(--font-mono)">${(e.qtdConsumida||0).toLocaleString('pt-BR')} ${e.unidade}</td>
-                  <td style="font-family:var(--font-mono)">${(e.qtdTotal||0).toLocaleString('pt-BR')} ${e.unidade}</td>
-                  <td><span class="status-badge ${e.status === 'Liquidado' ? 'status-ok' : e.status === 'Parcial' ? 'status-warning' : 'status-info'}">${e.status}</span></td>
+                  <td><strong>${c.placa}</strong></td>
+                  <td>${c.motorista}</td>
+                  <td><span class="status-badge status-info">🟢 Em Rota (${c.paradaAtual})</span></td>
                 </tr>
-              `).join('')}
+              `).join('') : '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-tertiary)">Nenhum caminhão em trânsito no momento.</td></tr>'}
             </tbody>
           </table>
         </div>
       </div>
-      <div class="card"><div class="card-header"><div class="card-title">📋 Fila de Pedidos das Escolas</div></div>
+
+      <div class="card">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">📋 Fila de Pedidos das Escolas</div>
+          <button class="btn btn-sm btn-outline" onclick="navigateTo(null, 'expedicao-os')">Ver Expedição</button>
+        </div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
             <thead><tr><th>#</th><th>Escola</th><th>Itens</th><th>Status</th></tr></thead>
@@ -84,78 +124,90 @@ PAGE_RENDERERS.estoque_dashboard = (el) => {
 };
 
 PAGE_RENDERERS.estoque_inventario = (el) => {
-  const prods = DATA.products.slice().sort((a,b) => a.daysLeft - b.daysLeft);
-  const central = SharedState.getCentralStock();
-  const criticos = prods.filter(p => (p.daysLeft || 0) <= 5).length;
-  const atencao = prods.filter(p => (p.daysLeft || 0) > 5 && (p.daysLeft || 0) <= 10).length;
-  const zerados = prods.filter(p => (p.stock || 0) === 0).length;
+  const central = SharedState.getCentralStock() || [];
+  const now = new Date(2026, 7, 20);
+
+  const getDaysLeft = (valStr) => {
+    if (!valStr) return 999;
+    const parts = valStr.includes('-') ? valStr.split('-') : valStr.split('/');
+    if (parts.length === 3) {
+      const d = valStr.includes('-') ? new Date(parts[0], parts[1]-1, parts[2]) : new Date(parts[2], parts[1]-1, parts[0]);
+      return Math.ceil((d - now) / (1000 * 60 * 60 * 24));
+    }
+    return 999;
+  };
+
+  let criticos = 0;
+  let atencao = 0;
+  let zerados = 0;
+
+  const itemsProcessed = central.map(c => {
+    const lotes = c.lotes || [];
+    const validades = lotes.map(l => l.validade).filter(Boolean).sort();
+    const proxVenc = validades[0] || '—';
+    const minDays = validades.length ? Math.min(...validades.map(getDaysLeft)) : 999;
+    const qtd = c.qtd || 0;
+
+    if (qtd === 0) zerados++;
+    else if (minDays <= 5) criticos++;
+    else if (minDays <= 10) atencao++;
+
+    return { ...c, lotes, proxVenc, minDays, qtd };
+  });
 
   el.innerHTML = `
-    <div class="page-header"><div class="page-title">Posição de Estoque Central</div><div class="page-subtitle">Acompanhamento em Tempo Real · Recebimentos via NF alimentam este estoque</div></div>
+    <div class="page-header">
+      <div class="page-title">Posição de Estoque Central (Tempo Real)</div>
+      <div class="page-subtitle">Alimentado por Recebimento de NFs e debitado por Separação FEFO</div>
+    </div>
 
     <div class="kpi-grid" style="margin-bottom:24px">
-      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${prods.length}</div><div class="kpi-label">Itens no Inventário</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${itemsProcessed.length}</div><div class="kpi-label">Itens no Inventário Real</div></div>
       <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${criticos}</div><div class="kpi-label">Estoque Crítico (≤ 5 dias)</div></div>
       <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${atencao}</div><div class="kpi-label">Atenção (6–10 dias)</div></div>
       <div class="kpi-card ${zerados ? 'red' : 'green'}"><div class="kpi-icon">${zerados ? '⛔' : '✅'}</div><div class="kpi-value">${zerados}</div><div class="kpi-label">Itens Zerados</div></div>
     </div>
 
-    ${central.length > 0 ? `
-    <div class="card mb-24" style="border-left:4px solid var(--success)">
-      <div class="card-header"><div class="card-title">📦 Estoque Central Vigente (via NFs Recebidas)</div><span class="status-badge status-ok">${central.length} produto(s)</span></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Produto</th><th>Quantidade</th><th>Lotes</th><th>Próximo Vencimento</th></tr></thead>
-          <tbody>
-            ${central.map(c => {
-              const lotes = c.lotes || [];
-              const proxVenc = lotes.length ? lotes.map(l => l.validade).filter(Boolean).sort()[0] : '—';
-              return `<tr>
-                <td><strong>${c.produto}</strong></td>
-                <td style="font-family:var(--font-mono);font-size:1.05rem">${(c.qtd||0).toLocaleString('pt-BR')} ${c.unidade || ''}</td>
-                <td style="font-size:0.82rem">${lotes.length} lote(s)</td>
-                <td>${proxVenc}</td>
-              </tr>`;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>` : ''}
-
-    <div class="card mb-24">
-      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-        <div class="card-title">Inventário Estimado (visão consolidada)</div>
+    <div class="card mb-24" style="border-left:4px solid var(--primary)">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div>
+          <div class="card-title">📦 Estoque Real Vigente (Movimentação Física)</div>
+          <small style="color:var(--text-tertiary)">Atualização instantânea por NF-e e Separação FEFO</small>
+        </div>
         <div style="display:flex;gap:10px">
           <input type="text" class="form-control" placeholder="Buscar produto..." style="width:250px" onkeyup="
             const v = this.value.toLowerCase();
-            document.querySelectorAll('#estoque-table tr').forEach(tr => {
+            document.querySelectorAll('#estoque-central-table tr').forEach(tr => {
               if(!tr.dataset.name) return;
               tr.style.display = tr.dataset.name.indexOf(v) > -1 ? '' : 'none';
-            })
+            });
           ">
         </div>
       </div>
-      <div class="card-body">
+      <div class="card-body" style="padding:0">
         <table class="data-table">
           <thead>
-            <tr><th>Produto</th><th>Categoria</th><th>Estoque Físico</th><th>Consumo Médio Diário</th><th>Autonomia (Dias)</th><th>Status</th></tr>
+            <tr><th>Produto</th><th>Estoque Real</th><th>Lotes Ativos</th><th>Próximo Vencimento</th><th>Status</th></tr>
           </thead>
-          <tbody id="estoque-table">
-            ${prods.map(p => {
-              let statusObj = { text: 'Estoque Normal', class: 'status-ok' };
-              if(p.daysLeft <= 0) statusObj = { text: 'Falta de Estoque', class: 'status-danger' };
-              else if(p.daysLeft <= 5) statusObj = { text: 'Estoque Crítico', class: 'status-danger' };
-              else if(p.daysLeft <= 10) statusObj = { text: 'Atenção (Baixo)', class: 'status-warning' };
+          <tbody id="estoque-central-table">
+            ${itemsProcessed.length === 0 ? `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-tertiary)">Nenhum produto cadastrado no estoque central.</td></tr>` :
+              itemsProcessed.map(c => {
+                let statusObj = { text: 'Estoque Normal', class: 'status-ok' };
+                if (c.qtd === 0) statusObj = { text: 'Zerado', class: 'status-danger' };
+                else if (c.minDays <= 5) statusObj = { text: 'Crítico (≤5d)', class: 'status-danger' };
+                else if (c.minDays <= 10) statusObj = { text: 'Atenção (6-10d)', class: 'status-warning' };
 
-              return `<tr data-name="${p.name.toLowerCase()}">
-                <td><strong>${p.name}</strong><br><small style="color:var(--text-secondary)">ID: ${p.id.toString().padStart(4, '0')}</small></td>
-                <td><span class="status-badge status-info">${p.category}</span></td>
-                <td style="font-family:var(--font-mono);font-size:1.1rem">${p.stock} ${p.unit}</td>
-                <td style="font-family:var(--font-mono)">${p.avgConsume} ${p.unit}/dia</td>
-                <td style="font-family:var(--font-mono);font-weight:600">${p.daysLeft} dias</td>
-                <td><span class="status-badge ${statusObj.class}">${statusObj.text}</span></td>
-              </tr>`;
-            }).join('')}
+                return `<tr data-name="${c.produto.toLowerCase()}">
+                  <td><strong>${c.produto}</strong></td>
+                  <td style="font-family:var(--font-mono);font-size:1.05rem;font-weight:700;color:var(--primary-dark)">
+                    ${c.qtd.toLocaleString('pt-BR')} ${c.unidade || 'un'}
+                  </td>
+                  <td style="font-size:0.82rem">${c.lotes.length} lote(s)</td>
+                  <td style="font-family:var(--font-mono)">${c.proxVenc}</td>
+                  <td><span class="status-badge ${statusObj.class}">${statusObj.text}</span></td>
+                </tr>`;
+              }).join('')
+            }
           </tbody>
         </table>
       </div>
@@ -775,24 +827,13 @@ PAGE_RENDERERS['estoque_montagem-carga'] = (el) => {
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-      <div class="card">
-        <div class="card-header" style="background:#fef9c3"><strong>⏳ O.E. Pendentes (Aguardando Carga)</strong></div>
-        <div style="overflow-x:auto">
-          <table class="data-table">
-            <thead><tr><th>O.E.</th><th>Escola</th><th>Status</th><th>Ação</th></tr></thead>
-            <tbody>${rowsPendentes}</tbody>
-          </table>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header" style="background:#e0f2fe"><strong>🚚 O.E. Já em Caminhão</strong></div>
-        <div style="overflow-x:auto">
-          <table class="data-table">
-            <thead><tr><th>O.E.</th><th>Escola</th><th>Caminhão</th><th>Status</th><th>Motorista</th></tr></thead>
-            <tbody>${rowsAlocadas}</tbody>
-          </table>
-        </div>
+    <div class="card">
+      <div class="card-header" style="background:#fef9c3"><strong>⏳ O.E. Pendentes (Aguardando Carga)</strong></div>
+      <div style="overflow-x:auto">
+        <table class="data-table">
+          <thead><tr><th>O.E.</th><th>Escola</th><th>Status</th><th>Ação</th></tr></thead>
+          <tbody>${rowsPendentes}</tbody>
+        </table>
       </div>
     </div>
   `;
@@ -881,53 +922,60 @@ PAGE_RENDERERS['estoque_rastreabilidade'] = (el) => {
 };
 
 
-// ─── TELA DE COBERTURA DE ESTOQUE ESCOLAR (C10) ────────────────────────
+// ─── TELA UNIFICADA DE FULFILLMENT & COBERTURA ESCOLAR (C10 / Escolas) ───
 PAGE_RENDERERS['estoque_cobertura'] = (el) => {
   const cobertura = SharedState.getCoberturaEscolas ? SharedState.getCoberturaEscolas() : [];
   
-  const criticas = cobertura.filter(c => c.status === 'critica').length;
-  const adequadas = cobertura.filter(c => c.status === 'adequada').length;
-  const abundantes = cobertura.filter(c => c.status === 'abundante').length;
+  const abastecidas = cobertura.filter(c => c.status === 'abastecida');
+  const pendentes = cobertura.filter(c => c.status === 'pendente');
+  const totalSolicitadoKg = cobertura.reduce((s, c) => s + (c.solicitadoKg || 0), 0);
+  const totalEntregueKg = cobertura.reduce((s, c) => s + (c.entregueKg || 0), 0);
+  const totalSaldoKg = cobertura.reduce((s, c) => s + (c.saldoKg || 0), 0);
 
-  const rows = cobertura.length ? cobertura.map(c => `
-    <tr>
-      <td><strong>${c.escola}</strong></td>
-      <td style="font-family:var(--font-mono)">${c.alunos} alunos</td>
-      <td><strong>${c.cardapioAtivo}</strong></td>
-      <td style="font-family:var(--font-mono)">
-        <span style="font-weight:700;color:${c.status === 'critica' ? '#b91c1c' : (c.status === 'adequada' ? '#15803d' : '#0369a1')}">
-          ${c.diasCobertura} dias
-        </span>
-      </td>
-      <td>
-        <span class="status-badge ${c.status === 'critica' ? 'status-danger' : (c.status === 'adequada' ? 'status-ok' : 'status-info')}">
-          ${c.status === 'critica' ? '🔴 Crítica (< 5 dias)' : (c.status === 'adequada' ? '🟢 Adequada (5-15 dias)' : '🔵 Abundante (> 15 dias)')}
-        </span>
-      </td>
-      <td>
-        <button class="btn btn-sm btn-primary" onclick="window.abrirModalNovaOrdemEntrega('${c.escolaId}')">
-          📦 Gerar O.S. Reposição
-        </button>
-      </td>
-    </tr>
-  `).join('') : '<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-secondary)">Carregando cobertura escolar...</td></tr>';
+  const rows = cobertura.length ? cobertura.map(c => {
+    const isAbastecida = c.status === 'abastecida';
+    const prodsStr = c.produtos && c.produtos.length
+      ? c.produtos.map(p => `${p.produto}: <strong>${p.entregue}/${p.solicitado} ${p.unidade}</strong> (Saldo: ${p.saldo})`).join('<br>')
+      : '<small style="color:var(--text-tertiary)">Sem ordens de expedição</small>';
+
+    return `
+      <tr>
+        <td><strong>${c.escola}</strong></td>
+        <td style="font-family:var(--font-mono)">${c.alunos} alunos</td>
+        <td style="font-family:var(--font-mono);font-weight:600">${c.solicitadoKg.toLocaleString('pt-BR')} kg</td>
+        <td style="font-family:var(--font-mono);font-weight:600;color:var(--success)">${c.entregueKg.toLocaleString('pt-BR')} kg</td>
+        <td style="font-family:var(--font-mono);font-weight:700;color:${c.saldoKg > 0 ? '#b91c1c' : 'var(--success)'}">
+          ${c.saldoKg.toLocaleString('pt-BR')} kg
+        </td>
+        <td>
+          <span class="status-badge ${isAbastecida ? 'status-ok' : 'status-warning'}">
+            ${isAbastecida ? '🟢 Abastecida' : '🟡 Pendente'}
+          </span>
+        </td>
+        <td style="font-size:0.8rem;line-height:1.4">${prodsStr}</td>
+      </tr>
+    `;
+  }).join('') : '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-secondary)">Carregando informações de fulfillment escolar...</td></tr>';
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div>
-        <div class="page-title">📊 Cobertura de Estoque Escolar (C10)</div>
-        <div class="page-subtitle">Cálculo contínuo de autonomia em dias de merenda por escola e por cardápio ativo</div>
+        <div class="page-title">🏫 Fulfillment & Cobertura Escolar</div>
+        <div class="page-subtitle">Confronto em tempo real por escola entre Expedição (OS) e Entregas Concluídas (OE Dupla Checagem)</div>
       </div>
     </div>
 
     <div class="kpi-grid" style="margin-bottom:24px">
-      <div class="kpi-card red"><div class="kpi-icon">⚠️</div><div class="kpi-value">${criticas}</div><div class="kpi-label">Escolas em Nível Crítico (< 5d)</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${adequadas}</div><div class="kpi-label">Estoque Adequado (5-15d)</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${abundantes}</div><div class="kpi-label">Estoque Confortável (> 15d)</div></div>
+      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${abastecidas.length}</div><div class="kpi-label">Escolas Abastecidas</div></div>
+      <div class="kpi-card orange"><div class="kpi-icon">⏳</div><div class="kpi-value">${pendentes.length}</div><div class="kpi-label">Escolas Pendentes de Entrega</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${totalSaldoKg.toLocaleString('pt-BR')} kg</div><div class="kpi-label">Saldo Total a Entregar</div></div>
     </div>
 
     <div class="card">
-      <div class="card-header"><strong>Autonomia de Estoque por Escola (C10)</strong></div>
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <strong>Fulfillment de Insumos por Escola (OS vs OE)</strong>
+        <span class="status-badge status-info">${cobertura.length} escolas ativas</span>
+      </div>
       <div style="overflow-x:auto">
         <table class="data-table">
           <thead>

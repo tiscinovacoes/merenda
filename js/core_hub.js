@@ -1531,9 +1531,8 @@ const PROFILES = {
         { id: 'rastreabilidade',       icon: '📡', label: 'Rastreabilidade (Caminhões)', badge: 'NEW' },
         { id: 'frota',                 icon: '🚚', label: 'Frota',                    badge: 'NEW' },
       ]},
-      { id: 'cobertura', icon: '📈', label: 'Cobertura Escolar', badge: 'NEW' },
+      { id: 'cobertura', icon: '🏫', label: 'Fulfillment & Escolas', badge: null },
       { id: 'lotes', icon: '📋', label: 'Controle de Lotes', badge: null },
-      { id: 'escolas', icon: '🏫', label: 'Escolas Atendidas', badge: null },
       { type: 'group', label: 'Gestão', children: [
         { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: 'NEW' },
         { id: 'ocorrencias', icon: '⚠️', label: 'Ocorrências', badge: 'NEW' },
@@ -7751,11 +7750,21 @@ SharedState.getNotificacoesFornecedor = () => [...(SharedState._data.notificacoe
     return modulo ? all.filter(o => o.modulo === modulo) : all;
   };
   S.registrarOcorrencia = (oc) => {
+    const curProf = (typeof state !== 'undefined' && PROFILES && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile] : null;
+    const perfil = oc.perfil || (typeof state !== 'undefined' ? state.currentProfile : 'estoque');
+    const autor = oc.autor || (curProf ? curProf.name : 'Operador');
     const nova = {
       id: 'OC-' + Date.now().toString().slice(-6),
-      modulo: oc.modulo || 'estoque',
-      status: 'Pendente',
+      perfil,
+      autor,
+      modulo: perfil,
+      tipo: oc.tipo || 'Operacional',
+      titulo: oc.titulo || oc.motivo || 'Ocorrência Operacional',
+      descricao: oc.descricao || oc.detalhes || oc.motivo || '',
+      escola: oc.escola || oc.escolaNome || '—',
+      status: oc.status || 'Pendente',
       criadoEm: new Date().toISOString(),
+      data: new Date().toISOString().split('T')[0],
       ...oc,
     };
     (S._data.ocorrencias = S._data.ocorrencias || []).unshift(nova);
@@ -7763,25 +7772,142 @@ SharedState.getNotificacoesFornecedor = () => [...(SharedState._data.notificacoe
     return nova;
   };
 
-  // ── COBERTURA DE ESTOQUE ESCOLAR (C10) ───────────────────────────────────
-  // "Atendida" = escola com O.E. vinculada ao seu escolaId. Autonomia em dias é
-  // um cálculo determinístico (mock) até o estoque escolar real alimentar isso.
+  window.abrirModalNovaOcorrencia = () => {
+    const curProf = (typeof state !== 'undefined' && PROFILES && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile] : { role: 'Operador', name: 'Usuário' };
+    const perfilAtual = typeof state !== 'undefined' ? state.currentProfile : 'estoque';
+
+    const body = `
+      <form onsubmit="window.salvarNovaOcorrencia(event)">
+        <div class="form-group mb-16">
+          <label class="form-label">Perfil Solicitante / Origem</label>
+          <input type="text" class="form-control" value="${curProf.role} (${curProf.name})" disabled>
+          <input type="hidden" id="oc-perfil" value="${perfilAtual}">
+          <input type="hidden" id="oc-autor" value="${curProf.name}">
+        </div>
+
+        <div class="form-group mb-16">
+          <label class="form-label">Tipo de Ocorrência</label>
+          <select id="oc-tipo" class="form-control" required>
+            <option value="Avarias / Danos">📦 Avarias / Danos na Mercadoria</option>
+            <option value="Atraso de Entrega">🚚 Atraso de Entrega / Trânsito</option>
+            <option value="Divergência de Quantidade">📊 Divergência de Quantidade</option>
+            <option value="Qualidade / Temperatura">🌡️ Qualidade / Temperatura Inadequada</option>
+            <option value="Problema Mecânico">🔧 Problema Mecânico / Veículo</option>
+            <option value="Outros">⚠️ Outros / Diversos</option>
+          </select>
+        </div>
+
+        <div class="form-group mb-16">
+          <label class="form-label">Unidade / Escola / Placa Relacionada</label>
+          <input type="text" id="oc-unidade" class="form-control" placeholder="Ex: EMEF Doutor João Sampaio ou Placa ABC-1234">
+        </div>
+
+        <div class="form-group mb-16">
+          <label class="form-label">Descrição Detalhada da Ocorrência</label>
+          <textarea id="oc-descricao" class="form-control" rows="4" placeholder="Relate com precisão o fato ocorrido..." required></textarea>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px">
+          <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">💾 Registrar Ocorrência</button>
+        </div>
+      </form>
+    `;
+    window.showModal('⚠️ Registrar Nova Ocorrência Operacional', body, '600px');
+  };
+
+  window.salvarNovaOcorrencia = (e) => {
+    e.preventDefault();
+    const perfil = document.getElementById('oc-perfil').value;
+    const autor = document.getElementById('oc-autor').value;
+    const tipo = document.getElementById('oc-tipo').value;
+    const escola = document.getElementById('oc-unidade').value || 'Geral';
+    const descricao = document.getElementById('oc-descricao').value;
+
+    SharedState.registrarOcorrencia({
+      perfil,
+      autor,
+      tipo,
+      escola,
+      descricao,
+      modulo: perfil,
+      status: 'Pendente'
+    });
+
+    showToast('⚠️ Ocorrência registrada no Livro Geral com sucesso!');
+    closeModal();
+    renderPage();
+  };
+
+  // ── COBERTURA DE ESTOQUE ESCOLAR & FULFILLMENT (C10) ───────────────────
+  // Confronta OS (solicitado) vs OE com status Entregue (dupla checagem) por produto/kg por escola
   S.getCoberturaEscolas = (opts) => {
-    const schools = (typeof DATA !== 'undefined' && DATA.schools) ? DATA.schools : [];
-    const menuAtivo = (S._data.menus || []).find(m => m.status === 'Publicado');
+    const schools = (typeof DATA !== 'undefined' && DATA.schools) ? DATA.schools : (S._data.schools || []);
+    const osList = S.getOrdensServicoExpedicao ? S.getOrdensServicoExpedicao() : (S._data.ordensServicoExpedicao || []);
+    const oeList = S.getOrdensEntrega ? S.getOrdensEntrega() : (S._data.ordensEntrega || []);
+
     return schools.map(sc => {
-      const base = sc.refeicoesDia ? (22 - (sc.refeicoesDia * 2) - (sc.students % 9)) : 10;
-      const dias = Math.max(1, base);
-      let status = 'adequada';
-      if (dias < 5) status = 'critica';
-      else if (dias > 15) status = 'abundante';
+      const escolaIdStr = String(sc.id);
+      const escolaNome = sc.name || sc.nome || 'Escola';
+
+      const schoolOs = osList.filter(o =>
+        String(o.escolaId) === escolaIdStr ||
+        String(o.escolaId) === 'esc-' + escolaIdStr ||
+        (o.escola && o.escola.toLowerCase() === escolaNome.toLowerCase()) ||
+        (o.escolaNome && o.escolaNome.toLowerCase() === escolaNome.toLowerCase())
+      );
+
+      const schoolOeEntregues = oeList.filter(o =>
+        (o.status === 'Entregue') &&
+        (String(o.escolaId) === escolaIdStr ||
+         String(o.escolaId) === 'esc-' + escolaIdStr ||
+         (o.escola && o.escola.toLowerCase() === escolaNome.toLowerCase()) ||
+         (o.escolaNome && o.escolaNome.toLowerCase() === escolaNome.toLowerCase()))
+      );
+
+      const prodMap = {};
+      let totalSolicitado = 0;
+      let totalEntregue = 0;
+
+      schoolOs.forEach(o => {
+        (o.produtos || o.itens || []).forEach(it => {
+          const name = it.produto || it.nome || 'Item';
+          const qtd = Number(it.quantidade || it.qtd || 0);
+          if (!prodMap[name]) prodMap[name] = { produto: name, solicitado: 0, entregue: 0, saldo: 0, unidade: it.unidade || 'kg' };
+          prodMap[name].solicitado += qtd;
+          totalSolicitado += qtd;
+        });
+      });
+
+      schoolOeEntregues.forEach(o => {
+        (o.produtos || o.itens || []).forEach(it => {
+          const name = it.produto || it.nome || 'Item';
+          const qtd = Number(it.quantidade || it.qtd || 0);
+          if (!prodMap[name]) prodMap[name] = { produto: name, solicitado: 0, entregue: 0, saldo: 0, unidade: it.unidade || 'kg' };
+          prodMap[name].entregue += qtd;
+          totalEntregue += qtd;
+        });
+      });
+
+      let totalSaldo = 0;
+      const produtos = Object.values(prodMap).map(p => {
+        p.saldo = Math.max(0, p.solicitado - p.entregue);
+        totalSaldo += p.saldo;
+        return p;
+      });
+
+      // Status: 'abastecida' (tudo entregue ou sem pendências) | 'pendente' (há saldo a entregar)
+      const status = (totalSolicitado > 0 && totalSaldo === 0) ? 'abastecida' : 'pendente';
+
       return {
         escolaId: 'esc-' + sc.id,
-        escola: sc.name,
+        escola: escolaNome,
         alunos: sc.students || 0,
-        cardapioAtivo: menuAtivo ? menuAtivo.nome : 'Cardápio Vigente',
-        diasCobertura: dias,
+        solicitadoKg: totalSolicitado,
+        entregueKg: totalEntregue,
+        saldoKg: totalSaldo,
         status,
+        produtos,
       };
     });
   };
@@ -7825,7 +7951,12 @@ window.abrirModalMontagemCarga = (arg) => {
   const jaAlocado = carga ? (carga.pesoTotalKg || 0) : 0;
   const caminhaoFixo = carga ? SharedState.getFrota().find(c => c.id === carga.caminhaoId) : null;
 
-  const camOptions = frota.map(c =>
+  // 1 caminhão = 1 carga ativa (em_montagem ou em_transporte)
+  const cargasAtivas = cargas.filter(c => c.status === 'em_montagem' || c.status === 'em_transporte');
+  const caminhaoIdsOcupados = cargasAtivas.map(c => c.caminhaoId);
+  const frotaDisponivel = carga ? frota : frota.filter(c => !caminhaoIdsOcupados.includes(c.id));
+
+  const camOptions = frotaDisponivel.map(c =>
     `<option value="${c.id}" data-cap="${c.capacidadeKg}">${c.placa} — ${c.modelo} · ${c.capacidadeKg.toLocaleString('pt-BR')} kg${c.refrigerado ? ' ❄️' : ''}</option>`
   ).join('');
 
@@ -7848,8 +7979,8 @@ window.abrirModalMontagemCarga = (arg) => {
          Caminhão da carga <strong>${carga.id}</strong>: <strong>${caminhaoFixo ? caminhaoFixo.placa : '—'}</strong> (${caminhaoFixo ? caminhaoFixo.capacidadeKg.toLocaleString('pt-BR') : '5.400'} kg) · já alocado ${jaAlocado.toLocaleString('pt-BR')} kg
          <input type="hidden" id="mc-caminhao" value="${carga.caminhaoId}" data-cap="${caminhaoFixo ? caminhaoFixo.capacidadeKg : 5400}">
        </div>`
-    : `<div class="form-group"><label class="form-label">Caminhão (só frota ativa) — sugestão por capacidade:</label>
-         <select id="mc-caminhao" class="form-control" onchange="window._recalcMontagem()">${camOptions || '<option value="">Sem caminhão ativo</option>'}</select>
+    : `<div class="form-group"><label class="form-label">Caminhão (só veículos sem carga ativa):</label>
+         <select id="mc-caminhao" class="form-control" onchange="window._recalcMontagem()">${camOptions || '<option value="">⛔ Todos os caminhões ativos possuem carga em andamento</option>'}</select>
        </div>`;
 
   const content = `
@@ -7934,8 +8065,10 @@ window.liberarCarga = (cargaId) => {
 
   const cam = SharedState.getFrota().find(c => c.id === carga.caminhaoId);
   const cap = cam ? cam.capacidadeKg : 5400;
-  if ((carga.pesoTotalKg || 0) < cap) {
-    if (!confirm(`O caminhão não atingiu o peso máximo (${(carga.pesoTotalKg||0).toLocaleString('pt-BR')} / ${cap.toLocaleString('pt-BR')} kg). Liberar mesmo assim?`)) return;
+  const minCap70 = cap * 0.70;
+  if ((carga.pesoTotalKg || 0) < minCap70) {
+    const pct = Math.round(((carga.pesoTotalKg || 0) / cap) * 100);
+    if (!confirm(`⚠️ A carga não atingiu o piso de 70% da capacidade do veículo (${(carga.pesoTotalKg||0).toLocaleString('pt-BR')} / ${cap.toLocaleString('pt-BR')} kg — ${pct}%). Liberar mesmo assim?`)) return;
   }
 
   SharedState.setStatusCarga(cargaId, 'em_transporte', 'Estoque Central');
@@ -7946,6 +8079,10 @@ window.liberarCarga = (cargaId) => {
     const oe = SharedState._data.ordensEntrega.find(o => o.id === oeId);
     if (!oe) return;
     oe.status = 'Em Transporte';
+    if (oe.osId && SharedState._data.ordensServicoExpedicao) {
+      const os = SharedState._data.ordensServicoExpedicao.find(o => o.numeroOs === oe.osId || o.id === oe.osId);
+      if (os) os.status = 'Em Rota';
+    }
     oe.motorista = carga.motorista;
     oe.veiculo = cam ? `${cam.modelo} (${cam.placa})` : oe.veiculo;
     oe.cargaId = cargaId;
@@ -8365,12 +8502,16 @@ PAGE_RENDERERS['gestor_expedicao-os'] = (el) => {
       <td>${badgeStatus(o.status)}</td>
       <td>
         <div style="display:flex;gap:4px;flex-wrap:wrap">
-          ${(o.status === 'Em Rota' || o.status === 'Entregue')
-            ? `<span class="tag tag-green" style="font-weight:700">🚛 OE emitida</span>`
+          ${(o.status === 'OE Criada' || o.status === 'Aguardando Carga' || o.status === 'Em Carga')
+            ? `<span class="tag tag-blue" style="font-weight:700">🚛 OE emitida</span>`
+            : (o.status === 'Em Rota' || o.status === 'Em Transporte')
+            ? `<span class="tag tag-orange" style="font-weight:700">🚚 OE emitida / Em rota</span>`
+            : (o.status === 'Entregue')
+            ? `<span class="tag tag-green" style="font-weight:700">✅ Entregue</span>`
             : `
-            ${(o.status !== 'Separado') ? `
+            ${(o.status === 'Aguardando Separação' || o.status === 'Em Separação') ? `
               <button class="btn btn-sm btn-primary" style="background:#15803d" onclick="window.abrirModalSeparacaoFEFO('${o.id}')">
-                📦 ${o.status === 'Separado parcial' ? 'Continuar Separação' : 'Separação FEFO (RN06)'}
+                📦 Separação FEFO (RN06)
               </button>` : ''}
             ${(o.status === 'Separado' || o.status === 'Separado parcial') ? `
               <button class="btn btn-sm btn-primary" onclick="window.abrirModalNovaOrdemEntrega('${o.id}')">
@@ -8858,18 +8999,27 @@ window._sepFefoBody = (os) => {
     </div>
     <div style="overflow-x:auto;margin-bottom:14px">
       <table class="data-table" style="font-size:0.85rem">
-        <thead><tr><th>Produto Solicitado</th><th>Qtd</th><th>Lote FEFO</th><th>Validade</th><th>Conferência</th></tr></thead>
+        <thead><tr><th>Produto Solicitado</th><th>Qtd Solicitada</th><th>Qtd Efetiva (A16)</th><th>Lote FEFO</th><th>Validade</th><th>Conferência</th></tr></thead>
         <tbody>
-          ${os.produtos.map((p, i) => `
+          ${os.produtos.map((p, i) => {
+            const valQtd = p._qtdSeparada !== undefined ? p._qtdSeparada : p.quantidade;
+            return `
             <tr style="${p._bipado ? 'background:var(--success-light,#f0fdf4)' : ''}">
               <td><strong>${p.produto}</strong></td>
               <td>${p.quantidade} ${p.unidade}</td>
+              <td>
+                <input type="number" class="form-control" style="width:85px;padding:3px 6px;font-family:var(--font-mono);font-weight:700"
+                  min="0" max="${p.quantidade}" value="${valQtd}"
+                  onchange="window._updateQtdSeparadaFEFO('${os.id}', ${i}, this.value)">
+                <small style="color:var(--text-tertiary)">${p.unidade}</small>
+              </td>
               <td><span class="tag tag-blue">${p.loteSugerido}</span></td>
               <td>${p.validade}</td>
               <td>${p._bipado
                 ? '<span class="status-badge status-ok">✅ Conferido</span>'
                 : `<button type="button" class="btn btn-sm btn-outline" onclick="window._biparItemFefo('${os.id}', ${i})">📷 Bipar</button>`}</td>
-            </tr>`).join('')}
+            </tr>`;
+          }).join('')}
         </tbody>
       </table>
     </div>
@@ -8881,6 +9031,23 @@ window._sepFefoBody = (os) => {
       <button type="button" class="btn btn-primary" style="background:#15803d" onclick="window.concluirSeparacaoFEFO('${os.id}')">✅ Concluir Separação (${bipados}/${total})</button>
     </div>
   `;
+};
+
+window._updateQtdSeparadaFEFO = (osId, idx, val) => {
+  const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
+  if (!os || !os.produtos[idx]) return;
+  const num = Math.max(0, Number(val) || 0);
+  os.produtos[idx]._qtdSeparada = num;
+  if (num > 0) os.produtos[idx]._bipado = true;
+  
+  const central = SharedState.getCentralStock ? SharedState.getCentralStock() : [];
+  const stockProd = central.find(c => c.produto.toLowerCase() === os.produtos[idx].produto.toLowerCase());
+  const qtdReal = stockProd ? stockProd.qtd : 0;
+  if (num > qtdReal) {
+    showToast(`⚠️ Qtd informada (${num}) é maior que o estoque real no CD (${qtdReal} ${os.produtos[idx].unidade}) para ${os.produtos[idx].produto}.`, 'warning');
+  }
+  SharedState._persist();
+  window._refreshSepFefo(os);
 };
 
 window.abrirModalSeparacaoFEFO = (osId) => {
@@ -8900,6 +9067,7 @@ window._biparItemFefo = (osId, idx) => {
   const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
   if (!os || !os.produtos[idx]) return;
   os.produtos[idx]._bipado = true;
+  if (os.produtos[idx]._qtdSeparada === undefined) os.produtos[idx]._qtdSeparada = os.produtos[idx].quantidade;
   SharedState._persist();
   window._refreshSepFefo(os);
 };
@@ -8912,6 +9080,7 @@ window._biparProximoFefo = (osId, code) => {
   if (!alvo) alvo = os.produtos.find(p => !p._bipado);
   if (!alvo) { showToast('Todos os itens já foram conferidos!', 'warning'); return; }
   alvo._bipado = true;
+  if (alvo._qtdSeparada === undefined) alvo._qtdSeparada = alvo.quantidade;
   SharedState._persist();
   showToast(`🟢 Item conferido pelo leitor: ${alvo.produto} (${alvo.loteSugerido})`);
   window._refreshSepFefo(os);
@@ -8920,7 +9089,10 @@ window._biparProximoFefo = (osId, code) => {
 window._biparTodosFefo = (osId) => {
   const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
   if (!os) return;
-  os.produtos.forEach(p => p._bipado = true);
+  os.produtos.forEach(p => {
+    p._bipado = true;
+    if (p._qtdSeparada === undefined) p._qtdSeparada = p.quantidade;
+  });
   SharedState._persist();
   window._refreshSepFefo(os);
 };
@@ -8928,7 +9100,7 @@ window._biparTodosFefo = (osId) => {
 window.imprimirSeparacaoFEFO = (osId) => {
   const os = SharedState.getOrdensServicoExpedicao().find(o => o.id === osId);
   if (!os) return;
-  const linhas = os.produtos.map(p => `<tr><td>${p.produto}</td><td style="text-align:center">${p.quantidade} ${p.unidade}</td><td>${p.loteSugerido}</td><td style="text-align:center">${p.validade}</td><td style="text-align:center">${p._bipado ? 'Conferido' : '☐'}</td></tr>`).join('');
+  const linhas = os.produtos.map(p => `<tr><td>${p.produto}</td><td style="text-align:center">${p._qtdSeparada !== undefined ? p._qtdSeparada : p.quantidade} ${p.unidade}</td><td>${p.loteSugerido}</td><td style="text-align:center">${p.validade}</td><td style="text-align:center">${p._bipado ? 'Conferido' : '☐'}</td></tr>`).join('');
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Romaneio de Separação — ${os.numeroOs}</title>
     <style>body{font-family:Arial,Helvetica,sans-serif;padding:28px;color:#111}h1{font-size:18px;margin:0 0 4px}h2{font-size:13px;font-weight:400;color:#555;margin:0 0 16px}
     table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #999;padding:6px 8px;text-align:left}th{background:#f0f0f0}
@@ -8938,7 +9110,7 @@ window.imprimirSeparacaoFEFO = (osId) => {
       <h2>Documento de acompanhamento de expedição — RN06/RN07</h2>
       <div class="meta"><strong>OS:</strong> ${os.numeroOs} &nbsp;·&nbsp; <strong>Escola (única):</strong> ${os.escolaNome} &nbsp;·&nbsp; <strong>Município:</strong> ${os.municipio || '—'}<br>
       <strong>Data prevista:</strong> ${os.dataPrevista || '—'} &nbsp;·&nbsp; <strong>Prioridade:</strong> ${os.prioridade || '—'} &nbsp;·&nbsp; <strong>Emitido em:</strong> ${new Date().toLocaleString('pt-BR')}</div>
-      <table><thead><tr><th>Produto</th><th style="text-align:center">Qtd</th><th>Lote (FEFO)</th><th style="text-align:center">Validade</th><th style="text-align:center">Conf.</th></tr></thead><tbody>${linhas}</tbody></table>
+      <table><thead><tr><th>Produto</th><th style="text-align:center">Qtd Efetiva</th><th>Lote (FEFO)</th><th style="text-align:center">Validade</th><th style="text-align:center">Conf.</th></tr></thead><tbody>${linhas}</tbody></table>
       <div class="sig"><div>Separador (Almoxarifado Central)</div><div>Conferente / Motorista</div></div>
       <script>window.onload=function(){window.print();}<\/script>
     </body></html>`;
@@ -8956,45 +9128,55 @@ window.concluirSeparacaoFEFO = (osId) => {
   const bipados = os.produtos.filter(p => p._bipado).length;
   if (bipados === 0) { showToast('Bipe ao menos um item antes de concluir a separação.', 'warning'); return; }
 
-  const totalSeparado = bipados === total;
-  os.status = totalSeparado ? 'Separado' : 'Separado parcial';
+  // Processa quantidades efetivas separadas
+  const produtosSeparados = [];
+  const produtosSaldo = [];
 
-  // Baixa do estoque central (FEFO) apenas dos itens efetivamente conferidos —
-  // mantém o Estoque Central alinhado com o que saiu para a escola.
-  os.produtos.filter(p => p._bipado).forEach(p => {
-    if (SharedState.consumeCentralStock) SharedState.consumeCentralStock(p.produto, p.quantidade);
+  os.produtos.forEach(p => {
+    const qtdSep = p._bipado ? (p._qtdSeparada !== undefined ? p._qtdSeparada : p.quantidade) : 0;
+    const qtdRestante = Math.max(0, p.quantidade - qtdSep);
+
+    if (qtdSep > 0) {
+      produtosSeparados.push({
+        ...p,
+        quantidade: qtdSep,
+      });
+      // Debita estoque central
+      if (SharedState.consumeCentralStock) SharedState.consumeCentralStock(p.produto, qtdSep);
+    }
+
+    if (qtdRestante > 0) {
+      const pSaldo = { ...p, quantidade: qtdRestante };
+      delete pSaldo._bipado;
+      delete pSaldo._qtdSeparada;
+      produtosSaldo.push(pSaldo);
+    }
   });
 
-  // A16 — Fracionar O.S.: o saldo NÃO separado (itens não bipados) vira uma
-  // nova OS pendente, com sufixo no número e prioridade herdada. A OS original
-  // segue como "Separado parcial".
+  const totalSeparado = (produtosSaldo.length === 0);
+  os.status = totalSeparado ? 'Separado' : 'Separado parcial';
+  os.produtos = produtosSeparados;
+
   let saldoOs = null;
-  if (!totalSeparado) {
-    const saldoItens = os.produtos
-      .filter(p => !p._bipado)
-      .map(p => { const c = { ...p }; delete c._bipado; delete c._qtdSeparada; return c; });
-    if (saldoItens.length) {
-      saldoOs = {
-        ...os,
-        id: `${os.id}-2`,
-        numeroOs: `${os.numeroOs}/2`,
-        produtos: saldoItens,
-        status: 'Aguardando Separação',
-        fracionadaDe: os.numeroOs,
-      };
-      (SharedState._data.ordensServicoExpedicao = SharedState._data.ordensServicoExpedicao || []).unshift(saldoOs);
-      // A OS original mantém apenas os itens separados.
-      os.produtos = os.produtos.filter(p => p._bipado);
-    }
+  if (produtosSaldo.length > 0) {
+    saldoOs = {
+      ...os,
+      id: `${os.id}-2`,
+      numeroOs: `${os.numeroOs}/2`,
+      produtos: produtosSaldo,
+      status: 'Aguardando Separação',
+      fracionadaDe: os.numeroOs,
+    };
+    (SharedState._data.ordensServicoExpedicao = SharedState._data.ordensServicoExpedicao || []).unshift(saldoOs);
   }
 
   SharedState.registrarLogAuditoria({
     acao: `Separação de Estoque FEFO (RN06) — ${totalSeparado ? 'Total' : 'Parcial'}`,
-    produto: os.produtos.filter(p => p._bipado).map(p => p.produto).join(', '),
-    quantidade: os.produtos.filter(p => p._bipado).reduce((s, p) => s + p.quantidade, 0),
+    produto: produtosSeparados.map(p => `${p.produto} (${p.quantidade} ${p.unidade})`).join(', '),
+    quantidade: produtosSeparados.reduce((s, p) => s + p.quantidade, 0),
     origem: 'Estoque Central SEMED',
     destino: os.escolaNome,
-    motivo: `Separação ${totalSeparado ? 'total' : 'parcial'} (${bipados}/${total} itens) via FEFO para a OS ${os.numeroOs}.`
+    motivo: `Separação ${totalSeparado ? 'total' : 'parcial'} via FEFO para a OS ${os.numeroOs}. ${saldoOs ? 'Saldo gerou ' + saldoOs.numeroOs : ''}`
   });
   SharedState._persist();
 

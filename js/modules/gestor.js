@@ -1073,65 +1073,87 @@
 
     const norm = [
       ...incs.map(i => ({
-        data: i.criadoEm, modulo: 'Motorista', tipo: i.tipo || i.type || 'Ocorrência',
-        unidade: i.escola || i.school || '—', autor: i.motorista || 'Motorista',
-        descricao: i.descricao || i.desc || '', status: i.status || 'Aberta'
+        id: i.id || 'INC-' + Math.random().toString(36).substr(2, 5),
+        data: i.criadoEm || i.data,
+        perfil: 'motorista',
+        perfilRotulo: '🚚 Motorista',
+        tipo: i.tipo || i.type || 'Ocorrência de Transporte',
+        unidade: i.escola || i.school || '—',
+        autor: i.motorista || 'Motorista',
+        descricao: i.descricao || i.desc || '',
+        status: i.status || 'Pendente',
+        placa: i.placaVeiculo || ''
       })),
       ...ocs.map(o => ({
-        data: o.criadoEm, modulo: (o.modulo === 'motorista' ? 'Motorista' : 'Estoque'),
-        tipo: o.tipo || 'Ocorrência', unidade: o.escola || 'Estoque Central',
-        autor: o.autor || 'Operador', descricao: o.descricao || '',
-        status: o.status || 'Pendente', placa: o.placaVeiculo || ''
+        id: o.id || 'OC-' + Math.random().toString(36).substr(2, 5),
+        data: o.criadoEm || o.data,
+        perfil: o.perfil || o.modulo || 'estoque',
+        perfilRotulo: o.perfil === 'motorista' || o.modulo === 'motorista' ? '🚚 Motorista' : (o.perfil === 'gestor' ? '👔 Gestor' : (o.perfil === 'escola' ? '🏫 Escola' : (o.perfil === 'nutricionista' ? '🥗 Nutrição' : '🏭 Estoque Central'))),
+        tipo: o.tipo || 'Ocorrência',
+        unidade: o.escola || o.escolaNome || 'Estoque Central',
+        autor: o.autor || 'Operador',
+        descricao: o.descricao || o.detalhes || o.motivo || '',
+        status: o.status || 'Pendente',
+        placa: o.placaVeiculo || ''
       })),
     ].sort((a, b) => new Date(b.data || 0) - new Date(a.data || 0));
 
     const total = norm.length;
-    const doMotorista = norm.filter(o => o.modulo === 'Motorista').length;
-    const doEstoque = norm.filter(o => o.modulo === 'Estoque').length;
-    const abertas = norm.filter(o => o.status === 'Aberta' || o.status === 'Pendente').length;
+    const abertas = norm.filter(o => o.status === 'Pendente' || o.status === 'Aberta' || o.status === 'Em Análise').length;
+    const resolvidas = norm.filter(o => o.status === 'Resolvido' || o.status === 'Fechada').length;
 
     const rows = norm.length ? norm.map(o => `
-      <tr data-modulo="${o.modulo}">
+      <tr data-perfil="${o.perfil}">
         <td style="font-size:0.8rem;white-space:nowrap">${o.data ? new Date(o.data).toLocaleString('pt-BR') : '—'}</td>
-        <td><span class="tag ${o.modulo === 'Motorista' ? 'tag-blue' : 'tag-teal'}">${o.modulo === 'Motorista' ? '🚚 Motorista' : '🏭 Estoque'}</span></td>
+        <td><span class="tag tag-blue">${o.perfilRotulo}</span></td>
         <td><strong>${o.tipo}</strong></td>
         <td>${o.unidade}${o.placa ? `<br><small class="text-secondary">🚛 ${o.placa}</small>` : ''}</td>
-        <td>${o.autor}</td>
+        <td><strong>${o.autor}</strong></td>
         <td style="font-size:0.82rem">${o.descricao}</td>
         <td><span class="status-badge ${o.status === 'Resolvido' || o.status === 'Fechada' ? 'status-ok' : 'status-danger'}">${o.status}</span></td>
-      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma ocorrência registrada nos módulos.</td></tr>';
+      </tr>`).join('') : '<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma ocorrência registrada na rede.</td></tr>';
 
     el.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">⚠️ Livro de Ocorrências Consolidado (F15)</div>
-        <div class="page-subtitle">Todas as ocorrências da rede — Motorista (entrega) + Estoque (almoxarifado) num só lugar</div>
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">⚠️ Livro de Ocorrências Geral da Rede</div>
+          <div class="page-subtitle">Registro unificado e transparente — Estoque, Motorista, Escolas, Gestão e Nutrição</div>
+        </div>
+        <button class="btn btn-primary" onclick="window.abrirModalNovaOcorrencia()">➕ Registrar Ocorrência</button>
       </div>
 
       <div class="kpi-grid" style="margin-bottom:20px">
         <div class="kpi-card blue"><div class="kpi-icon">📚</div><div class="kpi-value">${total}</div><div class="kpi-label">Total de Ocorrências</div></div>
-        <div class="kpi-card teal"><div class="kpi-icon">🚚</div><div class="kpi-value">${doMotorista}</div><div class="kpi-label">Do Motorista (Entrega)</div></div>
-        <div class="kpi-card orange"><div class="kpi-icon">🏭</div><div class="kpi-value">${doEstoque}</div><div class="kpi-label">Do Estoque (Almoxarifado)</div></div>
-        <div class="kpi-card red"><div class="kpi-icon">🔴</div><div class="kpi-value">${abertas}</div><div class="kpi-label">Em Aberto</div></div>
+        <div class="kpi-card orange"><div class="kpi-icon">🔴</div><div class="kpi-value">${abertas}</div><div class="kpi-label">Pendentes / Em Análise</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${resolvidas}</div><div class="kpi-label">Resolvidas</div></div>
       </div>
 
       <div class="card">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-          <strong>Registro Consolidado</strong>
+          <strong>Livro de Ocorrências Unificado</strong>
           <select class="form-control" style="width:auto" onchange="
-            const v=this.value; document.querySelectorAll('#tbl-ocorrencias tr[data-modulo]').forEach(tr=>{tr.style.display=(!v||tr.dataset.modulo===v)?'':'none'});
+            const v = this.value;
+            document.querySelectorAll('#tbl-ocorrencias tr[data-perfil]').forEach(tr => {
+              tr.style.display = (!v || tr.dataset.perfil === v) ? '' : 'none';
+            });
           ">
-            <option value="">Todos os módulos</option>
-            <option value="Motorista">🚚 Motorista</option>
-            <option value="Estoque">🏭 Estoque</option>
+            <option value="">Todos os perfis de origem</option>
+            <option value="estoque">🏭 Estoque Central</option>
+            <option value="motorista">🚚 Motorista</option>
+            <option value="escola">🏫 Escola</option>
+            <option value="gestor">👔 Gestor SEMED</option>
+            <option value="nutricionista">🥗 Nutrição</option>
           </select>
         </div>
         <div style="overflow-x:auto">
           <table class="data-table">
-            <thead><tr><th>Data/Hora</th><th>Módulo</th><th>Tipo</th><th>Unidade / Veículo</th><th>Autor</th><th>Descrição</th><th>Status</th></tr></thead>
+            <thead><tr><th>Data/Hora</th><th>Perfil Origem</th><th>Tipo</th><th>Unidade / Local</th><th>Autor</th><th>Descrição</th><th>Status</th></tr></thead>
             <tbody id="tbl-ocorrencias">${rows}</tbody>
           </table>
         </div>
       </div>`;
   };
+
+  PAGE_RENDERERS['estoque_ocorrencias'] = PAGE_RENDERERS['gestor_ocorrencias'];
 
 })();
