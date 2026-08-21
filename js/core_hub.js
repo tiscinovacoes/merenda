@@ -10,6 +10,12 @@ var APP_BUILD_DATE = '2026-08-18';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
 
+// HELPER SELETORES DOM
+window.$ = window.$ || ((selector, parent = document) => (parent || document).querySelector(selector));
+window.$$ = window.$$ || ((selector, parent = document) => Array.from((parent || document).querySelectorAll(selector)));
+var $ = window.$;
+var $$ = window.$$;
+
 function renderVersionTags() {
   const txt = 'v' + APP_VERSION;
   document.querySelectorAll('[data-app-version]').forEach(el => {
