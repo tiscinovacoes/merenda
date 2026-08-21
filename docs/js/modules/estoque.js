@@ -964,18 +964,15 @@ PAGE_RENDERERS['estoque_cobertura'] = (el) => {
             ${isAbastecida ? '🟢 0% (Abastecida)' : `🟡 ${pctFaltaEscola}% (Falta ${c.saldoKg.toLocaleString('pt-BR')} kg)`}
           </span>
         </td>
-        <td>
-          <button type="button" class="btn btn-sm btn-outline" onclick="window.abrirModalNovaOsExpedicao && window.abrirModalNovaOsExpedicao('${c.escolaId}')">➕ Gerar O.S. Reposição</button>
-        </td>
       </tr>
       <tr id="detail-${c.escolaId}" style="display:none;background:var(--surface-2)">
-        <td colspan="3" style="padding:12px 18px">
+        <td colspan="2" style="padding:12px 18px">
           <div style="font-size:0.8rem;font-weight:700;color:var(--text-secondary);margin-bottom:6px">📦 Detalhamento de Insumos (Solicitado vs Entregue):</div>
           ${prodsList}
         </td>
       </tr>
     `;
-  }).join('') : '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-secondary)">Carregando informações de cobertura escolar...</td></tr>';
+  }).join('') : '<tr><td colspan="2" style="text-align:center;padding:20px;color:var(--text-secondary)">Carregando informações de cobertura escolar...</td></tr>';
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
@@ -1002,7 +999,6 @@ PAGE_RENDERERS['estoque_cobertura'] = (el) => {
             <tr>
               <th>Escola / EMEF</th>
               <th>% que falta entregar</th>
-              <th>Ação</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
