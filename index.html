@@ -140,7 +140,7 @@
             </button>
           </div>
         </div>
-        <form id="login-form" novalidate onsubmit="event.preventDefault(); window.handleLoginSubmit && window.handleLoginSubmit(event); return false;">
+        <form id="login-form" novalidate>
           <div class="form-group">
             <label for="login-user">CPF / Matrícula Funcional</label>
             <div class="input-wrapper">
@@ -155,7 +155,7 @@
               <input type="password" id="login-pass" placeholder="••••••••" maxlength="128" autocomplete="current-password">
             </div>
           </div>
-          <button type="button" id="btn-login" class="btn btn-primary btn-full" onclick="window.handleLoginSubmit && window.handleLoginSubmit(event)">
+          <button type="submit" id="btn-login" class="btn btn-primary btn-full">
             <span>Entrar no Sistema</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>

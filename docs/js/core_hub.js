@@ -1715,39 +1715,6 @@ window.login = window.login || async function(profile, schoolId) {
   if (typeof renderPage === 'function') renderPage();
 };
 
-window.handleLoginSubmit = async function(e) {
-  if (e) {
-    if (typeof e.preventDefault === 'function') e.preventDefault();
-    if (typeof e.stopPropagation === 'function') e.stopPropagation();
-  }
-  if (window._isLoggingIn) return false;
-  window._isLoggingIn = true;
-  try {
-    const activeProfile = document.querySelector('.profile-btn.active');
-    const topProfile = activeProfile ? activeProfile.dataset.profile : 'gestor';
-
-    let profile = topProfile;
-    let schoolId = null;
-
-    if (topProfile === 'escola') {
-      const activeSub = document.querySelector('.subrole-btn.active');
-      profile = activeSub ? activeSub.dataset.subrole : 'diretor';
-      const sel = document.querySelector('#school-picker-select');
-      if (sel && sel.value) schoolId = parseInt(sel.value, 10);
-    } else if (topProfile === 'colaboradores') {
-      const activeColab = document.querySelector('.colab-subrole-btn.active');
-      profile = activeColab ? activeColab.dataset.subrole : 'cooperativa';
-    }
-
-    if (typeof window.login === 'function') {
-      await window.login(profile, schoolId);
-    }
-  } finally {
-    window._isLoggingIn = false;
-  }
-  return false;
-};
-
 window.addEventListener('DOMContentLoaded', () => {
   renderVersionTags();
   if (typeof SharedState !== 'undefined' && SharedState.init) {
@@ -6431,10 +6398,7 @@ function initAppEvents() {
     }
   };
 
-  window.handleLoginSubmit = handleLoginSubmit;
-
   $('#login-form')?.addEventListener('submit', handleLoginSubmit);
-  $('#btn-login')?.addEventListener('click', handleLoginSubmit);
 
   // Header & login link handlers (M4)
   document.getElementById('link-forgot')?.addEventListener('click', (e) => {
