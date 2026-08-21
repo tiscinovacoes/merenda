@@ -4105,6 +4105,9 @@ window.generatePlannerDays = (targetCardapioId, targetWeekIndex) => {
 };
 
 window.showMenuPlanner = (cardapioId, preselectRecipeId) => {
+  if (typeof cardapioId !== 'string' && typeof cardapioId !== 'number') {
+    cardapioId = null;
+  }
   window._lastPreselectRecipeId = preselectRecipeId;
   const container = document.getElementById('page-content');
   if (!container) return;
@@ -5268,10 +5271,17 @@ window.confirmarDisparoManualOS = () => {
   closeModal();
 };
 
-window.visualizarEImprimirCardapio = (menuName) => {
+window.visualizarEImprimirCardapio = (menuIdOrName) => {
   const menuList = SharedState.getWeeklyMenus ? SharedState.getWeeklyMenus() : [];
-  const menu = menuList.find(m => m.nome === menuName || m.semana === menuName) || {
-    nome: menuName || 'Cardápio Semanal PNAE',
+  const menusAll = SharedState.getMenus ? SharedState.getMenus() : [];
+
+  const foundCardapio = SharedState.getCardapio ? SharedState.getCardapio(menuIdOrName) : null;
+  const menuObj = foundCardapio ||
+                  menusAll.find(m => m.nome === menuIdOrName || m.id === menuIdOrName) ||
+                  menuList.find(m => m.nome === menuIdOrName || m.semana === menuIdOrName || m.id === menuIdOrName || m.cardapioId === menuIdOrName);
+
+  const menu = menuObj || {
+    nome: menuIdOrName || 'Cardápio Semanal PNAE',
     periodo: '03/08/2026 a 07/08/2026',
     refeicoes: [
       { dia: 'Segunda-feira', desjejum: 'Pão c/ Manteiga e Leite UHT', almoco: 'Arroz com Feijão, Coxa de Frango Assada e Salada Colorida', lanche: 'Laranja fatiada (100g)' },
