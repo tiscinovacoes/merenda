@@ -1531,7 +1531,7 @@ const PROFILES = {
         { id: 'rastreabilidade',       icon: '📡', label: 'Rastreabilidade (Caminhões)', badge: 'NEW' },
         { id: 'frota',                 icon: '🚚', label: 'Frota',                    badge: 'NEW' },
       ]},
-      { id: 'cobertura', icon: '🏫', label: 'Fulfillment & Escolas', badge: null },
+      { id: 'cobertura', icon: '🏫', label: 'Cobertura Escolar', badge: null },
       { id: 'lotes', icon: '📋', label: 'Controle de Lotes', badge: null },
       { type: 'group', label: 'Gestão', children: [
         { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: 'NEW' },

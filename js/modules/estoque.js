@@ -922,46 +922,66 @@ PAGE_RENDERERS['estoque_rastreabilidade'] = (el) => {
 };
 
 
-// ─── TELA UNIFICADA DE FULFILLMENT & COBERTURA ESCOLAR (C10 / Escolas) ───
+window._toggleCollapseCobertura = (id) => {
+  const row = document.getElementById('detail-' + id);
+  const arrow = document.getElementById('arrow-' + id);
+  if (!row) return;
+  const isHidden = row.style.display === 'none';
+  row.style.display = isHidden ? '' : 'none';
+  if (arrow) arrow.textContent = isHidden ? '▼' : '▶';
+};
+
+// ─── TELA UNIFICADA DE COBERTURA ESCOLAR (C10 / Escolas) ───
 PAGE_RENDERERS['estoque_cobertura'] = (el) => {
   const cobertura = SharedState.getCoberturaEscolas ? SharedState.getCoberturaEscolas() : [];
   
   const abastecidas = cobertura.filter(c => c.status === 'abastecida');
   const pendentes = cobertura.filter(c => c.status === 'pendente');
-  const totalSolicitadoKg = cobertura.reduce((s, c) => s + (c.solicitadoKg || 0), 0);
-  const totalEntregueKg = cobertura.reduce((s, c) => s + (c.entregueKg || 0), 0);
   const totalSaldoKg = cobertura.reduce((s, c) => s + (c.saldoKg || 0), 0);
 
   const rows = cobertura.length ? cobertura.map(c => {
     const isAbastecida = c.status === 'abastecida';
-    const prodsStr = c.produtos && c.produtos.length
-      ? c.produtos.map(p => `${p.produto}: <strong>${p.entregue}/${p.solicitado} ${p.unidade}</strong> (Saldo: ${p.saldo})`).join('<br>')
-      : '<small style="color:var(--text-tertiary)">Sem ordens de expedição</small>';
+    const pctFaltaEscola = c.solicitadoKg > 0 ? Math.round((c.saldoKg / c.solicitadoKg) * 100) : 0;
+    
+    const prodsList = c.produtos && c.produtos.length
+      ? `<ul style="margin:4px 0;padding-left:20px;font-size:0.85rem;line-height:1.6">
+          ${c.produtos.map(p => {
+            const pPct = p.solicitado > 0 ? Math.round((p.saldo / p.solicitado) * 100) : 0;
+            return `<li><strong>${p.produto}</strong> (${p.unidade}) — ${p.entregue}/${p.solicitado} ${p.unidade} · <span style="color:${p.saldo > 0 ? '#b45309' : '#15803d'};font-weight:600">falta ${pPct}% (${p.saldo} ${p.unidade})</span></li>`;
+          }).join('')}
+        </ul>`
+      : '<div style="color:var(--text-tertiary);font-size:0.85rem">✅ Nenhum produto pendente para esta escola.</div>';
 
     return `
       <tr>
-        <td><strong>${c.escola}</strong></td>
-        <td style="font-family:var(--font-mono)">${c.alunos} alunos</td>
-        <td style="font-family:var(--font-mono);font-weight:600">${c.solicitadoKg.toLocaleString('pt-BR')} kg</td>
-        <td style="font-family:var(--font-mono);font-weight:600;color:var(--success)">${c.entregueKg.toLocaleString('pt-BR')} kg</td>
-        <td style="font-family:var(--font-mono);font-weight:700;color:${c.saldoKg > 0 ? '#b91c1c' : 'var(--success)'}">
-          ${c.saldoKg.toLocaleString('pt-BR')} kg
+        <td>
+          <button type="button" class="btn-link" style="font-weight:700;font-size:0.92rem;cursor:pointer;background:none;border:none;color:var(--primary);padding:0;display:inline-flex;align-items:center;gap:6px" onclick="window._toggleCollapseCobertura('${c.escolaId}')">
+            🏫 ${c.escola} <span id="arrow-${c.escolaId}" style="font-size:0.7rem">▶</span>
+          </button>
         </td>
         <td>
-          <span class="status-badge ${isAbastecida ? 'status-ok' : 'status-warning'}">
-            ${isAbastecida ? '🟢 Abastecida' : '🟡 Pendente'}
+          <span class="tag ${isAbastecida ? 'tag-green' : 'tag-orange'}" style="font-weight:600">
+            ${isAbastecida ? '🟢 0% (Abastecida)' : `🟡 ${pctFaltaEscola}% (Falta ${c.saldoKg.toLocaleString('pt-BR')} kg)`}
           </span>
         </td>
-        <td style="font-size:0.8rem;line-height:1.4">${prodsStr}</td>
+        <td>
+          <button type="button" class="btn btn-sm btn-outline" onclick="window.abrirModalNovaOsExpedicao && window.abrirModalNovaOsExpedicao('${c.escolaId}')">➕ Gerar O.S. Reposição</button>
+        </td>
+      </tr>
+      <tr id="detail-${c.escolaId}" style="display:none;background:var(--surface-2)">
+        <td colspan="3" style="padding:12px 18px">
+          <div style="font-size:0.8rem;font-weight:700;color:var(--text-secondary);margin-bottom:6px">📦 Detalhamento de Insumos (Solicitado vs Entregue):</div>
+          ${prodsList}
+        </td>
       </tr>
     `;
-  }).join('') : '<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text-secondary)">Carregando informações de fulfillment escolar...</td></tr>';
+  }).join('') : '<tr><td colspan="3" style="text-align:center;padding:20px;color:var(--text-secondary)">Carregando informações de cobertura escolar...</td></tr>';
 
   el.innerHTML = `
     <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
       <div>
-        <div class="page-title">🏫 Fulfillment & Cobertura Escolar</div>
-        <div class="page-subtitle">Confronto em tempo real por escola entre Expedição (OS) e Entregas Concluídas (OE Dupla Checagem)</div>
+        <div class="page-title">🏫 Cobertura Escolar</div>
+        <div class="page-subtitle">Acompanhamento de saldo e cumprimento de ordens de serviço por escola</div>
       </div>
     </div>
 
@@ -973,7 +993,7 @@ PAGE_RENDERERS['estoque_cobertura'] = (el) => {
 
     <div class="card">
       <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-        <strong>Fulfillment de Insumos por Escola (OS vs OE)</strong>
+        <strong>Cobertura de Insumos por Escola (OS vs OE)</strong>
         <span class="status-badge status-info">${cobertura.length} escolas ativas</span>
       </div>
       <div style="overflow-x:auto">
@@ -981,11 +1001,8 @@ PAGE_RENDERERS['estoque_cobertura'] = (el) => {
           <thead>
             <tr>
               <th>Escola / EMEF</th>
-              <th>Alunos Matriculados</th>
-              <th>Cardápio Ativo</th>
-              <th>Autonomia Estimada</th>
-              <th>Status Cobertura</th>
-              <th>Ação Preventiva</th>
+              <th>% que falta entregar</th>
+              <th>Ação</th>
             </tr>
           </thead>
           <tbody>${rows}</tbody>
