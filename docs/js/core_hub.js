@@ -6425,14 +6425,13 @@ function initAppEvents() {
         profile = activeColab ? activeColab.dataset.subrole : 'cooperativa';
       }
 
-      await login(profile, schoolId);
+      await window.login(profile, schoolId);
     } finally {
       window._isLoggingIn = false;
     }
   };
 
   window.handleLoginSubmit = handleLoginSubmit;
-  window.login = login;
 
   $('#login-form')?.addEventListener('submit', handleLoginSubmit);
   $('#btn-login')?.addEventListener('click', handleLoginSubmit);
