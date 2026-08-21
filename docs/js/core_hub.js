@@ -6359,8 +6359,11 @@ function initAppEvents() {
   };
 
   const handleLoginSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (window._isLoggingIn) return;
+    if (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
+    if (window._isLoggingIn) return false;
     window._isLoggingIn = true;
     try {
       const userInput = $('#login-user')?.value || '';
@@ -6369,7 +6372,7 @@ function initAppEvents() {
       const authRes = window.authenticateUser(userInput, passInput);
       if (!authRes.success) {
         showToast('⚠️ ' + authRes.error, 'warning');
-        return;
+        return false;
       }
 
       const activeProfile = $('.profile-btn.active');
@@ -6385,20 +6388,26 @@ function initAppEvents() {
         if (sel && sel.value) schoolId = parseInt(sel.value, 10);
         else if (window.AUTH_ENABLED) {
           showToast('⚠️ Selecione a unidade escolar para prosseguir.', 'warning');
-          return;
+          return false;
         }
       } else if (topProfile === 'colaboradores') {
         const activeColab = $('.colab-subrole-btn.active');
         profile = activeColab ? activeColab.dataset.subrole : 'cooperativa';
       }
 
-      await window.login(profile, schoolId);
+      if (typeof window.login === 'function') {
+        await window.login(profile, schoolId);
+      }
     } finally {
       window._isLoggingIn = false;
     }
+    return false;
   };
 
+  window.handleLoginSubmit = handleLoginSubmit;
+
   $('#login-form')?.addEventListener('submit', handleLoginSubmit);
+  $('#btn-login')?.addEventListener('click', handleLoginSubmit);
 
   // Header & login link handlers (M4)
   document.getElementById('link-forgot')?.addEventListener('click', (e) => {
