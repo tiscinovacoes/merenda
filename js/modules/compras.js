@@ -559,6 +559,25 @@
     window.showModal('📋 Detalhamento & Saldo da ATA — ' + ata.numero, content, '960px');
   };
 
+  // Helpers de seleção nos formulários (marcar item habilita e sugere a qtd)
+  window.comprasToggleItem = (iid, checked, sug) => {
+    const q = document.getElementById('q-' + iid); if (!q) return;
+    q.disabled = !checked;
+    q.style.background = checked ? '#fff' : '#f1f5f9';
+    if (checked) { if (!q.value || Number(q.value) === 0) q.value = sug; q.focus(); }
+    else q.value = '';
+  };
+  window.comprasMarcarTodos = (scope, marcar) => {
+    document.querySelectorAll('.cmp-chk-' + scope).forEach(chk => { chk.checked = marcar; window.comprasToggleItem(chk.dataset.iid, marcar, Number(chk.dataset.sug || 0)); });
+  };
+  function linhaSelecionavel(scope, iid, produto, saldo, unidade, sug) {
+    return `<div style="display:flex;align-items:center;gap:12px;padding:10px 4px;border-bottom:1px solid #eef2f7">
+      <input type="checkbox" class="cmp-chk-${scope}" data-iid="${iid}" data-sug="${sug}" id="chk-${iid}" onchange="window.comprasToggleItem('${iid}', this.checked, ${sug})" style="width:18px;height:18px;flex:0 0 auto;cursor:pointer">
+      <label for="chk-${iid}" style="flex:1;min-width:0;cursor:pointer"><strong>${esc(produto)}</strong><div style="font-size:.75rem;color:var(--text-secondary)">saldo ${kg(saldo)} ${esc(unidade)}</div></label>
+      <input type="number" id="q-${iid}" placeholder="0" min="0" max="${saldo}" step="1" disabled style="width:130px;padding:8px;border:1px solid #ccc;border-radius:6px;font-family:var(--font-mono);text-align:right;background:#f1f5f9">
+      <span style="font-size:.8rem;color:var(--text-secondary);width:26px;text-align:left">${esc(unidade)}</span></div>`;
+  }
+
   window.comprasNovoContratoForm = (ataId, fornecedorId) => {
     const s = S();
     const ata = s.comprasAtas().find(a => a.id === ataId); if (!ata) return;
@@ -568,14 +587,15 @@
     const fid = fornecedorId || forns[0];
     const itensF = itens.filter(ai => ai.fornecedorId === fid);
     const optsForn = forns.map(id => { const f = s.comprasFornecedor(id); return `<option value="${id}" ${id === fid ? 'selected' : ''}>${esc(f ? f.razaoSocial : id)}</option>`; }).join('');
-    const rows = itensF.map(ai => { const sa = s.comprasSaldoAtaItem(ai.id); const sug = Math.ceil(sa / 2);
-      return `<tr><td><strong>${esc(ai.produto)}</strong></td><td style="text-align:right;font-family:var(--font-mono)">${kg(sa)} ${ai.unidade}</td>
-        <td style="text-align:right"><input type="number" id="ctq-${ai.id}" value="${sug}" min="0" max="${sa}" step="1" style="width:120px;padding:6px;border:1px solid #ccc;border-radius:6px;font-family:var(--font-mono);text-align:right"></td></tr>`; }).join('');
+    const rows = itensF.map(ai => { const sa = s.comprasSaldoAtaItem(ai.id); return linhaSelecionavel('ct', 'ct-' + ai.id, ai.produto, sa, ai.unidade, Math.ceil(sa / 2)); }).join('');
     const content = `
-      <p style="margin:0 0 12px;color:var(--text-secondary);font-size:.88rem">Contrato por fornecedor, a partir do <strong>saldo da ATA ${esc(ata.numero)}</strong>. Sugestão: metade do saldo (≈ prática do órgão).</p>
-      <div style="margin-bottom:14px"><label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:4px">Fornecedor</label>
+      <p style="margin:0 0 12px;color:var(--text-secondary);font-size:.88rem">Selecione <strong>1 ou mais produtos</strong> e informe a quantidade de cada (livre). Contrato por fornecedor, do <strong>saldo da ATA ${esc(ata.numero)}</strong>.</p>
+      <div style="margin-bottom:12px"><label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:4px">Fornecedor</label>
         <select id="ct-forn" onchange="window.comprasNovoContratoForm('${ataId}', this.value)" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px">${optsForn}</select></div>
-      <table class="data-table" style="font-size:.88rem"><thead><tr><th>Produto</th><th style="text-align:right">Saldo ATA</th><th style="text-align:right">Qtd a contratar</th></tr></thead><tbody>${rows}</tbody></table>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em">Produto · Quantidade a contratar</div>
+        <div style="display:flex;gap:6px"><button class="btn btn-sm btn-outline" onclick="window.comprasMarcarTodos('ct',true)">Todos (½ saldo)</button><button class="btn btn-sm btn-outline" onclick="window.comprasMarcarTodos('ct',false)">Limpar</button></div></div>
+      <div style="max-height:320px;overflow-y:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:4px 10px">${rows}</div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
         <button class="btn btn-outline btn-sm" onclick="window.comprasAbrirAta('${ataId}')">← Voltar</button>
         <button class="btn btn-primary btn-sm" onclick="window.comprasSalvarContrato('${ataId}','${fid}')">✔️ Criar contrato</button></div>`;
@@ -585,10 +605,12 @@
   window.comprasSalvarContrato = (ataId, fornecedorId) => {
     const s = S();
     const itensF = s.comprasAtaItens(ataId).filter(ai => ai.fornecedorId === fornecedorId && s.comprasSaldoAtaItem(ai.id) > 0);
-    const itens = itensF.map(ai => { const inp = document.getElementById('ctq-' + ai.id); return { ataItemId: ai.id, qtd: inp ? Number(inp.value) : 0 }; }).filter(x => x.qtd > 0);
+    const itens = [];
+    itensF.forEach(ai => { const chk = document.getElementById('chk-ct-' + ai.id); const q = document.getElementById('q-ct-' + ai.id); if (chk && chk.checked && q && Number(q.value) > 0) itens.push({ ataItemId: ai.id, qtd: Number(q.value) }); });
+    if (!itens.length) return toast('⚠️ Marque ao menos 1 produto e informe a quantidade.', 'warning');
     const r = s.comprasCriarContrato(ataId, fornecedorId, itens);
     if (r.erro) return toast('⚠️ ' + r.erro, 'warning');
-    toast('📄 Contrato ' + r.contrato.numero + ' criado.', 'success');
+    toast(`📄 Contrato ${r.contrato.numero} criado com ${itens.length} produto(s).`, 'success');
     window.comprasAbrirAta(ataId); rerender();
   };
 
@@ -670,12 +692,13 @@
     const ct = s.comprasContrato(contratoId); if (!ct) return;
     const cis = s.comprasContratoItens(contratoId).filter(ci => s.comprasSaldoContratoItem(ci.id) > 0);
     if (!cis.length) { toast('⚠️ Sem saldo no contrato para novo empenho.', 'warning'); return; }
-    const rows = cis.map(ci => { const ai = s.comprasAtaItem(ci.ataItemId); const sc = s.comprasSaldoContratoItem(ci.id);
-      return `<tr><td><strong>${esc(ai ? ai.produto : '')}</strong></td><td style="text-align:right;font-family:var(--font-mono)">${kg(sc)}</td>
-        <td style="text-align:right"><input type="number" id="eiq-${ci.id}" value="${sc}" min="0" max="${sc}" step="1" style="width:120px;padding:6px;border:1px solid #ccc;border-radius:6px;font-family:var(--font-mono);text-align:right"></td></tr>`; }).join('');
+    const rows = cis.map(ci => { const ai = s.comprasAtaItem(ci.ataItemId); const sc = s.comprasSaldoContratoItem(ci.id); return linhaSelecionavel('emp', 'emp-' + ci.id, ai ? ai.produto : 'item', sc, ai ? ai.unidade : '', sc); }).join('');
     const content = `
-      <p style="margin:0 0 12px;color:var(--text-secondary);font-size:.88rem">Empenho (total ou fracionado) a partir do <strong>saldo do contrato ${esc(ct.numero)}</strong>, conforme a demanda.</p>
-      <table class="data-table" style="font-size:.88rem"><thead><tr><th>Produto</th><th style="text-align:right">Saldo contrato</th><th style="text-align:right">Qtd a empenhar</th></tr></thead><tbody>${rows}</tbody></table>
+      <p style="margin:0 0 12px;color:var(--text-secondary);font-size:.88rem">Selecione <strong>1 ou mais produtos</strong> e informe a quantidade de cada (total ou fracionado), a partir do <strong>saldo do contrato ${esc(ct.numero)}</strong>, conforme a demanda.</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <div style="font-size:.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em">Produto · Quantidade a empenhar</div>
+        <div style="display:flex;gap:6px"><button class="btn btn-sm btn-outline" onclick="window.comprasMarcarTodos('emp',true)">Todos (saldo)</button><button class="btn btn-sm btn-outline" onclick="window.comprasMarcarTodos('emp',false)">Limpar</button></div></div>
+      <div style="max-height:320px;overflow-y:auto;border:1px solid var(--border,#e2e8f0);border-radius:8px;padding:4px 10px">${rows}</div>
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
         <button class="btn btn-outline btn-sm" onclick="window.comprasAbrirContrato('${contratoId}')">← Voltar</button>
         <button class="btn btn-primary btn-sm" onclick="window.comprasSalvarEmpenho('${contratoId}')">✔️ Emitir empenho</button></div>`;
@@ -685,10 +708,12 @@
   window.comprasSalvarEmpenho = (contratoId) => {
     const s = S();
     const cis = s.comprasContratoItens(contratoId).filter(ci => s.comprasSaldoContratoItem(ci.id) > 0);
-    const itens = cis.map(ci => { const inp = document.getElementById('eiq-' + ci.id); return { contratoItemId: ci.id, qtd: inp ? Number(inp.value) : 0 }; }).filter(x => x.qtd > 0);
+    const itens = [];
+    cis.forEach(ci => { const chk = document.getElementById('chk-emp-' + ci.id); const q = document.getElementById('q-emp-' + ci.id); if (chk && chk.checked && q && Number(q.value) > 0) itens.push({ contratoItemId: ci.id, qtd: Number(q.value) }); });
+    if (!itens.length) return toast('⚠️ Marque ao menos 1 produto e informe a quantidade.', 'warning');
     const r = s.comprasCriarEmpenho(contratoId, itens);
     if (r.erro) return toast('⚠️ ' + r.erro, 'warning');
-    toast('💳 Empenho ' + r.empenho.numero + ' emitido.', 'success');
+    toast(`💳 Empenho ${r.empenho.numero} emitido com ${itens.length} produto(s).`, 'success');
     window.comprasAbrirContrato(contratoId); rerender();
   };
 
