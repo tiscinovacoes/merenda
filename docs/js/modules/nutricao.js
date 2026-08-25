@@ -98,34 +98,36 @@
 
   // 2. CARDÁPIOS
   function renderNutricionistaCardapios(el) {
-    const menus = SharedState.getWeeklyMenus ? SharedState.getWeeklyMenus() : [];
+    const menus = SharedState.getMenus ? SharedState.getMenus() : [];
     el.innerHTML = `
       <div class="page-header">
-        <div class="page-title">Gestão de Cardápios Escolares (PNAE)</div>
-        <div class="page-subtitle">Elaboração, análise nutricional e publicação de cardápios semanais</div>
+        <div class="page-title">Gestão de Cardápios por Período (PNAE)</div>
+        <div class="page-subtitle">Elaboração, análise nutricional e publicação de cardápios (Mensal, Quinzenal ou Semanal)</div>
       </div>
 
       <div class="card mb-24">
         <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
           <div class="card-title">📋 Cardápios Cadastrados</div>
           <div style="display:flex;gap:10px">
-            <button class="btn btn-primary btn-sm" onclick="window.abrirModalDisparoManualOS()">📱 Disparar Ordens de Serviço</button>
-            <button class="btn btn-success btn-sm" onclick="window.gerarRelatorioMensal4Paginas()">📄 Exportar Relatório 4 Páginas</button>
+            <button class="btn btn-primary btn-sm" onclick="window.abrirModalNovoCardapio()">➕ Novo Cardápio por Período</button>
+            <button class="btn btn-outline btn-sm" onclick="window.abrirModalDisparoManualOS()">📱 Disparar OS (Agregada)</button>
+            <button class="btn btn-success btn-sm" onclick="window.gerarRelatorioMensal4Paginas()">📄 Exportar Relatório</button>
           </div>
         </div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
-            <thead><tr><th>Nome do Cardápio</th><th>Período</th><th>Escolas Atendidas</th><th>Kcal Média</th><th>Status</th><th>Ações</th></tr></thead>
+            <thead><tr><th>Nome do Cardápio</th><th>Periodicidade</th><th>Semanas</th><th>Escolas Atendidas</th><th>Status</th><th>Ações</th></tr></thead>
             <tbody>
               ${menus.map(m => `
                 <tr>
-                  <td><strong>${m.nome || m.semana || 'Cardápio Semanal'}</strong></td>
-                  <td>${m.periodo || '—'}</td>
+                  <td><strong>${m.nome || 'Cardápio'}</strong></td>
+                  <td><span class="tag tag-blue" style="text-transform:capitalize">${m.periodicidade || 'mensal'}</span></td>
+                  <td>${m.numSemanas || 5} Semanas</td>
                   <td>${m.escolas || 'Toda a Rede'}</td>
-                  <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">${m.kcalMedia || 680} kcal</td>
                   <td><span class="status-badge ${m.status === 'Em Elaboração' ? 'status-warning' : 'status-ok'}">${m.status || 'Publicado'}</span></td>
                   <td>
-                    <button class="btn btn-sm btn-outline" onclick="window.visualizarEImprimirCardapio('${m.nome}')">👁️ Visualizar</button>
+                    <button class="btn btn-sm btn-primary" onclick="navigateTo('nutricionista','planejador'); setTimeout(() => window.showMenuPlanner('${m.id}'), 100);">✏️ Planejar</button>
+                    <button class="btn btn-sm btn-outline" onclick="window.visualizarEImprimirCardapio('${m.id}')">👁️ Visão Geral</button>
                   </td>
                 </tr>
               `).join('') || '<tr><td colspan="6" style="text-align:center;padding:24px">Nenhum cardápio encontrado</td></tr>'}

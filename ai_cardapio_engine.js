@@ -628,18 +628,33 @@
         : [];
 
       // Fallback Nível 2: Se não houver insumosResumoSemanal, tenta derivar das refeições
-      if (insumos.length === 0 && menuObj && menuObj.refeicoes && menuObj.refeicoes.length > 0) {
+      if (insumos.length === 0 && menuObj) {
         const tempMap = {};
-        menuObj.refeicoes.forEach(ref => {
-          if (ref.ingredientes && ref.ingredientes.length > 0) {
-            ref.ingredientes.forEach(ing => {
-              if (!tempMap[ing.nome]) {
-                tempMap[ing.nome] = { nome: ing.nome, unidade: ing.unidade || 'kg', perCapitaGramos: ing.perCapita || 80, totalSemanalKg: 0, af: ing.af || false };
+        
+        // Trata cardápios modulares (várias semanas) ou legado (1 semana em .refeicoes)
+        const listaSemanas = (menuObj.semanas && menuObj.semanas.length > 0) 
+          ? menuObj.semanas 
+          : (menuObj.refeicoes && menuObj.refeicoes.length > 0 ? [{ refeicoes: menuObj.refeicoes }] : []);
+
+        listaSemanas.forEach(semana => {
+          if (semana.refeicoes && semana.refeicoes.length > 0) {
+            semana.refeicoes.forEach(ref => {
+              if (ref.ingredientes && ref.ingredientes.length > 0) {
+                ref.ingredientes.forEach(ing => {
+                  if (!tempMap[ing.nome]) {
+                    tempMap[ing.nome] = { nome: ing.nome, unidade: ing.unidade || 'kg', perCapitaGramos: ing.perCapita || 80, totalSemanalKg: 0, af: ing.af || false };
+                  }
+                  // Iterando cada dia real, multiplica-se apenas pelo número de alunos.
+                  // Se legado (não modular), multiplica pelo total de semanas do período.
+                  const multiplicadorSemanas = (menuObj.semanas && menuObj.semanas.length > 0) ? 1 : numSemanas;
+                  tempMap[ing.nome].totalSemanalKg += (((ing.perCapita || 80) * numAlunos * multiplicadorSemanas) / 1000);
+                });
               }
-              tempMap[ing.nome].totalSemanalKg += Math.round(((ing.perCapita || 80) * numAlunos * numDiasMultiSemana) / 1000);
             });
           }
         });
+
+        Object.values(tempMap).forEach(item => item.totalSemanalKg = Math.round(item.totalSemanalKg));
         insumos = Object.values(tempMap);
       }
 
