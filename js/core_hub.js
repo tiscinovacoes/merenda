@@ -1544,25 +1544,30 @@ const SharedState = {
   // o saldo da ata bata com a tela do Gestor (saldo = global − executado).
   comprasImportarAtasDoGestor(force) {
     const c = this._compras();
-    if (c._importadoGestor && !force) return { skipped: true };
+    if (c._importadoGestor && c._importVersion === 2 && !force) return { skipped: true };
     const contracts = (window.DATA && DATA.contracts) || [];
     const products = (window.DATA && DATA.ataProducts) || [];
     if (!contracts.length) return { erro: 'DATA.contracts indisponível' };
     const fornMap = {}; const fornecedores = []; const atas = []; const ataItens = [];
     const norm = (x) => String(x == null ? '' : x).trim();
+    // "COOPRAN / COOPAERGS" → dois fornecedores; idem "A, B" e "A e B"
+    const splitForn = (sup) => norm(sup).split(/\s*[\/,]\s*|\s+e\s+/i).map(x => x.trim()).filter(Boolean);
+    const fornId = (nome, modalidade) => {
+      let id = fornMap[nome];
+      if (!id) { id = 'forn-g' + (fornecedores.length + 1); fornMap[nome] = id;
+        fornecedores.push({ id, razaoSocial: nome, cnpj: '', tipo: modalidade === 'chamada_publica' ? 'Cooperativa (AF)' : 'Distribuidora', contato: '', status: 'ativo' }); }
+      return id;
+    };
     contracts.forEach(ct => {
-      const sup = norm(ct.supplier);
-      let fid = fornMap[sup];
-      if (!fid) {
-        fid = 'forn-g' + (fornecedores.length + 1); fornMap[sup] = fid;
-        fornecedores.push({ id: fid, razaoSocial: sup, cnpj: '', tipo: ct.modalidade === 'chamada_publica' ? 'Agricultura Familiar' : 'Distribuidora', contato: '', status: 'ativo' });
-      }
+      const fids = splitForn(ct.supplier).map(nome => fornId(nome, ct.modalidade));
+      const primary = fids[0];
       const status = /encerr/i.test(ct.status) ? 'encerrada' : 'vigente';
       atas.push({ id: 'ata-g' + ct.id, numero: ct.number, ano: parseInt(String(ct.number).slice(4, 8)) || 2026,
         modalidade: ct.modalidade === 'chamada_publica' ? 'Chamada Pública (AF)' : 'Pregão Eletrônico',
-        processo: '', objeto: '', dataInicio: ct.start, dataFim: ct.end, status, origem: 'gestor', gestorAtaId: ct.id });
+        processo: '', objeto: '', dataInicio: ct.start, dataFim: ct.end, status, origem: 'gestor', gestorAtaId: ct.id,
+        fornecedorIds: fids, multiFornecedor: fids.length > 1 });
       products.filter(p => p.ataId === ct.id).forEach(p => {
-        ataItens.push({ id: 'ai-g' + p.id, ataId: 'ata-g' + ct.id, fornecedorId: fid, produto: p.name, unidade: p.unit,
+        ataItens.push({ id: 'ai-g' + p.id, ataId: 'ata-g' + ct.id, fornecedorId: primary, produto: p.name, unidade: p.unit,
           qtdLicitada: p.maxQtd || 0, precoUnit: p.unitPrice || 0,
           qtdExecutada: p.unitPrice ? Math.round((p.executedValue || 0) / p.unitPrice) : 0, stockProductId: p.stockProductId });
       });
@@ -1573,7 +1578,7 @@ const SharedState = {
     c.osCompra = []; c.osCompraItens = []; c.pedidos = []; c.pedidoItens = [];
     c.notasFiscais = []; c.ordensRecebimento = []; c.ordemRecebimentoItens = []; c.prestacaoContas = [];
     c._seq = { osCompra: 0, pedido: 0, empenho: 0, contrato: 0, nota: 0, ordem: 0 };
-    c._importadoGestor = true;
+    c._importadoGestor = true; c._importVersion = 2;
     this._persist(); this._emit('compras:import');
     return { atas: atas.length, itens: ataItens.length, fornecedores: fornecedores.length };
   },
@@ -1685,9 +1690,13 @@ const SharedState = {
     const ata = this.comprasAtas().find(a => a.id === ataId); if (!ata) return { erro: 'ATA não encontrada' };
     const linhas = (itens || []).filter(it => Number(it.qtd) > 0);
     if (!linhas.length) return { erro: 'Informe ao menos um item com quantidade.' };
+    const fornsAta = (ata.fornecedorIds && ata.fornecedorIds.length) ? ata.fornecedorIds : null;
+    if (fornsAta && fornsAta.indexOf(fornecedorId) === -1) return { erro: 'Fornecedor não pertence a esta ATA.' };
+    const multi = !!ata.multiFornecedor;
     for (const it of linhas) {
       const ai = this.comprasAtaItem(it.ataItemId);
-      if (!ai || ai.ataId !== ataId || ai.fornecedorId !== fornecedorId) return { erro: 'Item inválido para a ATA/fornecedor.' };
+      // multi-cooperativa (chamada pública): qualquer item da ata pode ir p/ a cooperativa escolhida
+      if (!ai || ai.ataId !== ataId || (!multi && ai.fornecedorId !== fornecedorId)) return { erro: 'Item inválido para a ATA/fornecedor.' };
       const saldo = this.comprasSaldoAtaItem(it.ataItemId);
       if (Number(it.qtd) > saldo) return { erro: `"${ai.produto}" excede o saldo da ATA (${saldo.toLocaleString('pt-BR')} ${ai.unidade}).` };
     }

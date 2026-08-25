@@ -13,6 +13,8 @@
   const esc = (s) => (window.escapeHTML ? window.escapeHTML(String(s == null ? '' : s)) : String(s == null ? '' : s));
   const toast = (m, t) => window.showToast && window.showToast(m, t);
   const rerender = () => { if (typeof renderPage === 'function') renderPage(); };
+  // Estado de expansão das atas na listagem (colapsadas por padrão p/ poupar espaço)
+  const atasExpandidas = (window.__comprasAtasExp = window.__comprasAtasExp || new Set());
 
   function bar(pct, color) {
     const p = Math.max(0, Math.min(100, pct || 0));
@@ -113,16 +115,29 @@
   // ─────────────────────────────────────────────────────────────
   P.compras_atas = (el) => {
     const s = S();
-    el.innerHTML = header('Atas de Registro de Preços', 'O teto licitado — vários produtos × vários fornecedores') +
-      s.comprasAtas().map(ata => {
+    const atas = s.comprasAtas();
+    el.innerHTML = header('Atas de Registro de Preços', 'O teto licitado — vários produtos × vários fornecedores. Clique no cabeçalho para expandir.',
+      `<button class="btn btn-sm btn-outline" onclick="window.comprasExpandirTodasAtas(true)">▾ Expandir todas</button>
+       <button class="btn btn-sm btn-outline" onclick="window.comprasExpandirTodasAtas(false)">▸ Retrair todas</button>`) +
+      atas.map(ata => {
         const itens = s.comprasAtaItens(ata.id);
         const total = itens.reduce((t, ai) => t + ai.qtdLicitada * ai.precoUnit, 0);
-        return `<div class="card" style="margin-bottom:16px"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-          <div><h3 class="card-title">${esc(ata.numero)} · ${esc((s.comprasContratos(ata.id).length))} contrato(s) · ${statusPill(ata.status, corStatus(ata.status))}</h3>
-          <small style="color:var(--text-secondary)">${esc(s.comprasFornecedor((s.comprasAtaItens(ata.id)[0]||{}).fornecedorId) ? s.comprasFornecedor((s.comprasAtaItens(ata.id)[0]||{}).fornecedorId).razaoSocial : ata.objeto)} · ${esc(ata.modalidade)} · vigência ${esc(ata.dataInicio)} a ${esc(ata.dataFim)}</small></div>
-          <div style="display:flex;align-items:center;gap:12px"><div style="text-align:right"><div style="font-weight:700">${brl(total)}</div><small style="color:var(--text-secondary)">valor licitado</small></div>
-          <button class="btn btn-primary btn-sm" onclick="window.comprasAbrirAta('${ata.id}')">🔍 Gerenciar</button></div></div>
-          <div style="overflow-x:auto"><table class="data-table"><thead><tr>
+        const saldoR = itens.reduce((t, ai) => t + s.comprasSaldoAtaItem(ai.id) * ai.precoUnit, 0);
+        const aberto = atasExpandidas.has(ata.id);
+        const fornLabel = (ata.fornecedorIds && ata.fornecedorIds.length ? ata.fornecedorIds : [...new Set(itens.map(i => i.fornecedorId))])
+          .map(id => { const f = s.comprasFornecedor(id); return f ? f.razaoSocial : id; }).join(' · ') || esc(ata.objeto);
+        return `<div class="card" style="margin-bottom:12px">
+          <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;cursor:pointer" onclick="window.comprasToggleAtaBody('${ata.id}')">
+            <div style="display:flex;align-items:center;gap:10px;min-width:0">
+              <span style="font-size:.9rem;color:var(--text-secondary);display:inline-block;transition:transform .2s;transform:rotate(${aberto ? 90 : 0}deg)">▶</span>
+              <div style="min-width:0"><h3 class="card-title" style="margin:0">${esc(ata.numero)} · ${s.comprasContratos(ata.id).length} contrato(s) · ${statusPill(ata.status, corStatus(ata.status))}</h3>
+              <small style="color:var(--text-secondary)">${esc(fornLabel)} · ${esc(ata.modalidade)} · ${itens.length} itens · saldo ${brl(saldoR)}</small></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px" onclick="event.stopPropagation()">
+              <div style="text-align:right"><div style="font-weight:700">${brl(total)}</div><small style="color:var(--text-secondary)">valor licitado</small></div>
+              <button class="btn btn-primary btn-sm" onclick="window.comprasAbrirAta('${ata.id}')">🔍 Gerenciar</button></div>
+          </div>
+          ${aberto ? `<div style="overflow-x:auto"><table class="data-table"><thead><tr>
             <th>Produto</th><th>Fornecedor</th><th style="text-align:right">Preço un.</th><th style="text-align:right">Licitado</th><th style="text-align:right">Comprometido</th><th style="text-align:right">Saldo ata</th></tr></thead><tbody>
             ${itens.map(ai => {
               const f = s.comprasFornecedor(ai.fornecedorId);
@@ -137,7 +152,8 @@
                 <td style="text-align:right;font-family:var(--font-mono);font-weight:600;color:${sa > 0 ? CLR.ok : CLR.gray}">${kg(sa)} ${ai.unidade}${bar(ai.qtdLicitada ? sa / ai.qtdLicitada * 100 : 0, CLR.blue)}</td>
               </tr>`;
             }).join('')}
-          </tbody></table></div></div>`;
+          </tbody></table></div>` : ''}
+        </div>`;
       }).join('');
   };
 
@@ -582,16 +598,19 @@
     const s = S();
     const ata = s.comprasAtas().find(a => a.id === ataId); if (!ata) return;
     const itens = s.comprasAtaItens(ataId).filter(ai => s.comprasSaldoAtaItem(ai.id) > 0);
-    const forns = [...new Set(itens.map(ai => ai.fornecedorId))];
-    if (!forns.length) { toast('⚠️ Sem saldo na ATA para novo contrato.', 'warning'); return; }
-    const fid = fornecedorId || forns[0];
-    const itensF = itens.filter(ai => ai.fornecedorId === fid);
-    const optsForn = forns.map(id => { const f = s.comprasFornecedor(id); return `<option value="${id}" ${id === fid ? 'selected' : ''}>${esc(f ? f.razaoSocial : id)}</option>`; }).join('');
+    const fornIds = (ata.fornecedorIds && ata.fornecedorIds.length) ? ata.fornecedorIds : [...new Set(itens.map(ai => ai.fornecedorId))];
+    if (!fornIds.length || !itens.length) { toast('⚠️ Sem saldo na ATA para novo contrato.', 'warning'); return; }
+    const multi = fornIds.length > 1;
+    const fid = fornecedorId || fornIds[0];
+    // Chamada pública com várias cooperativas: qualquer produto pode ir p/ a cooperativa escolhida
+    const itensF = multi ? itens : itens.filter(ai => ai.fornecedorId === fid);
+    const optsForn = fornIds.map(id => { const f = s.comprasFornecedor(id); return `<option value="${id}" ${id === fid ? 'selected' : ''}>${esc(f ? f.razaoSocial : id)}</option>`; }).join('');
     const rows = itensF.map(ai => { const sa = s.comprasSaldoAtaItem(ai.id); return linhaSelecionavel('ct', 'ct-' + ai.id, ai.produto, sa, ai.unidade, Math.ceil(sa / 2)); }).join('');
     const content = `
       <p style="margin:0 0 12px;color:var(--text-secondary);font-size:.88rem">Selecione <strong>1 ou mais produtos</strong> e informe a quantidade de cada (livre). Contrato por fornecedor, do <strong>saldo da ATA ${esc(ata.numero)}</strong>.</p>
-      <div style="margin-bottom:12px"><label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:4px">Fornecedor</label>
-        <select id="ct-forn" onchange="window.comprasNovoContratoForm('${ataId}', this.value)" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px">${optsForn}</select></div>
+      <div style="margin-bottom:12px"><label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:4px">${multi ? 'Cooperativa (selecione qual assina o contrato)' : 'Fornecedor'}</label>
+        <select id="ct-forn" onchange="window.comprasNovoContratoForm('${ataId}', this.value)" style="width:100%;padding:8px;border:1px solid ${multi ? CLR.blue : '#ccc'};border-radius:6px">${optsForn}</select>
+        ${multi ? `<small style="color:${CLR.blue};font-size:.78rem">Chamada pública com ${fornIds.length} cooperativas — os produtos são compartilhados; o saldo da ATA é consumido por qualquer contrato.</small>` : ''}</div>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <div style="font-size:.75rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.03em">Produto · Quantidade a contratar</div>
         <div style="display:flex;gap:6px"><button class="btn btn-sm btn-outline" onclick="window.comprasMarcarTodos('ct',true)">Todos (½ saldo)</button><button class="btn btn-sm btn-outline" onclick="window.comprasMarcarTodos('ct',false)">Limpar</button></div></div>
@@ -726,6 +745,9 @@
     toast('💰 Pagamento registrado.', 'success');
     rerender();
   };
+
+  window.comprasToggleAtaBody = (id) => { if (atasExpandidas.has(id)) atasExpandidas.delete(id); else atasExpandidas.add(id); rerender(); };
+  window.comprasExpandirTodasAtas = (exp) => { atasExpandidas.clear(); if (exp) S().comprasAtas().forEach(a => atasExpandidas.add(a.id)); rerender(); };
 
   window.comprasResetDemo = () => {
     const s = S();
