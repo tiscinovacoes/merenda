@@ -117,10 +117,11 @@
       s.comprasAtas().map(ata => {
         const itens = s.comprasAtaItens(ata.id);
         const total = itens.reduce((t, ai) => t + ai.qtdLicitada * ai.precoUnit, 0);
-        return `<div class="card" style="margin-bottom:16px"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-          <div><h3 class="card-title">${esc(ata.numero)} · ${statusPill(ata.status, corStatus(ata.status))}</h3>
-          <small style="color:var(--text-secondary)">${esc(ata.objeto)} · ${esc(ata.modalidade)} · vigência ${esc(ata.dataInicio)} a ${esc(ata.dataFim)}</small></div>
-          <div style="text-align:right"><div style="font-weight:700">${brl(total)}</div><small style="color:var(--text-secondary)">valor licitado</small></div></div>
+        return `<div class="card" style="margin-bottom:16px"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div><h3 class="card-title">${esc(ata.numero)} · ${esc((s.comprasContratos(ata.id).length))} contrato(s) · ${statusPill(ata.status, corStatus(ata.status))}</h3>
+          <small style="color:var(--text-secondary)">${esc(s.comprasFornecedor((s.comprasAtaItens(ata.id)[0]||{}).fornecedorId) ? s.comprasFornecedor((s.comprasAtaItens(ata.id)[0]||{}).fornecedorId).razaoSocial : ata.objeto)} · ${esc(ata.modalidade)} · vigência ${esc(ata.dataInicio)} a ${esc(ata.dataFim)}</small></div>
+          <div style="display:flex;align-items:center;gap:12px"><div style="text-align:right"><div style="font-weight:700">${brl(total)}</div><small style="color:var(--text-secondary)">valor licitado</small></div>
+          <button class="btn btn-primary btn-sm" onclick="window.comprasAbrirAta('${ata.id}')">🔍 Gerenciar</button></div></div>
           <div style="overflow-x:auto"><table class="data-table"><thead><tr>
             <th>Produto</th><th>Fornecedor</th><th style="text-align:right">Preço un.</th><th style="text-align:right">Licitado</th><th style="text-align:right">Comprometido</th><th style="text-align:right">Saldo ata</th></tr></thead><tbody>
             ${itens.map(ai => {
@@ -151,10 +152,11 @@
         const ata = s.comprasAtas().find(a => a.id === ct.ataId);
         const itens = s.comprasContratoItens(ct.id);
         const total = itens.reduce((t, ci) => t + ci.qtdContratada * ci.precoUnit, 0);
-        return `<div class="card" style="margin-bottom:16px"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        return `<div class="card" style="margin-bottom:16px"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
           <div><h3 class="card-title">${esc(ct.numero)} · ${esc(f ? f.razaoSocial : '')} ${ct.geradoPor === 'cascata' ? statusPill('gerado p/ cascata', CLR.purple) : ''}</h3>
-          <small style="color:var(--text-secondary)">Ata ${esc(ata ? ata.numero : '')} · ${statusPill(ct.status, corStatus(ct.status))}</small></div>
-          <div style="text-align:right"><div style="font-weight:700">${brl(total)}</div><small style="color:var(--text-secondary)">valor contratado</small></div></div>
+          <small style="color:var(--text-secondary)">Ata ${esc(ata ? ata.numero : '')} · ${esc(s.comprasEmpenhos(ct.id).length)} empenho(s) · ${statusPill(ct.status, corStatus(ct.status))}</small></div>
+          <div style="display:flex;align-items:center;gap:12px"><div style="text-align:right"><div style="font-weight:700">${brl(total)}</div><small style="color:var(--text-secondary)">valor contratado</small></div>
+          <button class="btn btn-primary btn-sm" onclick="window.comprasAbrirContrato('${ct.id}')">🔍 Gerenciar</button></div></div>
           <div style="overflow-x:auto"><table class="data-table"><thead><tr>
             <th>Produto</th><th style="text-align:right">Contratado</th><th style="text-align:right">Empenhado</th><th style="text-align:right">Saldo contrato</th></tr></thead><tbody>
             ${itens.map(ci => {
@@ -503,6 +505,192 @@
   };
   // compat: nomes antigos
   window.comprasAbrirRecebimento = (id) => window.comprasAbrirConferencia(id);
+
+  // ═════════════════════════════════════════════════════════════
+  // GESTÃO DA ATA (detalhe + anexar CONTRATO)  — espelha o Gestor no novo fluxo
+  // ═════════════════════════════════════════════════════════════
+  window.comprasAbrirAta = (ataId) => {
+    const s = S();
+    const ata = s.comprasAtas().find(a => a.id === ataId); if (!ata) return;
+    const itens = s.comprasAtaItens(ataId);
+    const contratos = s.comprasContratos(ataId);
+    const global = itens.reduce((t, ai) => t + ai.qtdLicitada * ai.precoUnit, 0);
+    const saldoR = itens.reduce((t, ai) => t + s.comprasSaldoAtaItem(ai.id) * ai.precoUnit, 0);
+    const comprometido = global - saldoR;
+    const pct = global > 0 ? Math.round(comprometido / global * 100) : 0;
+    const content = `
+      <div style="background:#f8fafc;padding:16px;border-radius:10px;border:1px solid var(--border);margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+          <div><h3 style="margin:0;font-size:1.1rem;color:var(--primary-dark,#1565C0)">📋 ${esc(ata.numero)}</h3>
+          <div style="font-size:.85rem;color:var(--text-secondary);margin-top:2px">Modalidade: <strong>${esc(ata.modalidade)}</strong> · Vigência: <strong>${esc(ata.dataInicio)} a ${esc(ata.dataFim)}</strong> · ${statusPill(ata.status, corStatus(ata.status))}</div></div>
+          <button class="btn btn-primary" onclick="window.comprasNovoContratoForm('${ataId}')">➕ Novo Contrato nesta ATA</button>
+        </div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin:0">
+          <div class="kpi-card blue" style="padding:10px"><div class="kpi-label">Valor Global</div><div class="kpi-value" style="font-size:1.05rem">${brl(global)}</div></div>
+          <div class="kpi-card orange" style="padding:10px"><div class="kpi-label">Comprometido (${pct}%)</div><div class="kpi-value" style="font-size:1.05rem">${brl(comprometido)}</div></div>
+          <div class="kpi-card green" style="padding:10px"><div class="kpi-label">Saldo Disponível</div><div class="kpi-value" style="font-size:1.05rem">${brl(saldoR)}</div></div>
+          <div class="kpi-card teal" style="padding:10px"><div class="kpi-label">Itens / Contratos</div><div class="kpi-value" style="font-size:1.05rem">${itens.length} / ${contratos.length}</div></div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h4 style="margin:0">📦 Produtos & Saldos</h4>
+        <button class="btn btn-sm btn-outline" onclick="window.comprasAddItemAtaForm('${ataId}')">➕ Adicionar Produto</button></div>
+      <div style="overflow-x:auto;max-height:260px;margin-bottom:20px"><table class="data-table" style="font-size:.85rem"><thead><tr>
+        <th>Produto</th><th>Fornecedor</th><th style="text-align:right">Preço</th><th style="text-align:right">Registrado</th><th style="text-align:right">Comprometido</th><th style="text-align:right">Saldo Qtd</th><th style="text-align:right">Saldo R$</th></tr></thead><tbody>
+        ${itens.map(ai => { const f = s.comprasFornecedor(ai.fornecedorId); const sa = s.comprasSaldoAtaItem(ai.id); const comp = ai.qtdLicitada - sa;
+          return `<tr><td><strong>${esc(ai.produto)}</strong></td><td>${esc(f ? f.razaoSocial : '')}</td>
+            <td style="text-align:right;font-family:var(--font-mono)">${brl(ai.precoUnit)}</td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:700">${kg(ai.qtdLicitada)} ${ai.unidade}</td>
+            <td style="text-align:right;font-family:var(--font-mono);color:#c2410c">${kg(comp)} ${ai.unidade}</td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:#1565C0">${kg(sa)} ${ai.unidade}</td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${sa <= 0 ? CLR.bad : CLR.ok}">${brl(sa * ai.precoUnit)}</td></tr>`;
+        }).join('')}
+      </tbody></table></div>
+      <h4 style="margin:0 0 10px">📄 Contratos vinculados nesta ATA (${contratos.length})</h4>
+      <div style="overflow-x:auto"><table class="data-table" style="font-size:.85rem"><thead><tr>
+        <th>Contrato</th><th>Fornecedor</th><th style="text-align:right">Valor</th><th style="text-align:right">Empenhos</th><th>Status</th><th></th></tr></thead><tbody>
+        ${contratos.length ? contratos.map(ct => { const f = s.comprasFornecedor(ct.fornecedorId); const cis = s.comprasContratoItens(ct.id); const val = cis.reduce((t, ci) => t + ci.qtdContratada * ci.precoUnit, 0);
+          return `<tr><td style="font-family:var(--font-mono)"><strong>${esc(ct.numero)}</strong> ${ct.geradoPor === 'cascata' ? statusPill('cascata', CLR.purple) : ''}</td>
+            <td>${esc(f ? f.razaoSocial : '')}</td><td style="text-align:right;font-family:var(--font-mono)">${brl(val)}</td>
+            <td style="text-align:right">${s.comprasEmpenhos(ct.id).length}</td><td>${statusPill(ct.status, corStatus(ct.status))}</td>
+            <td style="text-align:right"><button class="btn btn-sm btn-outline" onclick="window.comprasAbrirContrato('${ct.id}')">🔍 Gerenciar</button></td></tr>`;
+        }).join('') : `<tr><td colspan="6" style="text-align:center;color:#94A3B8;padding:16px">Nenhum contrato ainda. Use “Novo Contrato nesta ATA”.</td></tr>`}
+      </tbody></table></div>`;
+    window.showModal('📋 Detalhamento & Saldo da ATA — ' + ata.numero, content, '960px');
+  };
+
+  window.comprasNovoContratoForm = (ataId, fornecedorId) => {
+    const s = S();
+    const ata = s.comprasAtas().find(a => a.id === ataId); if (!ata) return;
+    const itens = s.comprasAtaItens(ataId).filter(ai => s.comprasSaldoAtaItem(ai.id) > 0);
+    const forns = [...new Set(itens.map(ai => ai.fornecedorId))];
+    if (!forns.length) { toast('⚠️ Sem saldo na ATA para novo contrato.', 'warning'); return; }
+    const fid = fornecedorId || forns[0];
+    const itensF = itens.filter(ai => ai.fornecedorId === fid);
+    const optsForn = forns.map(id => { const f = s.comprasFornecedor(id); return `<option value="${id}" ${id === fid ? 'selected' : ''}>${esc(f ? f.razaoSocial : id)}</option>`; }).join('');
+    const rows = itensF.map(ai => { const sa = s.comprasSaldoAtaItem(ai.id); const sug = Math.ceil(sa / 2);
+      return `<tr><td><strong>${esc(ai.produto)}</strong></td><td style="text-align:right;font-family:var(--font-mono)">${kg(sa)} ${ai.unidade}</td>
+        <td style="text-align:right"><input type="number" id="ctq-${ai.id}" value="${sug}" min="0" max="${sa}" step="1" style="width:120px;padding:6px;border:1px solid #ccc;border-radius:6px;font-family:var(--font-mono);text-align:right"></td></tr>`; }).join('');
+    const content = `
+      <p style="margin:0 0 12px;color:var(--text-secondary);font-size:.88rem">Contrato por fornecedor, a partir do <strong>saldo da ATA ${esc(ata.numero)}</strong>. Sugestão: metade do saldo (≈ prática do órgão).</p>
+      <div style="margin-bottom:14px"><label style="font-weight:600;font-size:.85rem;display:block;margin-bottom:4px">Fornecedor</label>
+        <select id="ct-forn" onchange="window.comprasNovoContratoForm('${ataId}', this.value)" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px">${optsForn}</select></div>
+      <table class="data-table" style="font-size:.88rem"><thead><tr><th>Produto</th><th style="text-align:right">Saldo ATA</th><th style="text-align:right">Qtd a contratar</th></tr></thead><tbody>${rows}</tbody></table>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
+        <button class="btn btn-outline btn-sm" onclick="window.comprasAbrirAta('${ataId}')">← Voltar</button>
+        <button class="btn btn-primary btn-sm" onclick="window.comprasSalvarContrato('${ataId}','${fid}')">✔️ Criar contrato</button></div>`;
+    window.showModal('➕ Novo Contrato — ATA ' + ata.numero, content, '640px');
+  };
+
+  window.comprasSalvarContrato = (ataId, fornecedorId) => {
+    const s = S();
+    const itensF = s.comprasAtaItens(ataId).filter(ai => ai.fornecedorId === fornecedorId && s.comprasSaldoAtaItem(ai.id) > 0);
+    const itens = itensF.map(ai => { const inp = document.getElementById('ctq-' + ai.id); return { ataItemId: ai.id, qtd: inp ? Number(inp.value) : 0 }; }).filter(x => x.qtd > 0);
+    const r = s.comprasCriarContrato(ataId, fornecedorId, itens);
+    if (r.erro) return toast('⚠️ ' + r.erro, 'warning');
+    toast('📄 Contrato ' + r.contrato.numero + ' criado.', 'success');
+    window.comprasAbrirAta(ataId); rerender();
+  };
+
+  window.comprasAddItemAtaForm = (ataId) => {
+    const s = S();
+    const ata = s.comprasAtas().find(a => a.id === ataId); if (!ata) return;
+    const forns = s.comprasFornecedores();
+    const opts = forns.map(f => `<option value="${f.id}">${esc(f.razaoSocial)}</option>`).join('');
+    const content = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="grid-column:1/3"><label style="font-weight:600;font-size:.85rem">Produto</label><input id="ai-prod" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px"></div>
+        <div><label style="font-weight:600;font-size:.85rem">Fornecedor</label><select id="ai-forn" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px">${opts}</select></div>
+        <div><label style="font-weight:600;font-size:.85rem">Unidade</label><input id="ai-un" value="kg" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px"></div>
+        <div><label style="font-weight:600;font-size:.85rem">Qtd licitada</label><input id="ai-qtd" type="number" min="0" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px"></div>
+        <div><label style="font-weight:600;font-size:.85rem">Preço unitário</label><input id="ai-preco" type="number" min="0" step="0.01" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px"></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
+        <button class="btn btn-outline btn-sm" onclick="window.comprasAbrirAta('${ataId}')">← Voltar</button>
+        <button class="btn btn-primary btn-sm" onclick="window.comprasSalvarItemAta('${ataId}')">✔️ Adicionar</button></div>`;
+    window.showModal('➕ Adicionar Produto — ATA ' + ata.numero, content, '560px');
+  };
+  window.comprasSalvarItemAta = (ataId) => {
+    const g = (id) => document.getElementById(id);
+    const r = S().comprasAdicionarItemAta(ataId, { produto: g('ai-prod').value, fornecedorId: g('ai-forn').value, unidade: g('ai-un').value, qtdLicitada: Number(g('ai-qtd').value), precoUnit: Number(g('ai-preco').value) });
+    if (r.erro) return toast('⚠️ ' + r.erro, 'warning');
+    toast('📦 Produto adicionado à ATA.', 'success');
+    window.comprasAbrirAta(ataId); rerender();
+  };
+
+  // ═════════════════════════════════════════════════════════════
+  // GESTÃO DO CONTRATO (detalhe + anexar EMPENHO)
+  // ═════════════════════════════════════════════════════════════
+  window.comprasAbrirContrato = (contratoId) => {
+    const s = S();
+    const ct = s.comprasContrato(contratoId); if (!ct) return;
+    const f = s.comprasFornecedor(ct.fornecedorId);
+    const ata = s.comprasAtas().find(a => a.id === ct.ataId);
+    const cis = s.comprasContratoItens(contratoId);
+    const empenhos = s.comprasEmpenhos(contratoId);
+    const val = cis.reduce((t, ci) => t + ci.qtdContratada * ci.precoUnit, 0);
+    const saldoR = cis.reduce((t, ci) => t + s.comprasSaldoContratoItem(ci.id) * ci.precoUnit, 0);
+    const empR = val - saldoR;
+    const content = `
+      <div style="background:#f8fafc;padding:16px;border-radius:10px;border:1px solid var(--border);margin-bottom:18px">
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px">
+          <div><h3 style="margin:0;font-size:1.1rem;color:var(--primary-dark,#1565C0)">📄 ${esc(ct.numero)} — ${esc(f ? f.razaoSocial : '')}</h3>
+          <div style="font-size:.85rem;color:var(--text-secondary);margin-top:2px">ATA ${esc(ata ? ata.numero : '')} · Vigência: <strong>${esc(ct.dataInicio)} a ${esc(ct.dataFim)}</strong> · ${statusPill(ct.status, corStatus(ct.status))}</div></div>
+          <button class="btn btn-primary" onclick="window.comprasNovoEmpenhoForm('${contratoId}')">➕ Novo Empenho neste Contrato</button>
+        </div>
+        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin:0">
+          <div class="kpi-card blue" style="padding:10px"><div class="kpi-label">Valor Contratado</div><div class="kpi-value" style="font-size:1.05rem">${brl(val)}</div></div>
+          <div class="kpi-card orange" style="padding:10px"><div class="kpi-label">Empenhado</div><div class="kpi-value" style="font-size:1.05rem">${brl(empR)}</div></div>
+          <div class="kpi-card green" style="padding:10px"><div class="kpi-label">Saldo p/ empenhar</div><div class="kpi-value" style="font-size:1.05rem">${brl(saldoR)}</div></div>
+        </div>
+      </div>
+      <h4 style="margin:0 0 10px">📦 Itens do contrato</h4>
+      <div style="overflow-x:auto;max-height:220px;margin-bottom:20px"><table class="data-table" style="font-size:.85rem"><thead><tr>
+        <th>Produto</th><th style="text-align:right">Contratado</th><th style="text-align:right">Empenhado</th><th style="text-align:right">Saldo</th></tr></thead><tbody>
+        ${cis.map(ci => { const ai = s.comprasAtaItem(ci.ataItemId); const sc = s.comprasSaldoContratoItem(ci.id); const emp = ci.qtdContratada - sc;
+          return `<tr><td><strong>${esc(ai ? ai.produto : '')}</strong></td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:700">${kg(ci.qtdContratada)}</td>
+            <td style="text-align:right;font-family:var(--font-mono);color:#c2410c">${kg(emp)}</td>
+            <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${sc <= 0 ? CLR.bad : CLR.ok}">${kg(sc)}</td></tr>`; }).join('')}
+      </tbody></table></div>
+      <h4 style="margin:0 0 10px">💳 Empenhos vinculados (${empenhos.length})</h4>
+      <div style="overflow-x:auto"><table class="data-table" style="font-size:.85rem"><thead><tr>
+        <th>Nº Empenho</th><th>Data</th><th style="text-align:right">Empenhado</th><th style="text-align:right">Saldo livre</th><th>Status</th></tr></thead><tbody>
+        ${empenhos.length ? empenhos.map(e => { const eis = s.comprasEmpenhoItens(e.id); const empV = eis.reduce((t, ei) => t + ei.qtdEmpenhada * ei.precoUnit, 0); const livre = eis.reduce((t, ei) => t + s.comprasSaldoLivreEmpenhoItem(ei.id) * ei.precoUnit, 0);
+          return `<tr><td style="font-family:var(--font-mono)"><strong>${esc(e.numero)}</strong> ${e.origemPedidoId ? statusPill('cascata', CLR.purple) : ''}</td><td>${esc(e.dataEmpenho)}</td>
+            <td style="text-align:right;font-family:var(--font-mono)">${brl(empV)}</td>
+            <td style="text-align:right;font-family:var(--font-mono);color:${livre > 0 ? CLR.ok : CLR.gray}">${brl(livre)}</td>
+            <td>${statusPill(e.status, corStatus(e.status))}</td></tr>`; }).join('') : `<tr><td colspan="5" style="text-align:center;color:#94A3B8;padding:16px">Nenhum empenho. Use “Novo Empenho neste Contrato”.</td></tr>`}
+      </tbody></table></div>`;
+    window.showModal('📄 Detalhamento & Saldo do Contrato — ' + ct.numero, content, '900px');
+  };
+
+  window.comprasNovoEmpenhoForm = (contratoId) => {
+    const s = S();
+    const ct = s.comprasContrato(contratoId); if (!ct) return;
+    const cis = s.comprasContratoItens(contratoId).filter(ci => s.comprasSaldoContratoItem(ci.id) > 0);
+    if (!cis.length) { toast('⚠️ Sem saldo no contrato para novo empenho.', 'warning'); return; }
+    const rows = cis.map(ci => { const ai = s.comprasAtaItem(ci.ataItemId); const sc = s.comprasSaldoContratoItem(ci.id);
+      return `<tr><td><strong>${esc(ai ? ai.produto : '')}</strong></td><td style="text-align:right;font-family:var(--font-mono)">${kg(sc)}</td>
+        <td style="text-align:right"><input type="number" id="eiq-${ci.id}" value="${sc}" min="0" max="${sc}" step="1" style="width:120px;padding:6px;border:1px solid #ccc;border-radius:6px;font-family:var(--font-mono);text-align:right"></td></tr>`; }).join('');
+    const content = `
+      <p style="margin:0 0 12px;color:var(--text-secondary);font-size:.88rem">Empenho (total ou fracionado) a partir do <strong>saldo do contrato ${esc(ct.numero)}</strong>, conforme a demanda.</p>
+      <table class="data-table" style="font-size:.88rem"><thead><tr><th>Produto</th><th style="text-align:right">Saldo contrato</th><th style="text-align:right">Qtd a empenhar</th></tr></thead><tbody>${rows}</tbody></table>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
+        <button class="btn btn-outline btn-sm" onclick="window.comprasAbrirContrato('${contratoId}')">← Voltar</button>
+        <button class="btn btn-primary btn-sm" onclick="window.comprasSalvarEmpenho('${contratoId}')">✔️ Emitir empenho</button></div>`;
+    window.showModal('➕ Novo Empenho — Contrato ' + ct.numero, content, '620px');
+  };
+
+  window.comprasSalvarEmpenho = (contratoId) => {
+    const s = S();
+    const cis = s.comprasContratoItens(contratoId).filter(ci => s.comprasSaldoContratoItem(ci.id) > 0);
+    const itens = cis.map(ci => { const inp = document.getElementById('eiq-' + ci.id); return { contratoItemId: ci.id, qtd: inp ? Number(inp.value) : 0 }; }).filter(x => x.qtd > 0);
+    const r = s.comprasCriarEmpenho(contratoId, itens);
+    if (r.erro) return toast('⚠️ ' + r.erro, 'warning');
+    toast('💳 Empenho ' + r.empenho.numero + ' emitido.', 'success');
+    window.comprasAbrirContrato(contratoId); rerender();
+  };
 
   window.comprasRegistrarPagamento = (pcId) => {
     const s = S();

@@ -1678,6 +1678,65 @@ const SharedState = {
     this._persist(); this._emit('compras:os:add');
     return os;
   },
+  // Anexa um CONTRATO novo a uma ATA (por fornecedor), consumindo saldo da ata.
+  // itens = [{ ataItemId, qtd }]. Valida qtd ≤ saldo_ata(item).
+  comprasCriarContrato(ataId, fornecedorId, itens, meta) {
+    const c = this._compras();
+    const ata = this.comprasAtas().find(a => a.id === ataId); if (!ata) return { erro: 'ATA não encontrada' };
+    const linhas = (itens || []).filter(it => Number(it.qtd) > 0);
+    if (!linhas.length) return { erro: 'Informe ao menos um item com quantidade.' };
+    for (const it of linhas) {
+      const ai = this.comprasAtaItem(it.ataItemId);
+      if (!ai || ai.ataId !== ataId || ai.fornecedorId !== fornecedorId) return { erro: 'Item inválido para a ATA/fornecedor.' };
+      const saldo = this.comprasSaldoAtaItem(it.ataItemId);
+      if (Number(it.qtd) > saldo) return { erro: `"${ai.produto}" excede o saldo da ATA (${saldo.toLocaleString('pt-BR')} ${ai.unidade}).` };
+    }
+    const hoje = new Date().toISOString().slice(0, 10);
+    const contrato = { id: 'ct-' + Date.now() + Math.random().toString(36).slice(2, 5), numero: this._comprasSeq('contrato', 'CT-2026/####'), ataId, fornecedorId, dataInicio: (meta && meta.dataInicio) || hoje, dataFim: (meta && meta.dataFim) || ata.dataFim, valorContratado: 0, status: 'vigente' };
+    (c.contratos = c.contratos || []).push(contrato);
+    let valor = 0;
+    linhas.forEach((it, idx) => {
+      const ai = this.comprasAtaItem(it.ataItemId);
+      (c.contratoItens = c.contratoItens || []).push({ id: contrato.id + '-ci' + idx, contratoId: contrato.id, ataItemId: it.ataItemId, qtdContratada: Number(it.qtd), precoUnit: ai.precoUnit });
+      valor += Number(it.qtd) * (ai.precoUnit || 0);
+    });
+    contrato.valorContratado = valor;
+    this._persist(); this._emit('compras:contrato:add');
+    return { contrato };
+  },
+  // Anexa um EMPENHO novo a um CONTRATO, consumindo saldo do contrato.
+  // itens = [{ contratoItemId, qtd }]. Valida qtd ≤ saldo_contrato(item).
+  comprasCriarEmpenho(contratoId, itens, meta) {
+    const c = this._compras();
+    const ct = this.comprasContrato(contratoId); if (!ct) return { erro: 'Contrato não encontrado' };
+    const linhas = (itens || []).filter(it => Number(it.qtd) > 0);
+    if (!linhas.length) return { erro: 'Informe ao menos um item com quantidade.' };
+    for (const it of linhas) {
+      const ci = this.comprasContratoItem(it.contratoItemId);
+      if (!ci || ci.contratoId !== contratoId) return { erro: 'Item inválido para o contrato.' };
+      const saldo = this.comprasSaldoContratoItem(it.contratoItemId);
+      if (Number(it.qtd) > saldo) { const ai = this.comprasAtaItem(ci.ataItemId); return { erro: `"${ai ? ai.produto : 'item'}" excede o saldo do contrato (${saldo.toLocaleString('pt-BR')}).` }; }
+    }
+    const hoje = new Date().toISOString().slice(0, 10);
+    const empenho = { id: 'emp-' + Date.now() + Math.random().toString(36).slice(2, 5), numero: this._comprasSeq('empenho', 'NE-2026/####'), contratoId, dotacao: (meta && meta.dotacao) || '12.306.0001', dataEmpenho: hoje, status: 'ativo', origemPedidoId: null };
+    (c.empenhos = c.empenhos || []).push(empenho);
+    linhas.forEach((it, idx) => {
+      const ci = this.comprasContratoItem(it.contratoItemId);
+      (c.empenhoItens = c.empenhoItens || []).push({ id: empenho.id + '-ei' + idx, empenhoId: empenho.id, contratoItemId: it.contratoItemId, qtdEmpenhada: Number(it.qtd), precoUnit: ci.precoUnit });
+    });
+    this._persist(); this._emit('compras:empenho:add');
+    return { empenho };
+  },
+  // Adiciona um item (produto × fornecedor) a uma ATA existente.
+  comprasAdicionarItemAta(ataId, { produto, unidade, qtdLicitada, precoUnit, fornecedorId }) {
+    const c = this._compras();
+    const ata = this.comprasAtas().find(a => a.id === ataId); if (!ata) return { erro: 'ATA não encontrada' };
+    if (!produto || !fornecedorId || !(qtdLicitada > 0)) return { erro: 'Preencha produto, fornecedor e quantidade.' };
+    const item = { id: 'ai-' + Date.now() + Math.random().toString(36).slice(2, 5), ataId, fornecedorId, produto, unidade: unidade || 'kg', qtdLicitada: Number(qtdLicitada), precoUnit: Number(precoUnit) || 0, qtdExecutada: 0 };
+    (c.ataItens = c.ataItens || []).push(item);
+    this._persist(); this._emit('compras:ataItem:add');
+    return { item };
+  },
   // Compras converte a OS em PEDIDOS por fornecedor, rodando a cascata (reserva; sem baixa)
   comprasConverterOsEmPedidos(osCompraId) {
     const c = this._compras();
