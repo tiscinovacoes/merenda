@@ -563,6 +563,56 @@ const SharedState = {
       os_estoque_central: [], // OS do Almoxarifado Central
       lista_compras: [],    // Listas de compras por escola
       os_fornecedores: [],  // OS para cooperativas e agricultores
+      // ── COMPRAS & CONTRATOS (perfil compras) — Ata → Contrato → Empenho → Pedido ──
+      // Modelo em cascata por (produto × fornecedor). Saldos são DERIVADOS (ver métodos compras*).
+      // Seed = exemplo real: ata com 4 itens / 3 fornecedores.
+      compras: {
+        fornecedores: [
+          { id: 'forn-tal', razaoSocial: 'Talismã Alimentos Ltda',        cnpj: '11.111.111/0001-11', tipo: 'Distribuidora', contato: 'Comercial Talismã',      status: 'ativo' },
+          { id: 'forn-ata', razaoSocial: 'Atacarejo Distribuição S.A.',    cnpj: '22.222.222/0001-22', tipo: 'Atacadista',    contato: 'Central Atacarejo',      status: 'ativo' },
+          { id: 'forn-brs', razaoSocial: 'Distribuidora Brasil Ltda',      cnpj: '33.333.333/0001-33', tipo: 'Distribuidora', contato: 'Vendas Brasil',           status: 'ativo' },
+        ],
+        atas: [
+          { id: 'ata-018', numero: 'ATA-2026/018', ano: 2026, modalidade: 'Pregão Eletrônico', processo: 'PE-018/2026', objeto: 'Gêneros alimentícios secos — merenda escolar', dataInicio: '2026-03-01', dataFim: '2027-02-28', status: 'vigente' },
+        ],
+        ataItens: [
+          { id: 'ai-arroz',   ataId: 'ata-018', fornecedorId: 'forn-tal', produto: 'Arroz Tipo 1',      unidade: 'kg', qtdLicitada: 1000, precoUnit: 17.00 },
+          { id: 'ai-feijao',  ataId: 'ata-018', fornecedorId: 'forn-ata', produto: 'Feijão Carioca',    unidade: 'kg', qtdLicitada: 1000, precoUnit:  9.00 },
+          { id: 'ai-macarrao',ataId: 'ata-018', fornecedorId: 'forn-brs', produto: 'Macarrão Espaguete',unidade: 'kg', qtdLicitada: 1000, precoUnit: 12.00 },
+          { id: 'ai-farinha', ataId: 'ata-018', fornecedorId: 'forn-tal', produto: 'Farinha de Trigo',  unidade: 'kg', qtdLicitada: 1000, precoUnit:  8.00 },
+        ],
+        contratos: [
+          { id: 'ct-tal', numero: 'CT-2026/041', ataId: 'ata-018', fornecedorId: 'forn-tal', dataInicio: '2026-03-10', dataFim: '2027-02-28', status: 'vigente' },
+          { id: 'ct-ata', numero: 'CT-2026/042', ataId: 'ata-018', fornecedorId: 'forn-ata', dataInicio: '2026-03-10', dataFim: '2027-02-28', status: 'vigente' },
+          { id: 'ct-brs', numero: 'CT-2026/043', ataId: 'ata-018', fornecedorId: 'forn-brs', dataInicio: '2026-03-10', dataFim: '2027-02-28', status: 'vigente' },
+        ],
+        contratoItens: [
+          { id: 'ci-arroz',    contratoId: 'ct-tal', ataItemId: 'ai-arroz',    qtdContratada: 500, precoUnit: 17.00 },
+          { id: 'ci-farinha',  contratoId: 'ct-tal', ataItemId: 'ai-farinha',  qtdContratada: 500, precoUnit:  8.00 },
+          { id: 'ci-feijao',   contratoId: 'ct-ata', ataItemId: 'ai-feijao',   qtdContratada: 500, precoUnit:  9.00 },
+          { id: 'ci-macarrao', contratoId: 'ct-brs', ataItemId: 'ai-macarrao', qtdContratada: 500, precoUnit: 12.00 },
+        ],
+        empenhos: [
+          { id: 'emp-tal', numero: 'NE-2026/0101', contratoId: 'ct-tal', dotacao: '12.306.0001', dataEmpenho: '2026-04-01', status: 'ativo', origemPedidoId: null },
+          { id: 'emp-ata', numero: 'NE-2026/0102', contratoId: 'ct-ata', dotacao: '12.306.0001', dataEmpenho: '2026-04-01', status: 'ativo', origemPedidoId: null },
+          { id: 'emp-brs', numero: 'NE-2026/0103', contratoId: 'ct-brs', dotacao: '12.306.0001', dataEmpenho: '2026-04-01', status: 'ativo', origemPedidoId: null },
+        ],
+        empenhoItens: [
+          { id: 'ei-arroz',    empenhoId: 'emp-tal', contratoItemId: 'ci-arroz',    qtdEmpenhada: 250, precoUnit: 17.00 },
+          { id: 'ei-farinha',  empenhoId: 'emp-tal', contratoItemId: 'ci-farinha',  qtdEmpenhada: 500, precoUnit:  8.00 },
+          { id: 'ei-feijao',   empenhoId: 'emp-ata', contratoItemId: 'ci-feijao',   qtdEmpenhada: 250, precoUnit:  9.00 },
+          { id: 'ei-macarrao', empenhoId: 'emp-brs', contratoItemId: 'ci-macarrao', qtdEmpenhada: 350, precoUnit: 12.00 },
+        ],
+        osCompra: [],
+        osCompraItens: [],
+        pedidos: [],
+        pedidoItens: [],
+        notasFiscais: [],
+        ordensRecebimento: [],
+        ordemRecebimentoItens: [],
+        prestacaoContas: [],
+        _seq: { osCompra: 0, pedido: 0, empenho: 103, contrato: 43, nota: 0, ordem: 0 },
+      },
       // ── LOGÍSTICA / CONTÁBIL (legacy — empenhos locais) ──
       empenhos: [
         // Seed: 2 empenhos vinculados às atas existentes em DATA.contracts
@@ -1483,6 +1533,251 @@ const SharedState = {
     return c;
   },
 
+  // ═══════════════════════════════════════════════════════════════
+  // COMPRAS & CONTRATOS — Ata → Contrato → Empenho → Pedido
+  // Saldos DERIVADOS (nunca digitados). Ver ESPEC_COMPRAS_CONTRATOS.md
+  // ═══════════════════════════════════════════════════════════════
+  _compras() {
+    if (!this._data.compras) this._data.compras = this._defaults().compras;
+    return this._data.compras;
+  },
+  _comprasSeq(kind, mask) {
+    const c = this._compras();
+    c._seq = c._seq || {};
+    c._seq[kind] = (c._seq[kind] || 0) + 1;
+    const n = String(c._seq[kind]).padStart(4, '0');
+    return mask.replace('####', n);
+  },
+  // ── Leitores ──
+  comprasFornecedores() { return [...(this._compras().fornecedores || [])]; },
+  comprasFornecedor(id) { return (this._compras().fornecedores || []).find(f => f.id === id) || null; },
+  comprasAtas()         { return [...(this._compras().atas || [])]; },
+  comprasAtaItens(ataId){ const a = this._compras().ataItens || []; return ataId ? a.filter(i => i.ataId === ataId) : [...a]; },
+  comprasAtaItem(id)    { return (this._compras().ataItens || []).find(i => i.id === id) || null; },
+  comprasContratos(ataId){ const c = this._compras().contratos || []; return ataId ? c.filter(x => x.ataId === ataId) : [...c]; },
+  comprasContrato(id)   { return (this._compras().contratos || []).find(c => c.id === id) || null; },
+  comprasContratoItens(contratoId){ const c = this._compras().contratoItens || []; return contratoId ? c.filter(i => i.contratoId === contratoId) : [...c]; },
+  comprasContratoItem(id){ return (this._compras().contratoItens || []).find(i => i.id === id) || null; },
+  comprasEmpenhos(contratoId){ const e = this._compras().empenhos || []; return contratoId ? e.filter(x => x.contratoId === contratoId) : [...e]; },
+  comprasEmpenho(id)    { return (this._compras().empenhos || []).find(e => e.id === id) || null; },
+  comprasEmpenhoItens(empenhoId){ const e = this._compras().empenhoItens || []; return empenhoId ? e.filter(i => i.empenhoId === empenhoId) : [...e]; },
+  comprasEmpenhoItem(id){ return (this._compras().empenhoItens || []).find(i => i.id === id) || null; },
+  comprasOsCompra()     { return [...(this._compras().osCompra || [])]; },
+  comprasOsCompraItens(osId){ const o = this._compras().osCompraItens || []; return osId ? o.filter(i => i.osCompraId === osId) : [...o]; },
+  comprasPedidos(fornId){ const p = this._compras().pedidos || []; return fornId ? p.filter(x => x.fornecedorId === fornId) : [...p]; },
+  comprasPedido(id)     { return (this._compras().pedidos || []).find(p => p.id === id) || null; },
+  comprasPedidoItens(pedidoId){ const p = this._compras().pedidoItens || []; return pedidoId ? p.filter(i => i.pedidoId === pedidoId) : [...p]; },
+  comprasNotas()        { return [...(this._compras().notasFiscais || [])]; },
+  comprasOrdensRecebimento(){ return [...(this._compras().ordensRecebimento || [])]; },
+  comprasOrdemRecebimentoItens(ordemId){ const o = this._compras().ordemRecebimentoItens || []; return ordemId ? o.filter(i => i.ordemId === ordemId) : [...o]; },
+  comprasPrestacao()    { return [...(this._compras().prestacaoContas || [])]; },
+
+  // ── Saldos derivados (a espinha dorsal) ──
+  // Nível ATA: licitado − Σ contratado (ato firme)
+  comprasSaldoAtaItem(ataItemId) {
+    const ai = this.comprasAtaItem(ataItemId); if (!ai) return 0;
+    const contratado = (this._compras().contratoItens || [])
+      .filter(ci => ci.ataItemId === ataItemId)
+      .reduce((s, ci) => s + (ci.qtdContratada || 0), 0);
+    return (ai.qtdLicitada || 0) - contratado;
+  },
+  // Nível CONTRATO: contratado − Σ empenhado (ato firme)
+  comprasSaldoContratoItem(contratoItemId) {
+    const ci = this.comprasContratoItem(contratoItemId); if (!ci) return 0;
+    const empenhado = (this._compras().empenhoItens || [])
+      .filter(ei => ei.contratoItemId === contratoItemId)
+      .reduce((s, ei) => s + (ei.qtdEmpenhada || 0), 0);
+    return (ci.qtdContratada || 0) - empenhado;
+  },
+  // Entregue de um item de pedido = Σ recebido em ordens CONFERIDAS
+  comprasEntreguePedidoItem(pedidoItemId) {
+    const ordens = this._compras().ordensRecebimento || [];
+    const confIds = new Set(ordens.filter(o => o.status === 'conferida' || o.status === 'liquidada').map(o => o.id));
+    return (this._compras().ordemRecebimentoItens || [])
+      .filter(ri => ri.pedidoItemId === pedidoItemId && confIds.has(ri.ordemId))
+      .reduce((s, ri) => s + (ri.qtdRecebida || 0), 0);
+  },
+  comprasSaldoAEntregarPedidoItem(pedidoItemId) {
+    const pi = (this._compras().pedidoItens || []).find(p => p.id === pedidoItemId); if (!pi) return 0;
+    return (pi.qtdPedida || 0) - this.comprasEntreguePedidoItem(pedidoItemId);
+  },
+  // Nível EMPENHO: empenhada − reservada − liquidada  (é o saldo que a CASCATA enxerga)
+  comprasReservadaEmpenhoItem(empenhoItemId) {
+    const pis = (this._compras().pedidoItens || []).filter(pi => pi.empenhoItemId === empenhoItemId);
+    return pis.reduce((s, pi) => {
+      if (pi.status === 'cancelado') return s;
+      const aberto = (pi.qtdPedida || 0) - this.comprasEntreguePedidoItem(pi.id);
+      return s + Math.max(0, aberto);
+    }, 0);
+  },
+  comprasLiquidadaEmpenhoItem(empenhoItemId) {
+    const pis = (this._compras().pedidoItens || []).filter(pi => pi.empenhoItemId === empenhoItemId);
+    return pis.reduce((s, pi) => s + this.comprasEntreguePedidoItem(pi.id), 0);
+  },
+  comprasSaldoLivreEmpenhoItem(empenhoItemId) {
+    const ei = this.comprasEmpenhoItem(empenhoItemId); if (!ei) return 0;
+    return (ei.qtdEmpenhada || 0) - this.comprasReservadaEmpenhoItem(empenhoItemId) - this.comprasLiquidadaEmpenhoItem(empenhoItemId);
+  },
+
+  // ── Motor de cascata (planejador puro) ──
+  // Retorna o PLANO de alocação de Q de (produto × fornecedor):
+  //   alloc[]        → reservas em empenhos existentes
+  //   novoEmpenho[]  → precisa emitir novo empenho (há saldo no contrato)
+  //   novoContrato[] → precisa gerar novo contrato + empenho (há saldo na ata)
+  //   semSaldo       → quantidade sem cobertura (bloqueio)
+  comprasPlanejarAlocacao(produto, fornecedorId, qtd) {
+    const plan = { produto, fornecedorId, solicitado: qtd, alloc: [], novoEmpenho: [], novoContrato: [], semSaldo: 0, ok: false };
+    let falta = qtd;
+    const ai = (this._compras().ataItens || []).find(a => a.produto === produto && a.fornecedorId === fornecedorId);
+    if (!ai) { plan.semSaldo = qtd; plan.erro = 'produto sem item na ata para este fornecedor'; return plan; }
+    const contrato = (this._compras().contratos || []).find(c => c.ataId === ai.ataId && c.fornecedorId === fornecedorId);
+    const ci = contrato ? (this._compras().contratoItens || []).find(x => x.contratoId === contrato.id && x.ataItemId === ai.id) : null;
+    // Nível 1 — empenhos existentes (mais antigo primeiro)
+    if (ci) {
+      const eis = (this._compras().empenhoItens || [])
+        .filter(ei => ei.contratoItemId === ci.id)
+        .map(ei => ({ ei, emp: this.comprasEmpenho(ei.empenhoId) }))
+        .sort((a, b) => String(a.emp && a.emp.dataEmpenho).localeCompare(String(b.emp && b.emp.dataEmpenho)));
+      for (const { ei } of eis) {
+        if (falta <= 0) break;
+        const s = this.comprasSaldoLivreEmpenhoItem(ei.id);
+        if (s > 0) { const usar = Math.min(s, falta); plan.alloc.push({ empenhoItemId: ei.id, qtd: usar }); falta -= usar; }
+      }
+    }
+    // Nível 2 — contrato tem saldo → novo empenho
+    if (falta > 0 && ci) {
+      const sc = this.comprasSaldoContratoItem(ci.id);
+      if (sc > 0) { const usar = Math.min(sc, falta); plan.novoEmpenho.push({ contratoItemId: ci.id, qtd: usar }); falta -= usar; }
+    }
+    // Nível 3 — ata tem saldo → novo contrato (+ empenho)
+    if (falta > 0) {
+      const sa = this.comprasSaldoAtaItem(ai.id);
+      if (sa > 0) { const usar = Math.min(sa, falta); plan.novoContrato.push({ ataItemId: ai.id, qtd: usar }); falta -= usar; }
+    }
+    plan.semSaldo = Math.max(0, falta);
+    plan.ok = plan.semSaldo === 0;
+    return plan;
+  },
+
+  // ── Mutadores ──
+  // Nutricionista/Estoque emitem a OS de Compra (demanda calculada = previsto − estoque)
+  comprasEmitirOsCompra({ origem, solicitante, cardapioId = null, escolaId = null, periodo = '', itens = [] }) {
+    const c = this._compras();
+    const os = { id: 'os-' + Date.now(), numero: this._comprasSeq('osCompra', 'OSC-2026/####'), origem, solicitante, cardapioId, escolaId, periodo, dataEmissao: new Date().toISOString().slice(0, 10), status: 'emitida' };
+    (c.osCompra = c.osCompra || []).unshift(os);
+    (itens || []).forEach((it, idx) => {
+      const prev = it.qtdPrevista || 0, est = it.qtdEstoque || 0;
+      (c.osCompraItens = c.osCompraItens || []).push({ id: os.id + '-i' + idx, osCompraId: os.id, produto: it.produto, unidade: it.unidade || 'kg', qtdPrevista: prev, qtdEstoque: est, qtdNecessaria: it.qtdNecessaria != null ? it.qtdNecessaria : Math.max(0, prev - est) });
+    });
+    this._persist(); this._emit('compras:os:add');
+    return os;
+  },
+  // Compras converte a OS em PEDIDOS por fornecedor, rodando a cascata (reserva; sem baixa)
+  comprasConverterOsEmPedidos(osCompraId) {
+    const c = this._compras();
+    const os = (c.osCompra || []).find(o => o.id === osCompraId);
+    if (!os) return { erro: 'OS não encontrada' };
+    const itens = this.comprasOsCompraItens(osCompraId).filter(i => (i.qtdNecessaria || 0) > 0);
+    // agrupa por fornecedor ganhador do produto na ata vigente
+    const grupos = {}; const semAta = [];
+    for (const it of itens) {
+      const ai = (c.ataItens || []).find(a => a.produto === it.produto);
+      if (!ai) { semAta.push(it.produto); continue; }
+      (grupos[ai.fornecedorId] = grupos[ai.fornecedorId] || []).push({ it, ai });
+    }
+    const pedidosCriados = [];
+    for (const fornecedorId of Object.keys(grupos)) {
+      const pedido = { id: 'ped-' + Date.now() + '-' + fornecedorId, numero: this._comprasSeq('pedido', 'PED-2026/####'), fornecedorId, osCompraId, data: new Date().toISOString().slice(0, 10), prazoEntrega: null, status: 'reservado' };
+      (c.pedidos = c.pedidos || []).push(pedido);
+      for (const { it, ai } of grupos[fornecedorId]) {
+        const plan = this.comprasPlanejarAlocacao(it.produto, fornecedorId, it.qtdNecessaria);
+        // Nível 3: gera novo contrato + empenho para o saldo da ata
+        for (const nc of plan.novoContrato) {
+          const contrato = { id: 'ct-' + Date.now() + Math.random().toString(36).slice(2, 5), numero: this._comprasSeq('contrato', 'CT-2026/####'), ataId: ai.ataId, fornecedorId, dataInicio: new Date().toISOString().slice(0, 10), dataFim: ai.dataFim || null, status: 'vigente', geradoPor: 'cascata' };
+          (c.contratos = c.contratos || []).push(contrato);
+          const ci = { id: contrato.id + '-ci', contratoId: contrato.id, ataItemId: nc.ataItemId, qtdContratada: nc.qtd, precoUnit: ai.precoUnit };
+          (c.contratoItens = c.contratoItens || []).push(ci);
+          plan.novoEmpenho.push({ contratoItemId: ci.id, qtd: nc.qtd });
+        }
+        // Nível 2: gera novos empenhos (reservados pelo pedido)
+        for (const ne of plan.novoEmpenho) {
+          const ci = this.comprasContratoItem(ne.contratoItemId);
+          const empenho = { id: 'emp-' + Date.now() + Math.random().toString(36).slice(2, 5), numero: this._comprasSeq('empenho', 'NE-2026/####'), contratoId: ci ? ci.contratoId : null, dotacao: '12.306.0001', dataEmpenho: new Date().toISOString().slice(0, 10), status: 'ativo', origemPedidoId: pedido.id };
+          (c.empenhos = c.empenhos || []).push(empenho);
+          const ei = { id: empenho.id + '-ei', empenhoId: empenho.id, contratoItemId: ne.contratoItemId, qtdEmpenhada: ne.qtd, precoUnit: ci ? ci.precoUnit : ai.precoUnit };
+          (c.empenhoItens = c.empenhoItens || []).push(ei);
+          plan.alloc.push({ empenhoItemId: ei.id, qtd: ne.qtd });
+        }
+        // Cria os itens do pedido (reservas nos empenhos)
+        plan.alloc.forEach((a, idx) => {
+          (c.pedidoItens = c.pedidoItens || []).push({ id: pedido.id + '-pi' + this._compras().pedidoItens.length + idx, pedidoId: pedido.id, empenhoItemId: a.empenhoItemId, osCompraItemId: it.id, produto: it.produto, qtdPedida: a.qtd, precoUnit: ai.precoUnit, status: 'aberto' });
+        });
+        if (plan.semSaldo > 0) pedido.bloqueio = (pedido.bloqueio || 0) + plan.semSaldo;
+      }
+      pedidosCriados.push(pedido);
+    }
+    os.status = 'convertida';
+    this._persist(); this._emit('compras:pedido:add');
+    return { pedidos: pedidosCriados, semAta };
+  },
+  // Compras lança a Ordem de Recebimento (vai para o Estoque executar)
+  comprasLancarOrdemRecebimento(pedidoId, notaFiscalId = null, destino = 'Estoque Central') {
+    const c = this._compras();
+    const pedido = this.comprasPedido(pedidoId); if (!pedido) return { erro: 'pedido não encontrado' };
+    const ordem = { id: 'or-' + Date.now(), numero: this._comprasSeq('ordem', 'OR-2026/####'), pedidoId, notaFiscalId, fornecedorId: pedido.fornecedorId, destino, dataPrevista: new Date().toISOString().slice(0, 10), status: 'aguardando' };
+    (c.ordensRecebimento = c.ordensRecebimento || []).push(ordem);
+    this.comprasPedidoItens(pedidoId).forEach((pi, idx) => {
+      const esperado = this.comprasSaldoAEntregarPedidoItem(pi.id);
+      if (esperado > 0) (c.ordemRecebimentoItens = c.ordemRecebimentoItens || []).push({ id: ordem.id + '-i' + idx, ordemId: ordem.id, pedidoItemId: pi.id, produto: pi.produto, qtdEsperada: esperado, qtdRecebida: 0, divergencia: 0 });
+    });
+    this._persist(); this._emit('compras:ordem:add');
+    return ordem;
+  },
+  // Estoque EXECUTA a conferência: grava qtd_recebida (NÃO acessa saldo de empenho)
+  comprasRegistrarRecebimento(ordemId, recebidosPorItemId) {
+    const c = this._compras();
+    const ordem = (c.ordensRecebimento || []).find(o => o.id === ordemId); if (!ordem) return { erro: 'ordem não encontrada' };
+    let houveDiv = false;
+    (c.ordemRecebimentoItens || []).filter(ri => ri.ordemId === ordemId).forEach(ri => {
+      const rec = recebidosPorItemId[ri.id] != null ? Number(recebidosPorItemId[ri.id]) : ri.qtdEsperada;
+      ri.qtdRecebida = rec; ri.divergencia = rec - ri.qtdEsperada;
+      if (ri.divergencia !== 0) houveDiv = true;
+    });
+    ordem.status = 'conferida'; ordem.resultado = houveDiv ? 'divergente' : 'ok'; ordem.conferidoEm = new Date().toISOString().slice(0, 10);
+    // atualiza status do pedido (parcial/entregue) — saldo do empenho é derivado
+    const pedido = this.comprasPedido(ordem.pedidoId);
+    if (pedido) {
+      const pis = this.comprasPedidoItens(pedido.id);
+      const totalAberto = pis.reduce((s, pi) => s + this.comprasSaldoAEntregarPedidoItem(pi.id), 0);
+      pedido.status = totalAberto <= 0 ? 'entregue' : 'parcial';
+    }
+    this._persist(); this._emit('compras:receb');
+    return ordem;
+  },
+  // Compras LIQUIDA o empenho pelo recebido (baixa) + prestação de contas
+  comprasLiquidar(ordemId) {
+    const c = this._compras();
+    const ordem = (c.ordensRecebimento || []).find(o => o.id === ordemId); if (!ordem) return { erro: 'ordem não encontrada' };
+    if (ordem.status !== 'conferida') return { erro: 'ordem ainda não conferida pelo Estoque' };
+    const ris = this.comprasOrdemRecebimentoItens(ordemId);
+    // agrupa valor liquidado por empenho (via pedidoItem → empenhoItem → empenho)
+    const porEmpenho = {};
+    ris.forEach(ri => {
+      const pi = (c.pedidoItens || []).find(p => p.id === ri.pedidoItemId); if (!pi) return;
+      const ei = this.comprasEmpenhoItem(pi.empenhoItemId); if (!ei) return;
+      const empId = ei.empenhoId;
+      porEmpenho[empId] = (porEmpenho[empId] || 0) + (ri.qtdRecebida || 0) * (pi.precoUnit || 0);
+    });
+    const hoje = new Date().toISOString().slice(0, 10);
+    Object.keys(porEmpenho).forEach(empId => {
+      (c.prestacaoContas = c.prestacaoContas || []).push({ id: 'pc-' + Date.now() + '-' + empId, empenhoId: empId, notaFiscalId: ordem.notaFiscalId, ordemId, valorLiquidado: porEmpenho[empId], valorPago: 0, dataLiquidacao: hoje, dataPagamento: null, status: 'liquidado' });
+    });
+    ordem.status = 'liquidada';
+    const pedido = this.comprasPedido(ordem.pedidoId); if (pedido && pedido.status === 'entregue') pedido.status = 'liquidado';
+    this._persist(); this._emit('compras:liquida');
+    return { empenhos: Object.keys(porEmpenho).length };
+  },
+
   // Limpa tudo (para debug ou reset)
   reset() { this._data = this._defaults(); this._persist(); this._emit('reset'); },
 };
@@ -1608,6 +1903,30 @@ const PROFILES = {
       { id: 'calendario', icon: '📅', label: 'Calendário', badge: null },
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
       { id: 'perfil', icon: '👤', label: 'Perfil', badge: null },
+    ]
+  },
+  compras: {
+    userId: 'ID-007',
+    name: 'Setor de Compras',
+    role: 'Compras & Contratos — SEMED',
+    initials: 'CC',
+    menu: [
+      { id: 'dashboard',    icon: '📊', label: 'Dashboard Contratual', badge: null },
+      { id: 'fornecedores', icon: '🏢', label: 'Fornecedores', badge: null },
+      { type: 'group', label: 'Ciclo Contratual', children: [
+        { id: 'atas',       icon: '📋', label: 'Atas de Registro de Preços', badge: null },
+        { id: 'contratos',  icon: '📄', label: 'Contratos', badge: null },
+        { id: 'empenhos',   icon: '💳', label: 'Empenhos', badge: null },
+      ]},
+      { type: 'group', label: 'Aquisição', children: [
+        { id: 'oscompra',    icon: '📥', label: 'OS de Compra (Nutrição/Estoque)', badge: 'NEW' },
+        { id: 'pedidos',     icon: '🛒', label: 'Pedidos / Aquisições', badge: null },
+        { id: 'notas',       icon: '📑', label: 'Notas Fiscais', badge: null },
+        { id: 'recebimentos',icon: '📦', label: 'Ordens de Recebimento', badge: null },
+        { id: 'liquidacao',  icon: '✅', label: 'Liquidação', badge: null },
+      ]},
+      { id: 'prestacao',    icon: '🧾', label: 'Prestação de Contas', badge: null },
+      { id: 'relatorios',   icon: '📈', label: 'Relatórios', badge: null },
     ]
   },
   estoque: {
