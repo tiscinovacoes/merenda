@@ -563,6 +563,17 @@ const SharedState = {
       os_estoque_central: [], // OS do Almoxarifado Central
       lista_compras: [],    // Listas de compras por escola
       os_fornecedores: [],  // OS para cooperativas e agricultores
+      // ── ADMINISTRAÇÃO: usuários/acessos + log de atividade por perfil ──
+      usuarios: [
+        { id: 'usr-001', nome: 'Luiz Raghiant',        login: 'luiz.raghiant',   perfil: 'gestor',        cargo: 'Gestor SEMED',            status: 'ativo', criadoEm: '2026-01-10' },
+        { id: 'usr-002', nome: 'Dra. Lilian Droppa',   login: 'lilian.droppa',   perfil: 'nutricionista', cargo: 'Nutricionista SEMED',     status: 'ativo', criadoEm: '2026-01-10' },
+        { id: 'usr-003', nome: 'Maria Santos',         login: 'maria.santos',    perfil: 'escola',        cargo: 'Direção Escolar',         status: 'ativo', criadoEm: '2026-01-12' },
+        { id: 'usr-004', nome: 'Carlos Mendes',        login: 'carlos.mendes',   perfil: 'cooperativa',   cargo: 'COOPAGRAN',               status: 'ativo', criadoEm: '2026-01-12' },
+        { id: 'usr-005', nome: 'José Maria Rodrigues', login: 'jose.rodrigues',  perfil: 'agricultor',    cargo: 'Agricultor Familiar',     status: 'ativo', criadoEm: '2026-01-15' },
+        { id: 'usr-006', nome: 'Fabricio Milano',      login: 'fabricio.milano', perfil: 'estoque',       cargo: 'Central de Distribuição', status: 'ativo', criadoEm: '2026-01-15' },
+        { id: 'usr-007', nome: 'Setor de Compras',     login: 'compras.semed',   perfil: 'compras',       cargo: 'Compras & Contratos',     status: 'ativo', criadoEm: '2026-08-25' },
+      ],
+      activity_log: [],   // trilha de atividade por perfil (quem fez o quê, quando)
       // ── COMPRAS & CONTRATOS (perfil compras) — Ata → Contrato → Empenho → Pedido ──
       // Modelo em cascata por (produto × fornecedor). Saldos são DERIVADOS (ver métodos compras*).
       // As ATAS são UNIFICADAS: carregadas de DATA.contracts + DATA.ataProducts (perfil Gestor)
@@ -913,6 +924,64 @@ const SharedState = {
   },
   getLogsAuditoria() {
     return [...(this._data.audit_log || [])];
+  },
+
+  // ── ADMINISTRAÇÃO: log de atividade por perfil ──
+  logAtividade(ev) {
+    ev = ev || {};
+    const prof = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile] : null;
+    const entry = {
+      id: 'act-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+      timestamp: new Date().toISOString(),
+      perfil: ev.perfil || (typeof state !== 'undefined' ? state.currentProfile : '') || 'sistema',
+      perfilNome: ev.perfilNome || (prof ? prof.role : ''),
+      usuario: ev.usuario || (prof ? prof.name : 'Sistema'),
+      acao: ev.acao || 'ação',
+      tela: ev.tela != null ? ev.tela : (typeof state !== 'undefined' ? state.currentPage : ''),
+      detalhe: ev.detalhe || '',
+    };
+    const log = (this._data.activity_log = this._data.activity_log || []);
+    log.unshift(entry);
+    if (log.length > 500) log.length = 500; // mantém os 500 mais recentes
+    this._persist(); this._emit('atividade:log');
+    return entry;
+  },
+  getAtividades(filtro) {
+    let l = [...(this._data.activity_log || [])];
+    if (filtro && filtro.perfil) l = l.filter(a => a.perfil === filtro.perfil);
+    if (filtro && filtro.busca) { const q = String(filtro.busca).toLowerCase(); l = l.filter(a => (a.acao + ' ' + a.detalhe + ' ' + a.usuario + ' ' + a.tela).toLowerCase().includes(q)); }
+    return l;
+  },
+  limparAtividades() { this._data.activity_log = []; this._persist(); this._emit('atividade:clear'); },
+
+  // ── ADMINISTRAÇÃO: usuários & acessos ──
+  getUsuarios() { return [...(this._data.usuarios || [])]; },
+  addUsuario(u) {
+    const usr = { id: 'usr-' + Date.now(), nome: u.nome, login: u.login, perfil: u.perfil, cargo: u.cargo || '', status: u.status || 'ativo', criadoEm: new Date().toISOString().slice(0, 10) };
+    (this._data.usuarios = this._data.usuarios || []).unshift(usr);
+    this.logAtividade({ acao: 'cadastrou usuário', detalhe: usr.nome + ' → ' + usr.perfil });
+    this._persist(); this._emit('usuario:add');
+    return usr;
+  },
+  updateUsuario(id, patch) {
+    const u = (this._data.usuarios || []).find(x => x.id === id); if (!u) return null;
+    Object.assign(u, patch || {});
+    this.logAtividade({ acao: 'editou usuário', detalhe: u.nome });
+    this._persist(); this._emit('usuario:update');
+    return u;
+  },
+  toggleUsuarioStatus(id) {
+    const u = (this._data.usuarios || []).find(x => x.id === id); if (!u) return null;
+    u.status = u.status === 'ativo' ? 'inativo' : 'ativo';
+    this.logAtividade({ acao: (u.status === 'ativo' ? 'ativou' : 'bloqueou') + ' usuário', detalhe: u.nome });
+    this._persist(); this._emit('usuario:update');
+    return u;
+  },
+  removeUsuario(id) {
+    const u = (this._data.usuarios || []).find(x => x.id === id);
+    this._data.usuarios = (this._data.usuarios || []).filter(x => x.id !== id);
+    if (u) this.logAtividade({ acao: 'removeu usuário', detalhe: u.nome });
+    this._persist(); this._emit('usuario:remove');
   },
 
   getListaCompras(escoId) { const all = this._data.lista_compras || []; return escoId ? all.filter(l => l.escola_id === escoId) : [...all]; },
@@ -1893,34 +1962,26 @@ const PROFILES = {
     name: 'Luiz Raghiant',
     role: 'Gestor SEMED',
     initials: 'LR',
+    // Menu enxuto (2026-08-25): Gestor ACOMPANHA, não opera. As telas operacionais
+    // migraram para seus perfis donos (Estoque Central, Compras & Contratos, Nutricionista).
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Dashboard Executivo', badge: null },
       { id: 'escolas', icon: '🏫', label: 'Escolas', badge: null },
-      { type: 'group', label: 'Operacional', children: [
-        { id: 'pedidos', icon: '📦', label: 'Pedidos', badge: '3' },
+      { type: 'group', label: 'Acompanhamento', children: [
+        { id: 'pedidos', icon: '📦', label: 'Pedidos (Rede)', badge: '3' },
         { id: 'estoque', icon: '📊', label: 'Estoque Consolidado', badge: null },
-        { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
       ]},
       { type: 'group', label: 'Colaboradores', children: [
         { id: 'cooperativas', icon: '🤝', label: 'Cooperativas', badge: null },
         { id: 'agricultura', icon: '🌾', label: 'Agricultura Familiar', badge: null },
       ]},
-      { type: 'group', label: 'Gerenciamento Estoque', children: [
-        { id: 'os-central',            icon: '🏭', label: 'OS Estoque Central',      badge: null },
-        { id: 'recebimentos-pendentes',icon: '🚚', label: 'Recebimentos Pendentes', badge: 'NEW' },
-        { id: 'expedicao-os',          icon: '📦', label: 'Expedição (OS Escolas)',   badge: null },
-        { id: 'ordens-entrega',        icon: '🚛', label: 'Ordens de Entrega',        badge: null },
-      ]},
-      { type: 'group', label: 'Prestação de Contas', children: [
-        { id: 'atas',                  icon: '📋', label: 'Atas e Contratos',        badge: null },
-        { id: 'empenhos',              icon: '💳', label: 'Empenhos SIAFI',          badge: null },
-        { id: 'rastreabilidade-lotes', icon: '🔍', label: 'Rastreabilidade 5-Way',   badge: null },
-        { id: 'listacompras',         icon: '🛒', label: 'Lista de Compras',        badge: null },
-        { id: 'os-fornecedores',       icon: '🤝', label: 'OS Fornecedores',         badge: null },
-      ]},
-      { id: 'ocorrencias', icon: '⚠️', label: 'Livro de Ocorrências', badge: 'NEW' },
+      { id: 'ocorrencias', icon: '⚠️', label: 'Livro de Ocorrências', badge: null },
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
       { id: 'ia', icon: '🤖', label: 'IA de Previsão', badge: null },
+      { type: 'group', label: 'Administração', children: [
+        { id: 'usuarios',  icon: '🔐', label: 'Usuários & Acessos', badge: 'NEW' },
+        { id: 'auditoria', icon: '📜', label: 'Auditoria / Logs',   badge: 'NEW' },
+      ]},
     ]
   },
   nutricionista: {
@@ -1999,7 +2060,7 @@ const PROFILES = {
     ]
   },
   compras: {
-    userId: 'ID-007',
+    userId: 'ID-008',
     name: 'Setor de Compras',
     role: 'Compras & Contratos — SEMED',
     initials: 'CC',
@@ -2044,6 +2105,7 @@ const PROFILES = {
       ]},
       { id: 'cobertura', icon: '🏫', label: 'Cobertura Escolar', badge: null },
       { id: 'lotes', icon: '📋', label: 'Controle de Lotes', badge: null },
+      { id: 'rastreabilidade-lotes', icon: '🔍', label: 'Rastreabilidade 5-Way', badge: 'NEW' },
       { type: 'group', label: 'Gestão', children: [
         { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: 'NEW' },
         { id: 'ocorrencias', icon: '⚠️', label: 'Ocorrências', badge: 'NEW' },
@@ -2346,12 +2408,21 @@ function navigateTo(profile, page) {
   renderSidebar();
   renderHeader();
   renderPage();
+  // Auto-log de atividade por perfil (dedupe por perfil/tela p/ evitar spam de re-render)
+  try {
+    const key = state.currentProfile + '/' + state.currentPage;
+    if (window.__lastNavLog !== key && typeof SharedState !== 'undefined') {
+      window.__lastNavLog = key;
+      SharedState.logAtividade({ acao: 'abriu tela', detalhe: state.currentPage });
+    }
+  } catch (e) {}
 }
 
 async function login(profile, schoolId) {
   window.login = login;
   state.currentProfile = profile;
   state.currentPage = 'dashboard';
+  try { if (typeof SharedState !== 'undefined') SharedState.logAtividade({ acao: 'entrou no sistema', perfil: profile, detalhe: 'login' }); } catch (e) {}
   if (schoolId) {
     state.selectedSchoolId = schoolId;
     // Usa _PILOT_SCHOOLS (imutável) — nunca sofre sobrescrita do Supabase hydrateData
