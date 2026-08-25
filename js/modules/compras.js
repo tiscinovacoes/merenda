@@ -122,17 +122,17 @@
           <small style="color:var(--text-secondary)">${esc(ata.objeto)} · ${esc(ata.modalidade)} · vigência ${esc(ata.dataInicio)} a ${esc(ata.dataFim)}</small></div>
           <div style="text-align:right"><div style="font-weight:700">${brl(total)}</div><small style="color:var(--text-secondary)">valor licitado</small></div></div>
           <div style="overflow-x:auto"><table class="data-table"><thead><tr>
-            <th>Produto</th><th>Fornecedor</th><th style="text-align:right">Preço un.</th><th style="text-align:right">Licitado</th><th style="text-align:right">Contratado</th><th style="text-align:right">Saldo ata</th></tr></thead><tbody>
+            <th>Produto</th><th>Fornecedor</th><th style="text-align:right">Preço un.</th><th style="text-align:right">Licitado</th><th style="text-align:right">Comprometido</th><th style="text-align:right">Saldo ata</th></tr></thead><tbody>
             ${itens.map(ai => {
               const f = s.comprasFornecedor(ai.fornecedorId);
               const sa = s.comprasSaldoAtaItem(ai.id);
-              const contratado = ai.qtdLicitada - sa;
+              const comprometido = ai.qtdLicitada - sa;
               return `<tr>
                 <td><strong>${esc(ai.produto)}</strong></td>
                 <td>${esc(f ? f.razaoSocial : '—')}</td>
                 <td style="text-align:right;font-family:var(--font-mono)">${brl(ai.precoUnit)}</td>
                 <td style="text-align:right;font-family:var(--font-mono)">${kg(ai.qtdLicitada)} ${ai.unidade}</td>
-                <td style="text-align:right;font-family:var(--font-mono)">${kg(contratado)} ${ai.unidade}</td>
+                <td style="text-align:right;font-family:var(--font-mono)">${kg(comprometido)} ${ai.unidade}</td>
                 <td style="text-align:right;font-family:var(--font-mono);font-weight:600;color:${sa > 0 ? CLR.ok : CLR.gray}">${kg(sa)} ${ai.unidade}${bar(ai.qtdLicitada ? sa / ai.qtdLicitada * 100 : 0, CLR.blue)}</td>
               </tr>`;
             }).join('')}
@@ -250,7 +250,10 @@
         return `<div class="card" style="margin-bottom:16px"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
           <div><h3 class="card-title">${esc(p.numero)} · ${esc(f ? f.razaoSocial : '')} · ${statusPill(p.status, corStatus(p.status))}</h3>
           <small style="color:var(--text-secondary)">${brl(total)} · ${esc(p.data)}${p.bloqueio ? ' · ' + statusPill('sem saldo p/ ' + kg(p.bloqueio) + ' kg', CLR.bad) : ''}</small></div>
-          ${aberto > 0 ? `<button class="btn btn-primary btn-sm" onclick="window.comprasLancarOrdem('${p.id}')">📦 Lançar Ordem de Recebimento</button>` : statusPill('entregue', CLR.ok)}</div>
+          ${aberto > 0 ? (s.comprasOrdensRecebimento().some(o => o.pedidoId === p.id && o.status === 'aguardando')
+              ? statusPill('entrada lançada — aguardando conferência', CLR.blue)
+              : `<button class="btn btn-primary btn-sm" onclick="window.comprasLancarOrdem('${p.id}')">📥 Lançar entrada (NF)</button>`)
+            : statusPill('entregue', CLR.ok)}</div>
           <div style="overflow-x:auto"><table class="data-table"><thead><tr>
             <th>Produto</th><th>Empenho</th><th style="text-align:right">Pedido</th><th style="text-align:right">Entregue</th><th style="text-align:right">A entregar</th></tr></thead><tbody>
             ${itens.map(pi => {
@@ -294,18 +297,18 @@
   P.compras_recebimentos = (el) => {
     const s = S();
     const ordens = s.comprasOrdensRecebimento();
-    el.innerHTML = header('Ordens de Recebimento', 'Lançadas no Compras → o Estoque confere (física + NF) e devolve a qtd recebida') +
+    el.innerHTML = header('Ordens de Recebimento', 'Compras lança a NF como entrada → a conferência é feita no Estoque Central. Aqui é só acompanhamento.') +
+      `<div class="card" style="border-left:4px solid ${CLR.blue};margin-bottom:16px"><div style="padding:12px 16px;color:var(--text-secondary);font-size:.85rem">
+        📥 Ao lançar a entrada (em <strong>Pedidos</strong>), a ordem aparece na fila de <strong>Conferência de Entradas (NF)</strong> do perfil <strong>Estoque Central</strong>.
+        A confirmação lá dá a <strong>baixa do volume no empenho</strong> automaticamente.</div></div>` +
       (ordens.length ? ordens.map(o => {
         const f = s.comprasFornecedor(o.fornecedorId);
         const ped = s.comprasPedido(o.pedidoId);
         const itens = s.comprasOrdemRecebimentoItens(o.id);
+        const rotulo = o.status === 'aguardando' ? 'aguardando conferência (Estoque)' : o.status + (o.resultado ? ' (' + o.resultado + ')' : '');
         return `<div class="card" style="margin-bottom:16px"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-          <div><h3 class="card-title">${esc(o.numero)} · ${esc(f ? f.razaoSocial : '')} · ${statusPill(o.status + (o.resultado ? ' (' + o.resultado + ')' : ''), corStatus(o.resultado === 'divergente' ? 'divergente' : o.status))}</h3>
-          <small style="color:var(--text-secondary)">Pedido ${esc(ped ? ped.numero : '')} · destino ${esc(o.destino)}</small></div>
-          <div style="display:flex;gap:8px">
-            ${o.status === 'aguardando' ? `<button class="btn btn-outline btn-sm" onclick="window.comprasAbrirRecebimento('${o.id}')">📥 Simular conferência (Estoque)</button>` : ''}
-            ${o.status === 'conferida' ? `<button class="btn btn-primary btn-sm" onclick="window.comprasLiquidar('${o.id}')">✅ Liquidar empenho</button>` : ''}
-          </div></div>
+          <div><h3 class="card-title">${esc(o.numero)} · ${esc(f ? f.razaoSocial : '')} · ${statusPill(rotulo, corStatus(o.resultado === 'divergente' ? 'divergente' : o.status))}</h3>
+          <small style="color:var(--text-secondary)">Pedido ${esc(ped ? ped.numero : '')} · destino ${esc(o.destino)}</small></div></div>
           <div style="overflow-x:auto"><table class="data-table"><thead><tr>
             <th>Produto</th><th style="text-align:right">Esperado</th><th style="text-align:right">Recebido</th><th style="text-align:right">Divergência</th></tr></thead><tbody>
             ${itens.map(ri => `<tr>
@@ -314,7 +317,41 @@
               <td style="text-align:right;font-family:var(--font-mono)">${o.status === 'aguardando' ? '—' : kg(ri.qtdRecebida)}</td>
               <td style="text-align:right;font-family:var(--font-mono);color:${ri.divergencia < 0 ? CLR.bad : (ri.divergencia > 0 ? CLR.warn : CLR.ok)}">${o.status === 'aguardando' ? '—' : (ri.divergencia > 0 ? '+' : '') + kg(ri.divergencia)}</td></tr>`).join('')}
           </tbody></table></div></div>`;
-      }).join('') : `<div class="card"><div style="padding:32px;text-align:center;color:var(--text-secondary)">Nenhuma ordem lançada. Lance a partir de um pedido em “Pedidos / Aquisições”.</div></div>`);
+      }).join('') : `<div class="card"><div style="padding:32px;text-align:center;color:var(--text-secondary)">Nenhuma entrada lançada. Lance a partir de um pedido em “Pedidos / Aquisições”.</div></div>`);
+  };
+
+  // ─────────────────────────────────────────────────────────────
+  // ESTOQUE CENTRAL — Conferência de Entradas (NF)  [perfil estoque]
+  // Renderer registrado como estoque_conferencianf (roteador: profile_page)
+  // ─────────────────────────────────────────────────────────────
+  P.estoque_conferencianf = (el) => {
+    const s = S();
+    const ordens = s.comprasOrdensRecebimento();
+    const fila = ordens.filter(o => o.status === 'aguardando');
+    const feitas = ordens.filter(o => o.status !== 'aguardando');
+    el.innerHTML = header('Conferência de Entradas (NF)', 'Entradas lançadas pelo Compras aguardando conferência física + NF. A confirmação dá baixa no empenho.') +
+      `<div class="kpi-grid" style="margin-bottom:20px">
+        <div class="kpi-card orange"><div class="kpi-icon">📥</div><div class="kpi-value">${fila.length}</div><div class="kpi-label">Aguardando conferência</div></div>
+        <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${feitas.length}</div><div class="kpi-label">Conferidas</div></div>
+      </div>` +
+      (fila.length ? fila.map(o => {
+        const f = s.comprasFornecedor(o.fornecedorId);
+        const ped = s.comprasPedido(o.pedidoId);
+        const nf = (s.comprasNotas()).find(n => n.id === o.notaFiscalId);
+        const itens = s.comprasOrdemRecebimentoItens(o.id);
+        return `<div class="card" style="margin-bottom:16px"><div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div><h3 class="card-title">${esc(o.numero)} · ${esc(f ? f.razaoSocial : '')}</h3>
+          <small style="color:var(--text-secondary)">NF ${esc(nf ? nf.numero : '—')} · Pedido ${esc(ped ? ped.numero : '')} · destino ${esc(o.destino)}</small></div>
+          <button class="btn btn-primary btn-sm" onclick="window.comprasAbrirConferencia('${o.id}')">📥 Conferir e confirmar entrada</button></div>
+          <div style="overflow-x:auto"><table class="data-table"><thead><tr>
+            <th>Produto</th><th style="text-align:right">Qtd na NF (esperado)</th></tr></thead><tbody>
+            ${itens.map(ri => `<tr><td><strong>${esc(ri.produto)}</strong></td><td style="text-align:right;font-family:var(--font-mono)">${kg(ri.qtdEsperada)}</td></tr>`).join('')}
+          </tbody></table></div></div>`;
+      }).join('') : `<div class="card"><div style="padding:32px;text-align:center;color:var(--text-secondary)">Nenhuma entrada aguardando conferência.</div></div>`) +
+      (feitas.length ? `<div class="card"><div class="card-header"><h3 class="card-title">Conferidas recentemente</h3></div>
+        <div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Ordem</th><th>Fornecedor</th><th>Resultado</th><th>Conferente</th></tr></thead><tbody>
+        ${feitas.map(o => { const f = s.comprasFornecedor(o.fornecedorId); return `<tr><td style="font-family:var(--font-mono)">${esc(o.numero)}</td><td>${esc(f ? f.razaoSocial : '')}</td><td>${statusPill(o.resultado || '—', o.resultado === 'divergente' ? CLR.bad : CLR.ok)}</td><td>${esc(o.conferente || '—')}</td></tr>`; }).join('')}
+        </tbody></table></div></div>` : '');
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -322,17 +359,20 @@
   // ─────────────────────────────────────────────────────────────
   P.compras_liquidacao = (el) => {
     const s = S();
-    const ordens = s.comprasOrdensRecebimento().filter(o => o.status === 'conferida' || o.status === 'liquidada');
-    el.innerHTML = header('Liquidação', 'Baixa do empenho pelo RECEBIDO (não pelo pedido). Divergência gera pendência.') +
+    const pcs = s.comprasPrestacao();
+    el.innerHTML = header('Liquidação', 'A baixa (liquidação) do empenho ocorre na CONFERÊNCIA do Estoque, pelo recebido. Aqui: liquidados e pagamento.') +
       `<div class="card"><div style="overflow-x:auto"><table class="data-table"><thead><tr>
-        <th>Ordem</th><th>Pedido</th><th>Resultado</th><th>Status</th><th></th></tr></thead><tbody>
-        ${ordens.length ? ordens.map(o => {
-          const ped = s.comprasPedido(o.pedidoId);
-          return `<tr><td style="font-family:var(--font-mono)">${esc(o.numero)}</td><td>${esc(ped ? ped.numero : '')}</td>
-            <td>${statusPill(o.resultado || '—', o.resultado === 'divergente' ? CLR.bad : CLR.ok)}</td>
-            <td>${statusPill(o.status, corStatus(o.status))}</td>
-            <td style="text-align:right">${o.status === 'conferida' ? `<button class="btn btn-primary btn-sm" onclick="window.comprasLiquidar('${o.id}')">✅ Liquidar</button>` : statusPill('liquidada', CLR.ok)}</td></tr>`;
-        }).join('') : `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma ordem conferida aguardando liquidação.</td></tr>`}
+        <th>Empenho</th><th>Ordem</th><th style="text-align:right">Liquidado</th><th style="text-align:right">Pago</th><th>Status</th><th></th></tr></thead><tbody>
+        ${pcs.length ? pcs.map(p => {
+          const emp = s.comprasEmpenho(p.empenhoId);
+          const pago = (p.valorPago || 0) >= (p.valorLiquidado || 0) && p.valorLiquidado > 0;
+          return `<tr><td style="font-family:var(--font-mono)">${esc(emp ? emp.numero : p.empenhoId)}</td>
+            <td style="font-family:var(--font-mono)">${esc(p.ordemId || '—')}</td>
+            <td style="text-align:right;font-family:var(--font-mono)">${brl(p.valorLiquidado)}</td>
+            <td style="text-align:right;font-family:var(--font-mono)">${brl(p.valorPago)}</td>
+            <td>${statusPill(pago ? 'pago' : 'liquidado', pago ? CLR.ok : CLR.blue)}</td>
+            <td style="text-align:right">${pago ? statusPill('pago', CLR.ok) : `<button class="btn btn-primary btn-sm" onclick="window.comprasRegistrarPagamento('${p.id}')">💰 Registrar pagamento</button>`}</td></tr>`;
+        }).join('') : `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhuma liquidação. Elas surgem quando o Estoque confirma a entrada da NF.</td></tr>`}
       </tbody></table></div></div>`;
   };
 
@@ -381,17 +421,24 @@
   // AÇÕES (window.*)
   // ═════════════════════════════════════════════════════════════
   window.comprasSimularOsCardapio = () => {
-    // Demanda calculada = previsto (cardápio) − estoque atual
-    S().comprasEmitirOsCompra({
-      origem: 'nutricao', solicitante: 'Dra. Lilian Droppa', cardapioId: 'menu-jul-reg', periodo: 'Julho/2026',
-      itens: [
-        { produto: 'Arroz Tipo 1',       unidade: 'kg', qtdPrevista: 400, qtdEstoque: 150 },
-        { produto: 'Feijão Carioca',     unidade: 'kg', qtdPrevista: 300, qtdEstoque: 50 },
-        { produto: 'Macarrão Espaguete', unidade: 'kg', qtdPrevista: 500, qtdEstoque: 150 },
-        { produto: 'Farinha de Trigo',   unidade: 'kg', qtdPrevista: 200, qtdEstoque: 0 },
-      ],
+    const s = S();
+    // Demanda calculada = previsto (cardápio) − estoque atual.
+    // Usa produtos REAIS das atas (secos, se existirem), com fornecedor derivado da ata.
+    const vig = s.comprasAtas().filter(a => a.status === 'vigente').map(a => a.id);
+    const itensAta = s.comprasAtaItens().filter(ai => vig.includes(ai.ataId));
+    const querer = ['Arroz', 'Feijão', 'Macarrão', 'Farinha', 'Óleo', 'Frango'];
+    let escolhidos = [];
+    querer.forEach(n => { const hit = itensAta.find(ai => ai.produto.includes(n) && !escolhidos.includes(ai)); if (hit) escolhidos.push(hit); });
+    if (escolhidos.length < 3) escolhidos = itensAta.slice(0, 4);
+    escolhidos = escolhidos.slice(0, 4);
+    if (!escolhidos.length) return toast('⚠️ Sem atas vigentes para gerar demanda.', 'warning');
+    const itens = escolhidos.map((ai, i) => {
+      const prev = [4000, 3000, 5000, 2000][i] || 2000;
+      const est = [1500, 500, 1500, 0][i] || 0;
+      return { produto: ai.produto, unidade: ai.unidade, qtdPrevista: prev, qtdEstoque: est };
     });
-    toast('📥 OS de Compra emitida (previsto − estoque).', 'success');
+    s.comprasEmitirOsCompra({ origem: 'nutricao', solicitante: 'Dra. Lilian Droppa', cardapioId: 'menu-jul-reg', periodo: 'Julho/2026', itens });
+    toast('📥 OS de Compra emitida (previsto − estoque) com produtos reais das atas.', 'success');
     rerender();
   };
 
@@ -421,43 +468,49 @@
     navigateTo(null, 'recebimentos');
   };
 
-  // Simula o Estoque executando a conferência (modal simples)
-  window.comprasAbrirRecebimento = (ordemId) => {
+  // Estoque Central executa a conferência (modal). A confirmação dá a baixa no empenho.
+  window.comprasAbrirConferencia = (ordemId) => {
     const s = S();
-    const ordem = s.comprasOrdensRecebimento().find(o => o.id === ordemId);
     const itens = s.comprasOrdemRecebimentoItens(ordemId);
     const rows = itens.map(ri => `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid #eee">
-      <span><strong>${esc(ri.produto)}</strong> · esperado ${kg(ri.qtdEsperada)} kg</span>
+      <span><strong>${esc(ri.produto)}</strong> · NF/esperado ${kg(ri.qtdEsperada)} kg</span>
       <input type="number" id="rec-${ri.id}" value="${ri.qtdEsperada}" min="0" step="1" style="width:120px;padding:6px;border:1px solid #ccc;border-radius:6px;font-family:var(--font-mono)"></div>`).join('');
     const ov = document.createElement('div');
     ov.id = 'compras-modal-overlay';
     ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:9999';
     ov.innerHTML = `<div style="background:var(--bg-primary,#fff);border-radius:12px;max-width:520px;width:92%;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-      <h3 style="margin:0 0 4px">Conferência física + NF (Estoque)</h3>
-      <p style="margin:0 0 14px;color:var(--text-secondary);font-size:.85rem">Informe a quantidade efetivamente recebida. Pode divergir do pedido — a baixa do empenho usará o recebido.</p>
+      <h3 style="margin:0 0 4px">Conferência de entrada (física + NF)</h3>
+      <p style="margin:0 0 14px;color:var(--text-secondary);font-size:.85rem">Informe a quantidade efetivamente recebida. Pode divergir da NF — a <strong>baixa do empenho usará o recebido</strong>. Ao confirmar, a entrada da NF é registrada e o volume é baixado no empenho.</p>
       ${rows}
       <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:18px">
         <button class="btn btn-outline btn-sm" onclick="document.getElementById('compras-modal-overlay').remove()">Cancelar</button>
-        <button class="btn btn-primary btn-sm" onclick="window.comprasConfirmarRecebimento('${ordemId}')">Confirmar recebimento</button>
+        <button class="btn btn-primary btn-sm" onclick="window.comprasConfirmarConferencia('${ordemId}')">Confirmar entrada da NF</button>
       </div></div>`;
     document.body.appendChild(ov);
   };
 
-  window.comprasConfirmarRecebimento = (ordemId) => {
+  window.comprasConfirmarConferencia = (ordemId) => {
     const s = S();
     const itens = s.comprasOrdemRecebimentoItens(ordemId);
     const map = {};
     itens.forEach(ri => { const inp = document.getElementById('rec-' + ri.id); map[ri.id] = inp ? Number(inp.value) : ri.qtdEsperada; });
-    s.comprasRegistrarRecebimento(ordemId, map);
+    const prof = (typeof PROFILES !== 'undefined' && typeof state !== 'undefined' && PROFILES[state.currentProfile]) ? PROFILES[state.currentProfile].name : 'Estoque Central';
+    const r = s.comprasConfirmarEntradaEstoque(ordemId, map, prof);
     const ov = document.getElementById('compras-modal-overlay'); if (ov) ov.remove();
-    toast('📥 Conferência registrada. Pronto para liquidar no Compras.', 'success');
+    if (r && r.erro) return toast('⚠️ ' + r.erro, 'warning');
+    toast('✅ Entrada da NF confirmada. Baixa do volume no empenho aplicada.', 'success');
     rerender();
   };
+  // compat: nomes antigos
+  window.comprasAbrirRecebimento = (id) => window.comprasAbrirConferencia(id);
 
-  window.comprasLiquidar = (ordemId) => {
-    const r = S().comprasLiquidar(ordemId);
-    if (r.erro) return toast('⚠️ ' + r.erro, 'warning');
-    toast('✅ Empenho liquidado pelo recebido (' + r.empenhos + ' empenho[s]).', 'success');
+  window.comprasRegistrarPagamento = (pcId) => {
+    const s = S();
+    const pc = (s._compras().prestacaoContas || []).find(p => p.id === pcId);
+    if (!pc) return toast('⚠️ liquidação não encontrada', 'warning');
+    pc.valorPago = pc.valorLiquidado; pc.dataPagamento = new Date().toISOString().slice(0, 10); pc.status = 'pago';
+    s._persist();
+    toast('💰 Pagamento registrado.', 'success');
     rerender();
   };
 
@@ -465,8 +518,9 @@
     const s = S();
     const d = s._defaults().compras;
     s._data.compras = JSON.parse(JSON.stringify(d));
+    s.comprasImportarAtasDoGestor(true); // recarrega as atas unificadas do Gestor
     s._persist();
-    toast('↻ Dados de Compras restaurados ao seed.', 'info');
+    toast('↻ Compras restaurado: atas reimportadas do Gestor, transacional zerado.', 'info');
     rerender();
   };
 })();

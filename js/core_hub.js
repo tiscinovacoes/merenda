@@ -565,53 +565,15 @@ const SharedState = {
       os_fornecedores: [],  // OS para cooperativas e agricultores
       // ── COMPRAS & CONTRATOS (perfil compras) — Ata → Contrato → Empenho → Pedido ──
       // Modelo em cascata por (produto × fornecedor). Saldos são DERIVADOS (ver métodos compras*).
-      // Seed = exemplo real: ata com 4 itens / 3 fornecedores.
+      // As ATAS são UNIFICADAS: carregadas de DATA.contracts + DATA.ataProducts (perfil Gestor)
+      // via comprasImportarAtasDoGestor() no init — banco único de atas. Ver ESPEC.
       compras: {
-        fornecedores: [
-          { id: 'forn-tal', razaoSocial: 'Talismã Alimentos Ltda',        cnpj: '11.111.111/0001-11', tipo: 'Distribuidora', contato: 'Comercial Talismã',      status: 'ativo' },
-          { id: 'forn-ata', razaoSocial: 'Atacarejo Distribuição S.A.',    cnpj: '22.222.222/0001-22', tipo: 'Atacadista',    contato: 'Central Atacarejo',      status: 'ativo' },
-          { id: 'forn-brs', razaoSocial: 'Distribuidora Brasil Ltda',      cnpj: '33.333.333/0001-33', tipo: 'Distribuidora', contato: 'Vendas Brasil',           status: 'ativo' },
-        ],
-        atas: [
-          { id: 'ata-018', numero: 'ATA-2026/018', ano: 2026, modalidade: 'Pregão Eletrônico', processo: 'PE-018/2026', objeto: 'Gêneros alimentícios secos — merenda escolar', dataInicio: '2026-03-01', dataFim: '2027-02-28', status: 'vigente' },
-        ],
-        ataItens: [
-          { id: 'ai-arroz',   ataId: 'ata-018', fornecedorId: 'forn-tal', produto: 'Arroz Tipo 1',      unidade: 'kg', qtdLicitada: 1000, precoUnit: 17.00 },
-          { id: 'ai-feijao',  ataId: 'ata-018', fornecedorId: 'forn-ata', produto: 'Feijão Carioca',    unidade: 'kg', qtdLicitada: 1000, precoUnit:  9.00 },
-          { id: 'ai-macarrao',ataId: 'ata-018', fornecedorId: 'forn-brs', produto: 'Macarrão Espaguete',unidade: 'kg', qtdLicitada: 1000, precoUnit: 12.00 },
-          { id: 'ai-farinha', ataId: 'ata-018', fornecedorId: 'forn-tal', produto: 'Farinha de Trigo',  unidade: 'kg', qtdLicitada: 1000, precoUnit:  8.00 },
-        ],
-        contratos: [
-          { id: 'ct-tal', numero: 'CT-2026/041', ataId: 'ata-018', fornecedorId: 'forn-tal', dataInicio: '2026-03-10', dataFim: '2027-02-28', status: 'vigente' },
-          { id: 'ct-ata', numero: 'CT-2026/042', ataId: 'ata-018', fornecedorId: 'forn-ata', dataInicio: '2026-03-10', dataFim: '2027-02-28', status: 'vigente' },
-          { id: 'ct-brs', numero: 'CT-2026/043', ataId: 'ata-018', fornecedorId: 'forn-brs', dataInicio: '2026-03-10', dataFim: '2027-02-28', status: 'vigente' },
-        ],
-        contratoItens: [
-          { id: 'ci-arroz',    contratoId: 'ct-tal', ataItemId: 'ai-arroz',    qtdContratada: 500, precoUnit: 17.00 },
-          { id: 'ci-farinha',  contratoId: 'ct-tal', ataItemId: 'ai-farinha',  qtdContratada: 500, precoUnit:  8.00 },
-          { id: 'ci-feijao',   contratoId: 'ct-ata', ataItemId: 'ai-feijao',   qtdContratada: 500, precoUnit:  9.00 },
-          { id: 'ci-macarrao', contratoId: 'ct-brs', ataItemId: 'ai-macarrao', qtdContratada: 500, precoUnit: 12.00 },
-        ],
-        empenhos: [
-          { id: 'emp-tal', numero: 'NE-2026/0101', contratoId: 'ct-tal', dotacao: '12.306.0001', dataEmpenho: '2026-04-01', status: 'ativo', origemPedidoId: null },
-          { id: 'emp-ata', numero: 'NE-2026/0102', contratoId: 'ct-ata', dotacao: '12.306.0001', dataEmpenho: '2026-04-01', status: 'ativo', origemPedidoId: null },
-          { id: 'emp-brs', numero: 'NE-2026/0103', contratoId: 'ct-brs', dotacao: '12.306.0001', dataEmpenho: '2026-04-01', status: 'ativo', origemPedidoId: null },
-        ],
-        empenhoItens: [
-          { id: 'ei-arroz',    empenhoId: 'emp-tal', contratoItemId: 'ci-arroz',    qtdEmpenhada: 250, precoUnit: 17.00 },
-          { id: 'ei-farinha',  empenhoId: 'emp-tal', contratoItemId: 'ci-farinha',  qtdEmpenhada: 500, precoUnit:  8.00 },
-          { id: 'ei-feijao',   empenhoId: 'emp-ata', contratoItemId: 'ci-feijao',   qtdEmpenhada: 250, precoUnit:  9.00 },
-          { id: 'ei-macarrao', empenhoId: 'emp-brs', contratoItemId: 'ci-macarrao', qtdEmpenhada: 350, precoUnit: 12.00 },
-        ],
-        osCompra: [],
-        osCompraItens: [],
-        pedidos: [],
-        pedidoItens: [],
-        notasFiscais: [],
-        ordensRecebimento: [],
-        ordemRecebimentoItens: [],
-        prestacaoContas: [],
-        _seq: { osCompra: 0, pedido: 0, empenho: 103, contrato: 43, nota: 0, ordem: 0 },
+        fornecedores: [], atas: [], ataItens: [],
+        contratos: [], contratoItens: [], empenhos: [], empenhoItens: [],
+        osCompra: [], osCompraItens: [], pedidos: [], pedidoItens: [],
+        notasFiscais: [], ordensRecebimento: [], ordemRecebimentoItens: [], prestacaoContas: [],
+        _seq: { osCompra: 0, pedido: 0, empenho: 0, contrato: 0, nota: 0, ordem: 0 },
+        _importadoGestor: false,
       },
       // ── LOGÍSTICA / CONTÁBIL (legacy — empenhos locais) ──
       empenhos: [
@@ -664,6 +626,10 @@ const SharedState = {
       console.warn('[SharedState] Falha ao carregar; usando defaults.', e);
       this._data = this._defaults();
     }
+
+    // Unificação das ATAS: carrega as atas reais do Gestor (DATA.contracts) no
+    // banco único do perfil Compras. Idempotente (só na 1ª vez ou via force).
+    try { this.comprasImportarAtasDoGestor(); } catch (e) { console.warn('[Compras] import atas falhou', e); }
 
     // Sincroniza entre abas do navegador: se outra aba mudou o estado,
     // recarrega e re-renderiza a página atual do perfil ativo.
@@ -1572,14 +1538,54 @@ const SharedState = {
   comprasOrdemRecebimentoItens(ordemId){ const o = this._compras().ordemRecebimentoItens || []; return ordemId ? o.filter(i => i.ordemId === ordemId) : [...o]; },
   comprasPrestacao()    { return [...(this._compras().prestacaoContas || [])]; },
 
+  // Unifica as ATAS: carrega DATA.contracts + DATA.ataProducts (perfil Gestor)
+  // para o banco único de atas do perfil Compras. Idempotente.
+  // qtdExecutada preserva o "executado" do Gestor (executedValue/preço) para que
+  // o saldo da ata bata com a tela do Gestor (saldo = global − executado).
+  comprasImportarAtasDoGestor(force) {
+    const c = this._compras();
+    if (c._importadoGestor && !force) return { skipped: true };
+    const contracts = (window.DATA && DATA.contracts) || [];
+    const products = (window.DATA && DATA.ataProducts) || [];
+    if (!contracts.length) return { erro: 'DATA.contracts indisponível' };
+    const fornMap = {}; const fornecedores = []; const atas = []; const ataItens = [];
+    const norm = (x) => String(x == null ? '' : x).trim();
+    contracts.forEach(ct => {
+      const sup = norm(ct.supplier);
+      let fid = fornMap[sup];
+      if (!fid) {
+        fid = 'forn-g' + (fornecedores.length + 1); fornMap[sup] = fid;
+        fornecedores.push({ id: fid, razaoSocial: sup, cnpj: '', tipo: ct.modalidade === 'chamada_publica' ? 'Agricultura Familiar' : 'Distribuidora', contato: '', status: 'ativo' });
+      }
+      const status = /encerr/i.test(ct.status) ? 'encerrada' : 'vigente';
+      atas.push({ id: 'ata-g' + ct.id, numero: ct.number, ano: parseInt(String(ct.number).slice(4, 8)) || 2026,
+        modalidade: ct.modalidade === 'chamada_publica' ? 'Chamada Pública (AF)' : 'Pregão Eletrônico',
+        processo: '', objeto: '', dataInicio: ct.start, dataFim: ct.end, status, origem: 'gestor', gestorAtaId: ct.id });
+      products.filter(p => p.ataId === ct.id).forEach(p => {
+        ataItens.push({ id: 'ai-g' + p.id, ataId: 'ata-g' + ct.id, fornecedorId: fid, produto: p.name, unidade: p.unit,
+          qtdLicitada: p.maxQtd || 0, precoUnit: p.unitPrice || 0,
+          qtdExecutada: p.unitPrice ? Math.round((p.executedValue || 0) / p.unitPrice) : 0, stockProductId: p.stockProductId });
+      });
+    });
+    c.fornecedores = fornecedores; c.atas = atas; c.ataItens = ataItens;
+    // zera o transacional (banco único, começa limpo em cima das atas reais)
+    c.contratos = []; c.contratoItens = []; c.empenhos = []; c.empenhoItens = [];
+    c.osCompra = []; c.osCompraItens = []; c.pedidos = []; c.pedidoItens = [];
+    c.notasFiscais = []; c.ordensRecebimento = []; c.ordemRecebimentoItens = []; c.prestacaoContas = [];
+    c._seq = { osCompra: 0, pedido: 0, empenho: 0, contrato: 0, nota: 0, ordem: 0 };
+    c._importadoGestor = true;
+    this._persist(); this._emit('compras:import');
+    return { atas: atas.length, itens: ataItens.length, fornecedores: fornecedores.length };
+  },
+
   // ── Saldos derivados (a espinha dorsal) ──
-  // Nível ATA: licitado − Σ contratado (ato firme)
+  // Nível ATA: licitado − executado(legado Gestor) − Σ contratado (ato firme)
   comprasSaldoAtaItem(ataItemId) {
     const ai = this.comprasAtaItem(ataItemId); if (!ai) return 0;
     const contratado = (this._compras().contratoItens || [])
       .filter(ci => ci.ataItemId === ataItemId)
       .reduce((s, ci) => s + (ci.qtdContratada || 0), 0);
-    return (ai.qtdLicitada || 0) - contratado;
+    return (ai.qtdLicitada || 0) - (ai.qtdExecutada || 0) - contratado;
   },
   // Nível CONTRATO: contratado − Σ empenhado (ato firme)
   comprasSaldoContratoItem(contratoItemId) {
@@ -1753,6 +1759,25 @@ const SharedState = {
     }
     this._persist(); this._emit('compras:receb');
     return ordem;
+  },
+  // ESTOQUE CENTRAL confirma a entrada da NF: grava recebido, dá baixa no
+  // volume do empenho (liquidação automática) e registra a prestação de contas.
+  // É o gatilho do fluxo — a conferência mora no perfil Estoque Central.
+  comprasConfirmarEntradaEstoque(ordemId, recebidosPorItemId, conferente) {
+    const c = this._compras();
+    const ordem = (c.ordensRecebimento || []).find(o => o.id === ordemId);
+    if (!ordem) return { erro: 'ordem não encontrada' };
+    if (ordem.status !== 'aguardando') return { erro: 'entrada já conferida' };
+    const rec = this.comprasRegistrarRecebimento(ordemId, recebidosPorItemId || {});
+    if (rec && rec.conferidoEm && conferente) ordem.conferente = conferente;
+    // NF confirmada
+    if (ordem.notaFiscalId) {
+      const nf = (c.notasFiscais || []).find(n => n.id === ordem.notaFiscalId);
+      if (nf) nf.status = 'conferida';
+    }
+    // baixa do volume no empenho (liquidação) + prestação de contas
+    const liq = this.comprasLiquidar(ordemId);
+    return { ok: true, ...rec, ...liq };
   },
   // Compras LIQUIDA o empenho pelo recebido (baixa) + prestação de contas
   comprasLiquidar(ordemId) {
@@ -1938,6 +1963,7 @@ const PROFILES = {
       { id: 'dashboard', icon: '📊', label: 'Dashboard Operacional', badge: null },
       { id: 'inventario', icon: '🏢', label: 'Estoque Central', badge: null },
       { type: 'group', label: 'Recebimento & Expedição', children: [
+        { id: 'conferencianf',         icon: '📥', label: 'Conferência de Entradas (NF)', badge: 'NEW' },
         { id: 'recebimentos-pendentes',icon: '🚚', label: 'Recebimentos Pendentes', badge: null },
         { id: 'expedicao-os',          icon: '📦', label: 'Expedição (OS Escolas)',   badge: null },
       ]},

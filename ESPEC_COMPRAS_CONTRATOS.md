@@ -348,6 +348,23 @@ Pontos de integração com o que já existe:
 10. Ajustar perfil Gestor para só-leitura; ajustar Estoque: só **estoque + entrega + executar Ordem
     de Recebimento** (sem posse de NF e **sem acesso a saldo de empenho**).
 
+## 9. Refinamentos aplicados na implementação (2026-08-25)
+
+- **Conferência mora no Estoque Central.** A simulação/execução da conferência de entrada
+  saiu do perfil Compras e virou a tela **“Conferência de Entradas (NF)”** no perfil Estoque
+  (`estoque_conferencianf`). Fluxo: empenho → pedido (sobre o empenho) → fornecedor fatura → NF
+  → **Compras lança a NF como entrada** → aparece na fila do Estoque → Estoque confere →
+  **confirma a entrada da NF e dá a baixa do volume no empenho** (automática, pelo recebido).
+  Método `comprasConfirmarEntradaEstoque()` = registra recebido + baixa (liquidação) + prestação.
+  No Compras, “Ordens de Recebimento” virou só acompanhamento e “Liquidação” mostra liquidados +
+  pagamento.
+- **Banco único de atas (unificação).** As atas do perfil Gestor (`DATA.contracts` +
+  `DATA.ataProducts`) são carregadas no store do Compras via `comprasImportarAtasDoGestor()`
+  (idempotente, roda no `init`). `qtdExecutada` (= executado/preço do Gestor) entra no
+  `saldo_ata` para os números baterem com a tela do Gestor (ex.: ATA-2026/001 saldo
+  R$ 3.477.280). 6 atas · 27 itens · 6 fornecedores importados. O transacional (contratos,
+  empenhos, pedidos…) começa limpo sobre as atas reais e é preenchido pela cascata.
+
 ---
 
 ### Pontos abertos p/ validar antes de aplicar
