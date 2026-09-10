@@ -977,12 +977,21 @@
     const _row = (c, i, allowEdit, allowPublish) => {
       const periodoStr = c.periodo || `${(c.data_inicio||'').split('-').reverse().join('/')} a ${(c.data_fim||'').split('-').reverse().join('/')}`;
       const periodicidadeTag = `<span class="tag tag-green" style="font-size:0.7rem;margin-left:4px;font-weight:700">${(c.periodicidade || 'mensal').toUpperCase()} (${c.numSemanas || 5} sem)</span>`;
+      
+      // Localiza se há OS de Compra vinculada a este cardápio
+      const osNumero = c.osCompraNumero || (SharedState.comprasOsCompra ? (SharedState.comprasOsCompra().find(o => o.cardapioId === c.id || o.cardapioId === ('menu-' + c.id))?.numero) : null);
+      const oscBadge = osNumero 
+        ? `<span class="tag tag-purple" style="font-size:0.7rem;margin-left:4px;cursor:pointer;font-weight:700" onclick="navigateTo('compras','oscompra')" title="Ver Ordem de Compra em Compras & Contratos">🛒 ${osNumero}</span>`
+        : '';
+      const suprimentosBtn = `<button class="table-action" style="color:#0284c7;font-weight:600" onclick="window.abrirModalDimensionamentoCardapio('${c.id || i}')" title="Ver diagnóstico de estoque e compras">📦 Suprimentos</button>`;
+
       return `
         <tr>
           <td>
             <span class="tag tag-blue" style="font-size:0.75rem; font-family:var(--font-mono); margin-right:4px;">${c.codigoCardapio || 'CARD-2026/08-101'}</span>
             <strong>${c.nome}</strong>
             ${periodicidadeTag}
+            ${oscBadge}
           </td>
           <td>${periodoStr}</td>
           <td style="font-family:var(--font-mono)">${c.escolas || '—'}</td>
@@ -990,6 +999,7 @@
           <td>
             <div style="display:flex;gap:4px;flex-wrap:wrap">
               <button class="table-action" style="color:#0284c7;font-weight:700" onclick="window.visualizarEImprimirCardapio('${(c.id || c.nome || '').replace(/'/g,"\\'")}')">👁️ Visualizar</button>
+              ${suprimentosBtn}
               ${allowEdit ? `<button class="table-action" onclick="showMenuPlanner('${c.id || i}')">✏️ Editar</button>` : ''}
               ${allowPublish && !readOnly ? `<button class="table-action" style="color:#16a34a;font-weight:700;border:1px solid #16a34a;border-radius:4px;padding:2px 8px" onclick="window.publicarCardapio('${c.id || i}')">🚀 Publicar</button>` : ''}
               ${!readOnly ? `<button class="table-action" style="color:var(--danger)" onclick="excluirCardapio('${c.id || i}')">🗑️ Excluir</button>` : ''}

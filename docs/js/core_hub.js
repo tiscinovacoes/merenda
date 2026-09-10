@@ -4289,48 +4289,284 @@ window.excluirCardapio = (idOrIdx) => {
   if (container) PAGE_RENDERERS.nutricionista_cardapios(container);
 };
 
-// ─── Publicar Cardápio em Elaboração ────────────────────────────────────────
-window.publicarCardapio = (id) => {
-  if (!confirm('Publicar este cardápio? Ele ficará visível para as escolas e serão geradas as Ordens de Serviço automáticas.')) return;
+// ─── Publicar Cardápio em Elaboração (com Dimensionamento Automático Ficha Técnica → Estoque / Compras) ──
+window.abrirModalDimensionamentoCardapio = (id) => {
+  const sid = String(id);
+  let menu = null;
+  if (window.SharedState) {
+    menu = window.SharedState.getCardapio(sid) 
+        || (window.SharedState.getMenus ? window.SharedState.getMenus().find(m => m.id === sid || m.nome === sid) : null);
+    if (!menu && sid.startsWith('wk-') && window.SharedState.getWeeklyMenus) {
+      menu = window.SharedState.getWeeklyMenus().find(w => w.id === sid);
+    }
+  }
+  if (!menu && sid.startsWith('legacy-')) {
+    const idx = parseInt(sid.replace('legacy-', ''), 10);
+    const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+    if (!isNaN(idx) && legacy[idx]) menu = { id: sid, ...legacy[idx] };
+  }
+  menu = menu || window.currentActiveIAMenu || window.tempIAMenuPreview;
+
+  if (!menu) {
+    if (typeof showToast === 'function') showToast('⚠️ Cardápio não encontrado para dimensionamento.');
+    return;
+  }
+
+  // Dimensiona a demanda contra o Estoque Central e Compras
+  let dimensionamento = null;
+  if (window.AICardapioEngine && typeof window.AICardapioEngine.dimensionarDemandaEstoqueCompras === 'function') {
+    dimensionamento = window.AICardapioEngine.dimensionarDemandaEstoqueCompras(menu);
+  }
+
+  // Fallback se a engine retornar null
+  if (!dimensionamento) {
+    return window.executarPublicacaoCardapio(id);
+  }
+
+  const res = dimensionamento.resumo;
+  const modalId = 'modal-dimensionamento-cardapio';
+  document.getElementById(modalId)?.remove();
+
+  const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
+
+  const modalHtml = `
+    <div id="${modalId}" class="modal-backdrop" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px;">
+      <div class="modal-card animate-fade-up" style="background:var(--surface);width:100%;max-width:980px;max-height:90vh;display:flex;flex-direction:column;border-radius:var(--radius-lg);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid var(--border);">
+        
+        <!-- Header -->
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:flex-start;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:1.4rem;">📊</span>
+              <h2 style="font-size:1.25rem;font-weight:700;color:var(--text-primary);margin:0;">Dimensionamento & Suprimentos de Merenda</h2>
+              <span class="tag tag-blue" style="font-family:var(--font-mono);font-size:0.75rem;">${esc(menu.codigoCardapio || 'CARD-2026')}</span>
+            </div>
+            <p style="margin:4px 0 0 0;font-size:0.85rem;color:var(--text-secondary);">
+              Cardápio: <strong>${esc(menu.nome || 'Cardápio')}</strong> · Período: <strong>${esc(menu.periodo || 'Mensal')}</strong> · <strong>${dimensionamento.totalEscolas}</strong> escolas vinculadas (<strong>${dimensionamento.totalAlunos.toLocaleString('pt-BR')}</strong> alunos)
+            </p>
+          </div>
+          <button type="button" class="btn btn-sm btn-ghost" style="font-size:1.2rem;line-height:1;color:var(--text-tertiary);cursor:pointer;" onclick="document.getElementById('${modalId}').remove()">✕</button>
+        </div>
+
+        <!-- KPIs Resumo -->
+        <div style="padding:16px 24px;background:var(--surface-2);border-bottom:1px solid var(--border);display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+          <div class="kpi-card blue" style="padding:10px 14px;background:var(--surface);">
+            <div class="kpi-value" style="font-size:1.3rem;">${res.totalItens}</div>
+            <div class="kpi-label" style="font-size:0.75rem;">Insumos da Ficha Técnica</div>
+          </div>
+          <div class="kpi-card green" style="padding:10px 14px;background:var(--surface);">
+            <div class="kpi-value" style="font-size:1.3rem;color:#16a34a;">${res.itensCobertos}</div>
+            <div class="kpi-label" style="font-size:0.75rem;">Cobertos pelo Estoque CD</div>
+          </div>
+          <div class="kpi-card ${res.itensCompra > 0 ? 'orange' : 'green'}" style="padding:10px 14px;background:var(--surface);">
+            <div class="kpi-value" style="font-size:1.3rem;color:${res.itensCompra > 0 ? '#ea580c' : '#16a34a'};">${res.itensCompra}</div>
+            <div class="kpi-label" style="font-size:0.75rem;">Demanda de Compra (OSC)</div>
+          </div>
+          <div class="kpi-card purple" style="padding:10px 14px;background:var(--surface);">
+            <div class="kpi-value" style="font-size:1.15rem;color:#7c3aed;">${typeof formatCurrency === 'function' ? formatCurrency(res.valorTotalEstimadoCompra) : 'R$ ' + res.valorTotalEstimadoCompra.toLocaleString('pt-BR')}</div>
+            <div class="kpi-label" style="font-size:0.75rem;">Estimativa em Atas Vigentes</div>
+          </div>
+        </div>
+
+        <!-- Diagnóstico Informativo -->
+        <div style="padding:12px 24px;background:${res.itensCompra > 0 ? 'rgba(234, 88, 12, 0.08)' : 'rgba(22, 163, 74, 0.08)'};border-bottom:1px solid var(--border);font-size:0.85rem;color:var(--text-primary);display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.2rem;">${res.itensCompra > 0 ? 'ℹ️' : '✅'}</span>
+          <div>
+            ${res.itensCompra > 0 
+              ? `O Estoque Central atende parte dos itens. Ao confirmar, o saldo existente será <strong>reservado para expedição às escolas</strong> e uma <strong>Ordem de Serviço de Compra (OSC)</strong> será encaminhada automaticamente para o setor de <strong>Compras & Contratos</strong> com ${res.itensCompra} produto(s).`
+              : `<strong>100% Coberto!</strong> Todos os insumos do cardápio possuem saldo disponível no Estoque Central. Ao confirmar, os lotes serão reservados para separação FEFO e entrega às escolas.`}
+          </div>
+        </div>
+
+        <!-- Tabela com Scroll -->
+        <div style="padding:0;overflow-y:auto;flex:1;">
+          <table class="data-table" style="width:100%;margin:0;font-size:0.82rem;">
+            <thead style="position:sticky;top:0;background:var(--surface);z-index:2;box-shadow:0 1px 2px rgba(0,0,0,0.05);">
+              <tr>
+                <th>Produto / Ficha Técnica</th>
+                <th style="text-align:right;">Demanda Cardápio</th>
+                <th style="text-align:right;">Estoque CD</th>
+                <th style="text-align:right;">Atendido CD</th>
+                <th style="text-align:right;">A Comprar</th>
+                <th>Fornecedor / Ata</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${dimensionamento.itens.map(it => {
+                let badge = `<span class="status-badge status-ok">✓ Coberto</span>`;
+                if (it.status === 'parcial') {
+                  badge = `<span class="status-badge status-warning">⚠️ Parcial (${it.qtdNecessaria} ${it.unidade})</span>`;
+                } else if (it.status === 'comprar') {
+                  badge = `<span class="status-badge status-danger">🛒 Comprar (${it.qtdNecessaria} ${it.unidade})</span>`;
+                }
+                const ataTxt = it.ataInfo 
+                  ? `<div style="font-weight:600">${esc(it.ataInfo.fornecedor)}</div><div style="font-size:0.7rem;color:var(--text-tertiary);">${esc(it.ataInfo.ataNumero)} · Saldo: ${it.ataInfo.saldoAta.toLocaleString('pt-BR')} ${it.unidade}</div>` 
+                  : `<span style="color:var(--text-tertiary);font-size:0.75rem;">—</span>`;
+                return `
+                  <tr>
+                    <td>
+                      <strong>${esc(it.produto)}</strong>
+                      ${it.af ? '<span class="tag tag-green" style="font-size:0.65rem;margin-left:4px;">AF 🌾</span>' : ''}
+                      ${it.itemEspecial ? '<span class="tag tag-orange" style="font-size:0.65rem;margin-left:4px;">Dieta Especial 🛡️</span>' : ''}
+                    </td>
+                    <td style="text-align:right;font-family:var(--font-mono);font-weight:600;">${it.qtdPrevista.toLocaleString('pt-BR')} ${it.unidade}</td>
+                    <td style="text-align:right;font-family:var(--font-mono);color:var(--text-secondary);">${it.qtdEstoque.toLocaleString('pt-BR')} ${it.unidade}</td>
+                    <td style="text-align:right;font-family:var(--font-mono);color:#16a34a;">${it.qtdAtendidaEstoque.toLocaleString('pt-BR')} ${it.unidade}</td>
+                    <td style="text-align:right;font-family:var(--font-mono);font-weight:700;color:${it.qtdNecessaria > 0 ? '#ea580c' : 'var(--text-tertiary)'};">
+                      ${it.qtdNecessaria > 0 ? it.qtdNecessaria.toLocaleString('pt-BR') + ' ' + it.unidade : '—'}
+                    </td>
+                    <td>${ataTxt}</td>
+                    <td>${badge}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface);">
+          <button type="button" class="btn btn-outline" onclick="document.getElementById('${modalId}').remove()">Cancelar</button>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <span style="font-size:0.8rem;color:var(--text-secondary);">
+              ${res.itensCompra > 0 ? `Será emitida a OS de Compra com <strong>${res.itensCompra}</strong> item(ns)` : 'Toda a demanda será atendida pelo estoque local'}
+            </span>
+            <button type="button" class="btn btn-primary" id="btn-confirmar-publicacao-cardapio" onclick="window.executarPublicacaoCardapio('${id}')" style="background:#16a34a;border-color:#16a34a;font-weight:700;">
+              🚀 Confirmar Publicação & Disparar Suprimentos
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+// ─── Execução da Publicação Integrada (Estoque Central + Compras & Contratos) ──
+window.executarPublicacaoCardapio = (id) => {
+  document.getElementById('modal-dimensionamento-cardapio')?.remove();
 
   const sid = String(id);
   let menuPublicado = null;
+  let menuObj = null;
 
-  // Atualiza status no SharedState (menu normal ou semanal)
+  if (window.SharedState) {
+    menuObj = window.SharedState.getCardapio(sid) 
+        || (window.SharedState.getMenus ? window.SharedState.getMenus().find(m => m.id === sid || m.nome === sid) : null);
+    if (!menuObj && sid.startsWith('wk-') && window.SharedState.getWeeklyMenus) {
+      menuObj = window.SharedState.getWeeklyMenus().find(w => w.id === sid);
+    }
+  }
+  if (!menuObj && sid.startsWith('legacy-')) {
+    const idx = parseInt(sid.replace('legacy-', ''), 10);
+    const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
+    if (!isNaN(idx) && legacy[idx]) menuObj = { id: sid, ...legacy[idx] };
+  }
+  menuObj = menuObj || window.currentActiveIAMenu || window.tempIAMenuPreview || {};
+
+  // 1. Calcula dimensionamento de compras
+  let dimensionamento = null;
+  if (window.AICardapioEngine && typeof window.AICardapioEngine.dimensionarDemandaEstoqueCompras === 'function') {
+    dimensionamento = window.AICardapioEngine.dimensionarDemandaEstoqueCompras(menuObj);
+  }
+
+  let osCompraGerada = null;
+  if (dimensionamento && dimensionamento.resumo && dimensionamento.resumo.itensCompra > 0 && window.SharedState && typeof window.SharedState.comprasEmitirOsCompra === 'function') {
+    const itensParaCompra = dimensionamento.itens
+      .filter(it => it.qtdNecessaria > 0)
+      .map(it => ({
+        produto: it.produto,
+        unidade: it.unidade,
+        qtdPrevista: it.qtdPrevista,
+        qtdEstoque: it.qtdEstoque,
+        qtdNecessaria: it.qtdNecessaria
+      }));
+
+    osCompraGerada = window.SharedState.comprasEmitirOsCompra({
+      origem: 'nutricao',
+      solicitante: 'Dra. Lilian Droppa (Nutricionista SEMED)',
+      cardapioId: menuObj.id || sid,
+      periodo: menuObj.periodo || menuObj.nome || 'Mensal',
+      itens: itensParaCompra
+    });
+  }
+
+  // 2. Atualiza status no SharedState e vincula a OS de Compra
+  const patchData = {
+    status: 'Publicado',
+    publicadoEm: new Date().toISOString(),
+    osCompraId: osCompraGerada ? osCompraGerada.id : null,
+    osCompraNumero: osCompraGerada ? osCompraGerada.numero : null
+  };
+
   if (sid.startsWith('menu-') || (!sid.startsWith('legacy-') && !sid.startsWith('wk-'))) {
-    menuPublicado = window.SharedState?.updateMenu(sid, {
-      status: 'Publicado',
-      publicadoEm: new Date().toISOString(),
-    });
+    menuPublicado = window.SharedState?.updateMenu(sid, patchData);
   } else if (sid.startsWith('wk-')) {
-    menuPublicado = window.SharedState?.updateWeeklyMenu(sid, {
-      status: 'Publicado',
-      publicadoEm: new Date().toISOString(),
-    });
+    menuPublicado = window.SharedState?.updateWeeklyMenu(sid, patchData);
   } else if (sid.startsWith('legacy-')) {
-    // Cardápios legados: atualiza no localStorage
     const idx = parseInt(sid.replace('legacy-', ''), 10);
     const legacy = JSON.parse(localStorage.getItem('cardapios_publicados') || '[]');
     if (!isNaN(idx) && legacy[idx]) {
-      legacy[idx].status = 'Publicado';
-      legacy[idx].publicadoEm = new Date().toISOString();
+      Object.assign(legacy[idx], patchData);
       localStorage.setItem('cardapios_publicados', JSON.stringify(legacy));
     }
   }
 
-  // Dispara fluxo de Ordens de Serviço para escolas + cooperativas/agricultores
-  const activeMenu = menuPublicado || window.currentActiveIAMenu || window.tempIAMenuPreview;
+  // 3. Dispara Ordens de Separação para as escolas no Estoque Central
+  const activeMenu = menuPublicado || menuObj;
   if (typeof window.gerarOrdensDeServicoPorEscola === 'function') {
     window.gerarOrdensDeServicoPorEscola(activeMenu);
   }
 
-  if (typeof showToast === 'function') {
-    showToast('🚀 Cardápio publicado! Ordens de Serviço enviadas para escolas e cooperativas.');
+  // 4. Log de auditoria e atividade
+  if (window.SharedState) {
+    if (typeof window.SharedState.logAtividade === 'function') {
+      window.SharedState.logAtividade({
+        perfil: 'nutricionista',
+        perfilNome: 'Nutricionista SEMED',
+        usuario: 'Dra. Lilian Droppa',
+        acao: 'publicou cardápio',
+        detalhe: `${menuObj.nome || 'Cardápio'} publicado. ${osCompraGerada ? 'Gerada OS de Compra ' + osCompraGerada.numero : '100% coberto pelo CD'}`
+      });
+    }
+    if (typeof window.SharedState.registrarLogAuditoria === 'function') {
+      window.SharedState.registrarLogAuditoria({
+        usuario: 'Dra. Lilian Droppa',
+        acao: 'Publicação de Cardápio e Demanda',
+        produto: activeMenu.nome || 'Cardápio PNAE',
+        quantidade: activeMenu.numSemanas || 1,
+        origem: 'Nutrição SEMED',
+        destino: osCompraGerada ? 'Compras & Contratos / Estoque Central' : 'Estoque Central',
+        motivo: osCompraGerada ? `Demanda parcial suprida. OS de Compra ${osCompraGerada.numero} gerada.` : 'Demanda 100% suprida pelo Estoque Central.'
+      });
+    }
   }
 
-  // Re-renderiza a tela de gestão
+  // 5. Feedback visual ao usuário
+  if (typeof showToast === 'function') {
+    if (osCompraGerada) {
+      showToast(`🚀 Cardápio publicado! Estoque reservado no CD e ${osCompraGerada.numero} enviada para Compras & Contratos!`);
+    } else {
+      showToast('🚀 Cardápio publicado! 100% atendido pelo Estoque Central.');
+    }
+  }
+
+  // 6. Re-renderiza a tela de gestão
   const container = document.getElementById('page-content');
-  if (container) PAGE_RENDERERS.nutricionista_cardapios(container);
+  if (container && window.PAGE_RENDERERS && window.PAGE_RENDERERS.nutricionista_cardapios) {
+    window.PAGE_RENDERERS.nutricionista_cardapios(container);
+  }
+};
+
+window.publicarCardapio = (id, opts) => {
+  opts = opts || {};
+  if (opts.skipModal) {
+    return window.executarPublicacaoCardapio(id);
+  }
+  return window.abrirModalDimensionamentoCardapio(id);
 };
 
 window.editarCardapio = (idOrIdx) => {

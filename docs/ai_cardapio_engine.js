@@ -751,6 +751,148 @@
       }
 
       return resultadoDemanda;
+    },
+
+    /**
+     * RF-008 / Dimensionamento Automático: Cruza a demanda total do cardápio com o Estoque Central
+     * e calcula exatamente o que é atendido pelo estoque e o que deve ser enviado para Compras & Contratos.
+     */
+    dimensionarDemandaEstoqueCompras: function (menuObj, options) {
+      options = options || {};
+      if (!menuObj) return null;
+
+      const allSchools = (typeof DATA !== 'undefined' && DATA.schools && DATA.schools.length > 0) ? DATA.schools : [];
+      const escVinculadas = menuObj.escolasVinculadas || [];
+      const targetSchools = escVinculadas.length > 0
+        ? allSchools.filter(s => escVinculadas.includes(s.name))
+        : allSchools;
+      const schoolsToUse = targetSchools.length > 0 ? targetSchools : allSchools;
+      const totalAlunos = schoolsToUse.reduce((acc, s) => acc + (s.students || 100), 0);
+
+      // Helper de busca de produto no Estoque Central
+      function findStockProduct(nome) {
+        if (!nome) return null;
+        const n = String(nome).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (typeof DATA !== 'undefined' && Array.isArray(DATA.products)) {
+          const direct = DATA.products.find(p => {
+            const pn = String(p.name).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return pn === n || pn.includes(n) || n.includes(pn);
+          });
+          if (direct) return direct;
+
+          const keywords = ['arroz', 'feijao', 'frango', 'carne', 'macarrao', 'leite', 'banana', 'maca', 'alface', 'tomate', 'cenoura', 'oleo', 'acucar', 'farinha', 'mandioca', 'batata', 'ovo', 'melancia', 'abobora', 'couve', 'beterraba'];
+          for (const kw of keywords) {
+            if (n.includes(kw)) {
+              const hit = DATA.products.find(p => p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(kw));
+              if (hit) return hit;
+            }
+          }
+        }
+        if (window.SharedState && typeof window.SharedState.getCentralStock === 'function') {
+          const cStock = window.SharedState.getCentralStock() || [];
+          const directC = cStock.find(c => {
+            const cn = String(c.produto).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return cn === n || cn.includes(n) || n.includes(cn);
+          });
+          if (directC) return { name: directC.produto, stock: directC.qtd || 0, unit: directC.unidade || 'kg', unitPrice: directC.unitPrice || 5.0 };
+        }
+        return null;
+      }
+
+      // Helper de busca de ATA vigente em Compras
+      function findAtaInfo(nome) {
+        if (!nome) return null;
+        const n = String(nome).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        if (window.SharedState && typeof window.SharedState.comprasAtaItens === 'function') {
+          const ataItens = window.SharedState.comprasAtaItens() || [];
+          const hit = ataItens.find(ai => {
+            const ain = String(ai.produto).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            return ain === n || ain.includes(n) || n.includes(ain);
+          });
+          if (hit) {
+            const ata = window.SharedState.comprasAta ? window.SharedState.comprasAta(hit.ataId) : null;
+            const forn = window.SharedState.comprasFornecedor ? window.SharedState.comprasFornecedor(hit.fornecedorId) : null;
+            return {
+              ataNumero: ata ? ata.numero : hit.ataId,
+              fornecedor: forn ? forn.razaoSocial : 'Fornecedor Registrado',
+              precoUnit: hit.precoUnit,
+              saldoAta: window.SharedState.comprasSaldoAtaItem ? window.SharedState.comprasSaldoAtaItem(hit.id) : 0
+            };
+          }
+        }
+        return null;
+      }
+
+      // Agrega demanda por insumo
+      const mapaInsumos = {};
+      schoolsToUse.forEach(sc => {
+        const demandaEscola = AICardapioEngine.calcularDemandaPorEscola(menuObj, sc);
+        demandaEscola.forEach(item => {
+          const chave = item.nome;
+          if (!mapaInsumos[chave]) {
+            mapaInsumos[chave] = {
+              nome: item.nome,
+              unidade: item.unidade || (item.nome.toLowerCase().includes('leite') || item.nome.toLowerCase().includes('oleo') ? 'L' : 'kg'),
+              af: !!item.af,
+              itemEspecial: !!item.itemEspecial,
+              qtdPrevista: 0,
+            };
+          }
+          mapaInsumos[chave].qtdPrevista += (item.qtdEnviadaKg || item.demandaCalculadaKg || 0);
+        });
+      });
+
+      // Cruza com Estoque Central e Compras
+      const itens = Object.values(mapaInsumos).map(item => {
+        item.qtdPrevista = Math.round(item.qtdPrevista);
+        const stockProd = findStockProduct(item.nome);
+        const ata = findAtaInfo(item.nome);
+
+        const qtdEstoque = stockProd ? (stockProd.stock || 0) : 0;
+        const unitPrice = ata ? ata.precoUnit : (stockProd ? (stockProd.unitPrice || 5.0) : 5.0);
+
+        const qtdAtendidaEstoque = Math.min(item.qtdPrevista, qtdEstoque);
+        const qtdNecessaria = Math.max(0, item.qtdPrevista - qtdEstoque);
+
+        let status = 'coberto';
+        if (qtdNecessaria > 0) {
+          status = (qtdAtendidaEstoque > 0) ? 'parcial' : 'comprar';
+        }
+
+        return {
+          produto: item.nome,
+          unidade: item.unidade,
+          af: item.af,
+          itemEspecial: item.itemEspecial,
+          qtdPrevista: item.qtdPrevista,
+          qtdEstoque: qtdEstoque,
+          qtdAtendidaEstoque: qtdAtendidaEstoque,
+          qtdNecessaria: qtdNecessaria,
+          unitPrice: unitPrice,
+          valorEstimadoCompra: Math.round(qtdNecessaria * unitPrice * 100) / 100,
+          status: status, // 'coberto', 'parcial', 'comprar'
+          ataInfo: ata
+        };
+      });
+
+      itens.sort((a, b) => (b.qtdNecessaria > 0 ? 1 : 0) - (a.qtdNecessaria > 0 ? 1 : 0));
+      const totalCompra = itens.reduce((acc, i) => acc + (i.qtdNecessaria > 0 ? i.valorEstimadoCompra : 0), 0);
+
+      return {
+        menuId: menuObj.id || 'menu-ativo',
+        menuNome: menuObj.nome || menuObj.semana || 'Cardápio Escolar',
+        periodo: menuObj.periodo || 'Período Vigente',
+        totalAlunos: totalAlunos,
+        totalEscolas: schoolsToUse.length,
+        itens: itens,
+        resumo: {
+          totalItens: itens.length,
+          itensCobertos: itens.filter(i => i.status === 'coberto').length,
+          itensParciais: itens.filter(i => i.status === 'parcial').length,
+          itensCompra: itens.filter(i => i.qtdNecessaria > 0).length,
+          valorTotalEstimadoCompra: Math.round(totalCompra * 100) / 100
+        }
+      };
     }
   };
 

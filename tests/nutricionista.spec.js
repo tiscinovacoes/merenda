@@ -72,6 +72,47 @@ test.describe('Nutricionista SEMED', () => {
     expect(totalKg).toBe('1.613');
   });
 
+  test('Cardápios — Dimensionamento de Estoque/Compras e Emissão de OS ao Publicar', async ({ page }) => {
+    await navigateTo(page, 'cardapios');
+    
+    // Verifica presença do botão Suprimentos em algum cardápio
+    const btnSuprimentos = page.locator('button:has-text("📦 Suprimentos")').first();
+    await expect(btnSuprimentos).toBeVisible();
+
+    // Clica no botão Suprimentos e valida a abertura do modal de dimensionamento
+    await btnSuprimentos.click();
+    const modal = page.locator('#modal-dimensionamento-cardapio');
+    await expect(modal).toBeVisible();
+    await expect(modal).toContainText('Dimensionamento & Suprimentos');
+    await expect(modal).toContainText('Insumos da Ficha Técnica');
+    await expect(modal).toContainText('Estoque CD');
+
+    // Fecha o modal pelo botão Cancelar
+    await modal.locator('button:has-text("Cancelar")').click();
+    await expect(modal).not.toBeVisible();
+
+    // Se houver botão Publicar em cardápio em elaboração, testa o fluxo completo de publicação e disparo de OS
+    const btnPublicar = page.locator('button:has-text("🚀 Publicar")').first();
+    if (await btnPublicar.isVisible()) {
+      await btnPublicar.click();
+      await expect(modal).toBeVisible();
+
+      // Confirma a publicação no modal
+      const btnConfirmar = page.locator('#btn-confirmar-publicacao-cardapio');
+      await expect(btnConfirmar).toBeVisible();
+      await btnConfirmar.click();
+
+      // Modal deve se fechar e lista de cardápios deve recarregar
+      await expect(modal).not.toBeVisible();
+
+      // Checa se no SharedState ou na tela uma OS de Compra foi emitida
+      const osCount = await page.evaluate(() => {
+        return window.SharedState && window.SharedState.comprasOsCompra ? window.SharedState.comprasOsCompra().length : 0;
+      });
+      expect(osCount).toBeGreaterThanOrEqual(1);
+    }
+  });
+
   test('Navegação completa sem erro', async ({ page }) => {
     const pages = ['dashboard', 'fichas', 'produtos', 'cardapios', 'planejamento', 'estoquesual', 'guiasentrega',
                    'escolas', 'consumo', 'desperdicios', 'restricoes', 'relatorios'];
@@ -82,3 +123,4 @@ test.describe('Nutricionista SEMED', () => {
     }
   });
 });
+
