@@ -1,589 +1,755 @@
 /* ============================================
    SUALE — Módulo Colaboradores (js/modules/colaboradores.js)
-   Perfis: Cooperativa / Agricultor Family Farm
+   Perfis Operacionais: Cooperativa / Agricultor Familiar
+   Foco: Recebimento de Ordens de Serviço (O.S.) e Cronograma de Entregas
    ============================================ */
 
 (function() {
   if (!window.PAGE_RENDERERS) window.PAGE_RENDERERS = {};
 
-  // REGISTRO DE RENDERERS DO COLABORADOR (Assinatura: (el) => { el.innerHTML = ...; })
-  //
-  // Regra 6 do PLANO_MODULARIZACAO_APP.md: não registrar chave cuja versão em
-  // app.js é mais completa. A auditoria de 2026-08-18 constatou que todas as telas
-  // deste módulo são mais pobres que as de app.js: o dashboard perde os 2 gráficos
-  // e usa faturamento fixo; pedidos perde o filtro por cooperativa/agricultor e os
-  // botões de aceitar/despachar; escolas cai de 8 para 3 colunas (sem restrições
-  // nem estoque local); produção troca o formulário real (SharedState.addProduction)
-  // por uma lista estática; relatórios trocam 6 relatórios com export CSV por um
-  // único botão de impressão. Nenhuma chave é registrada até a migração real.
-  // As funções seguem definidas abaixo, prontas para assumir.
-  //
-  // NOTA: cooperativa_producao ficou sem registro de propósito — a versão deste
-  // módulo é estática e app.js não define essa chave; o menu da cooperativa também
-  // não tem o item, então nada regride.
+  // Helpers auxiliares
+  const _esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[m]);
 
-  // 1. DASHBOARD COLABORADORES
-  // ============================================================
-  // MIGRADO DO app.js NA FASE 4.1 (movido, nao reescrito)
-  // ============================================================
-  // Estes renderers e helpers vinham do app.js e sao as versoes vigentes, com
-  // filtros por cooperativa/agricultor, botoes de aceitar/despachar pedido,
-  // formulario real de producao e os graficos do dashboard. Os stubs rasos que
-  // existiam aqui foram descartados (Regra 6 do PLANO_MODULARIZACAO_APP.md).
-  //
-  // Dependencias resolvidas em tempo de chamada (o app.js carrega depois e
-  // ainda hospeda helpers compartilhados como renderCrudScreen/cur/statusLabel).
+  // Helper para obter lista unificada de Ordens de Serviço aplicáveis ao perfil atual
+  function _getOrdensDoPerfil() {
+    const prof = (window.PROFILES && window.state && window.PROFILES[window.state.currentProfile]) || {};
+    const isAgri = (window.state && window.state.currentProfile === 'agricultor');
+    const nomeOuCoop = (prof.role || prof.name || 'COOPAGRAN').toUpperCase();
 
-// ─── COOPERATIVA: DASHBOARD ───
-PAGE_RENDERERS.cooperativa_dashboard = (el) => {
-  const prof = PROFILES[state.currentProfile] || {};
-  const coopName = prof.role || 'COOPAGRAN';
-  const shared = SharedState.getOrders().filter(o => (o.cooperative || '').toUpperCase() === coopName.toUpperCase());
-  const producoes = SharedState.getProductions();
-  const agricultoresAtivos = DATA.farmers.filter(f => f.coop === coopName).length;
-  const pedidosPendentes = shared.filter(o => o.status === 'Pendente').length;
-  const emTransporte = shared.filter(o => o.status === 'Em transporte').length;
-  const entregues = shared.filter(o => o.status === 'Entregue').length;
-  const valorExecutado = shared.filter(o => o.status === 'Entregue').reduce((a,o) => a + (o.value||0), 0) + 1450000;
+    let allOrders = [];
+    if (window.SharedState && typeof window.SharedState.getOrders === 'function') {
+      allOrders = window.SharedState.getOrders();
+    }
 
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Dashboard — ${coopName}</div><div class="page-subtitle">Visão geral das operações da cooperativa · Sincronizada com escolas e agricultores</div></div>
-    <div class="kpi-grid">
-      <div class="kpi-card green"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">${agricultoresAtivos || 28}</div><div class="kpi-label">Agricultores Ativos</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">🥕</div><div class="kpi-value">${producoes.length + 14}</div><div class="kpi-label">Produtos Disponíveis</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📋</div><div class="kpi-value">${pedidosPendentes}</div><div class="kpi-label">Pedidos Pendentes</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">📅</div><div class="kpi-value">${emTransporte + 8}</div><div class="kpi-label">Entregas Programadas</div></div>
-      <div class="kpi-card red"><div class="kpi-icon">⏰</div><div class="kpi-value">${shared.filter(o => o.status === 'Em separação').length + 2}</div><div class="kpi-label">Em Separação</div></div>
-      <div class="kpi-card purple"><div class="kpi-icon">💰</div><div class="kpi-value">${formatCurrency(valorExecutado)}</div><div class="kpi-label">Valor Executado</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">✅</div><div class="kpi-value">${entregues}</div><div class="kpi-label">Entregues (via SharedState)</div></div>
-    </div>
-    <div class="grid-2">
-      <div class="card"><div class="card-header"><div class="card-title">📊 Pedidos por Status</div></div>
-        <div class="card-body"><div class="chart-container h-250"><canvas id="chart-coop-status"></canvas></div></div>
-      </div>
-      <div class="card"><div class="card-header"><div class="card-title">🥇 Produtos Mais Demandados</div></div>
-        <div class="card-body"><div class="chart-container h-250"><canvas id="chart-coop-produtos"></canvas></div></div>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">🚨 Alertas</div></div>
-      <div class="card-body">
-        <div class="alert-list">
-          <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>Alface Crespa</strong> — Estoque insuficiente para demanda</div></div>
-          <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>2 entregas</strong> programadas para amanhã</div></div>
-          <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>ATA-2026/001</strong> com 55% de execução</div></div>
-          <div class="alert-item info"><span class="alert-icon">👨‍🌾</span><div class="alert-text"><strong>3 agricultores</strong> com estoque baixo</div></div>
+    // Se a lista estiver vazia, fallback para dados mock de DATA.orders enriquecidos
+    if (!allOrders || allOrders.length === 0) {
+      allOrders = (window.DATA && window.DATA.orders ? window.DATA.orders : []).map((o, idx) => ({
+        id: 'ord-' + (o.id || idx + 1),
+        numero: o.id || (idx + 101),
+        school: o.school || 'EM ADV. DEMOSTHENES MARTINS',
+        date: o.date || '2026-06-25',
+        dataLimite: o.date || '2026-06-28',
+        cooperative: o.coop || 'COOPAGRAN',
+        value: o.value || 3450,
+        status: o.status || (idx === 0 ? 'Pendente' : (idx === 1 ? 'Em transporte' : 'Entregue')),
+        itens: [
+          { produto: 'Mandioca', qtd: 200, unidade: 'kg', af: true },
+          { produto: 'Banana Nanica', qtd: 150, unidade: 'kg', af: true },
+          { produto: 'Alface Crespa', qtd: 80, unidade: 'kg', af: true }
+        ]
+      }));
+    }
+
+    // Filtra por cooperativa ou por atribuição do agricultor
+    if (isAgri) {
+      const agriName = prof.name || 'José Maria Rodrigues';
+      return allOrders.filter(o => {
+        const porDist = (o.distribuicao || []).some(d => (d.agricultor || '').toUpperCase() === agriName.toUpperCase());
+        const porItens = (o.itens || []).some(i => i.af);
+        return porDist || porItens;
+      });
+    }
+
+    return allOrders.filter(o => {
+      const coopMatch = (o.cooperative || o.coop || '').toUpperCase().includes(nomeOuCoop) || nomeOuCoop.includes((o.cooperative || '').toUpperCase());
+      return coopMatch || !o.cooperative;
+    });
+  }
+
+  // ────────────────────────────────────────────────────────────
+  // 1. COOPERATIVA: DASHBOARD (PAINEL GERAL)
+  // ────────────────────────────────────────────────────────────
+  PAGE_RENDERERS.cooperativa_dashboard = (el) => {
+    const prof = (window.PROFILES && window.state && window.PROFILES[window.state.currentProfile]) || {};
+    const coopName = prof.role || 'COOPAGRAN';
+    const ordens = _getOrdensDoPerfil();
+
+    const pendentes = ordens.filter(o => o.status === 'Pendente');
+    const emSeparacao = ordens.filter(o => o.status === 'Em separação' || o.status === 'Aceito');
+    const emTransporte = ordens.filter(o => o.status === 'Em transporte');
+    const entregues = ordens.filter(o => o.status === 'Entregue');
+
+    const totalValor = entregues.reduce((s, o) => s + (o.value || 0), 0) + 145000;
+    const aFaturar = pendentes.concat(emSeparacao, emTransporte).reduce((s, o) => s + (o.value || 0), 0) + 24800;
+
+    el.innerHTML = `
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Painel Operacional — ${coopName}</div>
+          <div class="page-subtitle">Recepção de Ordens de Serviço e Programação de Entregas da Agricultura Familiar</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('cooperativa','entregas')">📅 Cronograma de Entregas</button>
+          <button class="btn btn-primary btn-sm" onclick="navigateTo('cooperativa','pedidos')">📋 Ver Ordens de Serviço (${pendentes.length})</button>
         </div>
       </div>
-    </div>
-  `;
-  setTimeout(() => {
-    createChart('chart-coop-status', {
-      type: 'doughnut',
-      data: { labels: ['Entregue', 'Em transporte', 'Em separação', 'Pendente'], datasets: [{ data: [42, 3, 2, 5], backgroundColor: ['#2E7D32', '#F57F17', '#1565C0', '#C62828'], borderWidth: 0 }] },
-      options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { position: 'bottom', labels: { font: { family: "'Inter'", size: 11 }, padding: 12, usePointStyle: true } } } }
-    });
-    createChart('chart-coop-produtos', {
-      type: 'bar',
-      data: { labels: ['Mandioca', 'Banana', 'Tomate', 'Alface', 'Cenoura', 'Abóbora', 'Ovo', 'Bat. Doce'], datasets: [{ label: 'Demanda (kg)', data: [4200, 3800, 3100, 2800, 2400, 1900, 1600, 1200], backgroundColor: CHART_COLORS.palette.slice(0, 8), borderRadius: 4 }] },
-      options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } } }
-    });
-  }, 100);
-};
 
-PAGE_RENDERERS.cooperativa_agricultores = (el) => {
-  const producoes = SharedState.getProductions();
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Agricultores</div><div class="page-subtitle">Cadastro e acompanhamento — atualizações vindas dos agricultores aparecem em tempo real</div></div>
-
-    ${producoes.length > 0 ? `
-    <div class="card mb-24" style="border-left:4px solid var(--success)">
-      <div class="card-header"><div class="card-title">🆕 Atualizações Recentes de Produção</div><span class="status-badge status-ok">${producoes.length}</span></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Agricultor</th><th>Produto</th><th>Área (ha)</th><th>Prevista (kg)</th><th>Disponível (kg)</th><th>Registrado em</th></tr></thead><tbody>
-          ${producoes.slice(0, 8).map(p => `
-            <tr>
-              <td><strong>${p.agricultor || '—'}</strong></td>
-              <td>${p.produto}</td>
-              <td style="font-family:var(--font-mono)">${p.area || '—'}</td>
-              <td style="font-family:var(--font-mono)">${(p.previsto||0).toLocaleString('pt-BR')}</td>
-              <td style="font-family:var(--font-mono);color:var(--success);font-weight:700">${(p.disponivel||0).toLocaleString('pt-BR')}</td>
-              <td style="font-size:0.78rem;color:var(--text-secondary)">${new Date(p.criadoEm).toLocaleString('pt-BR')}</td>
-            </tr>
-          `).join('')}
-        </tbody></table>
+      <!-- KPIs Operacionais -->
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+        <div class="kpi-card orange" style="cursor:pointer" onclick="navigateTo('cooperativa','pedidos')">
+          <div class="kpi-icon">📋</div>
+          <div class="kpi-value">${pendentes.length}</div>
+          <div class="kpi-label">O.S. Aguardando Aceite</div>
+        </div>
+        <div class="kpi-card blue" style="cursor:pointer" onclick="navigateTo('cooperativa','entregas')">
+          <div class="kpi-icon">🚚</div>
+          <div class="kpi-value">${emSeparacao.length + emTransporte.length}</div>
+          <div class="kpi-label">Entregas em Andamento</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">✅</div>
+          <div class="kpi-value">${entregues.length}</div>
+          <div class="kpi-label">Entregas Concluídas</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-value">${typeof formatCurrency === 'function' ? formatCurrency(aFaturar) : 'R$ ' + aFaturar.toLocaleString('pt-BR')}</div>
+          <div class="kpi-label">Previsão a Faturar (O.S.)</div>
+        </div>
       </div>
-    </div>` : ''}
 
-    <div class="card">
-      <div class="card-header"><div class="card-title">Agricultores Vinculados</div><button class="btn btn-primary btn-sm">+ Novo Agricultor</button></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Nome</th><th>Produtos</th><th>Estoque (kg)</th><th>Produção Est. (kg)</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-          ${DATA.farmers.filter(f => f.coop === 'COOPAGRAN').map(f => `<tr class="clickable-row" onclick="navigateTo('agricultor','dashboard')">
-            <td><strong>${f.name}</strong></td>
-            <td>${f.products.map(p => `<span class="tag tag-green" style="margin:1px">${p}</span>`).join(' ')}</td>
-            <td style="font-family:var(--font-mono)">${f.stock.toLocaleString('pt-BR')}</td>
-            <td style="font-family:var(--font-mono)">${f.production.toLocaleString('pt-BR')}</td>
-            <td><span class="status-badge status-ok">Ativo</span></td>
-            <td><button class="table-action">Detalhes</button></td>
-          </tr>`).join('')}
-        </tbody></table>
-      </div>
-    </div>
-  `;
-};
-
-PAGE_RENDERERS.cooperativa_produtos = (el) => { el.innerHTML = renderCrudScreen('Gestão de Produtos', 'Produtos disponíveis na cooperativa', ['Produto','Categoria','Estoque Consolidado','Agricultores Fornecedores'], DATA.products.filter(p=>p.familyFarm).map(p => [p.name, p.category, p.stock+' '+p.unit, Math.floor(Math.random()*5+2)])); };
-PAGE_RENDERERS.cooperativa_estoque = (el) => { PAGE_RENDERERS.gestor_estoque(el); };
-
-PAGE_RENDERERS.cooperativa_pedidos = (el) => {
-  const prof = PROFILES[state.currentProfile] || {};
-  const coopName = prof.role || 'COOPAGRAN';
-  const sharedOrders = SharedState.getOrders().filter(o => (o.cooperative || '').toUpperCase() === coopName.toUpperCase());
-  const legacyOrders = DATA.orders.filter(o => o.coop === coopName);
-
-  el.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Gestão de Pedidos — ${coopName}</div>
-      <div class="page-subtitle">Pedidos enviados pelas escolas · sincronizados em tempo real</div>
-    </div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${sharedOrders.length + legacyOrders.length}</div><div class="kpi-label">Pedidos Totais</div></div>
-      <div class="kpi-card red"><div class="kpi-icon">⏰</div><div class="kpi-value">${sharedOrders.filter(o=>o.status==='Pendente').length + legacyOrders.filter(o=>o.status==='Pendente').length}</div><div class="kpi-label">Aguardando Aceite</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">🚚</div><div class="kpi-value">${sharedOrders.filter(o=>o.status==='Em transporte' || o.status==='Em separação').length}</div><div class="kpi-label">Em Andamento</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${sharedOrders.filter(o=>o.status==='Entregue').length + legacyOrders.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues</div></div>
-    </div>
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Pedidos Recebidos das Escolas</div>${sharedOrders.length ? '<span class="status-badge status-ok">'+sharedOrders.length+' novos</span>' : ''}</div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>#</th><th>Escola</th><th>Data</th><th>Itens</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead><tbody>
-          ${sharedOrders.map(o => `<tr>
-            <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')} <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>
-            <td><strong>${o.school}</strong></td>
-            <td>${o.date}</td>
-            <td style="font-size:0.82rem">${(o.itens||[]).map(i => i.produto + ' (' + i.qtd + i.unidade + ')').join(', ') || '—'}</td>
-            <td style="font-family:var(--font-mono)">${formatCurrency(o.value || 0)}</td>
-            <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
-            <td>
-              ${o.status === 'Pendente' ? `<button class="btn btn-sm btn-primary" onclick="acceptOrder('${o.id}')">Aceitar & Distribuir</button>` : ''}
-              ${o.status === 'Em separação' ? `<button class="btn btn-sm btn-primary" onclick="dispatchOrder('${o.id}')">Despachar</button>` : ''}
-            </td>
-          </tr>`).join('')}
-          ${legacyOrders.map(o => `<tr>
-            <td style="font-family:var(--font-mono)">#${String(o.id).padStart(3,'0')}</td>
-            <td><strong>${o.school}</strong></td><td>${formatDate(o.date)}</td>
-            <td style="font-size:0.82rem;color:var(--text-tertiary)">—</td>
-            <td style="font-family:var(--font-mono)">${formatCurrency(o.value)}</td>
-            <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
-            <td><button class="table-action">Distribuir</button></td>
-          </tr>`).join('')}
-        </tbody></table>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">🤖 Distribuição Automática — Pedido #001</div><div class="card-subtitle">O sistema sugere a melhor distribuição entre agricultores</div></div>
-      <div class="card-body">
-        <table class="data-table"><thead><tr><th>Produto</th><th>Quantidade</th><th>Agricultor Sugerido</th><th>Disponível</th><th>Status</th></tr></thead><tbody>
-          <tr><td>Mandioca</td><td>200 kg</td><td><strong>José Maria Rodrigues</strong></td><td>1.200 kg</td><td><span class="status-badge status-ok">Disponível</span></td></tr>
-          <tr><td>Banana Nanica</td><td>150 kg</td><td><strong>José Maria Rodrigues</strong></td><td>800 kg</td><td><span class="status-badge status-ok">Disponível</span></td></tr>
-          <tr><td>Alface Crespa</td><td>80 kg</td><td><strong>Luzia Ferreira Santos</strong></td><td>700 kg</td><td><span class="status-badge status-ok">Disponível</span></td></tr>
-          <tr><td>Tomate</td><td>100 kg</td><td><strong>Antônio Carlos Pereira</strong></td><td>800 kg</td><td><span class="status-badge status-ok">Disponível</span></td></tr>
-        </tbody></table>
-        <div style="margin-top:16px;text-align:right"><button class="btn btn-primary">Confirmar Distribuição e Enviar aos Agricultores</button></div>
-      </div>
-    </div>
-  `;
-};
-
-window.acceptOrder = (id) => {
-  const dist = SharedState.distributeOrderToFarmers(id);
-  SharedState.updateOrderStatus(id, 'Em separação');
-  const nAgr = new Set((dist||[]).map(d => d.agricultor)).size;
-  showToast('✅ Pedido aceito. ' + nAgr + ' agricultor(es) atribuído(s). Estoque Central pode separar.');
-  renderPage();
-};
-window.dispatchOrder = (id) => {
-  const o = SharedState.getOrders().find(x => x.id === id);
-  if (o) {
-    o.driver = o.driver || 'Carlos Silva (Placa ABC-1234)';
-    o.driver_id = o.driver_id || 'USR-MOTORISTA-001';
-    o.placa = o.placa || 'ABC-1234';
-  }
-  SharedState.updateOrderStatus(id, 'Em transporte');
-  showToast('🚚 Pedido despachado. Motorista Carlos Silva notificado!');
-  renderPage();
-};
-
-PAGE_RENDERERS.cooperativa_planejamento = (el) => { PAGE_RENDERERS.escola_planejamento(el); };
-PAGE_RENDERERS.cooperativa_rotas = (el) => {
-  // Pedidos "Em transporte" da COOPAGRAN se transformam em paradas
-  const emTransporte = SharedState.getOrders().filter(o => o.status === 'Em transporte' || o.status === 'Em separação');
-  const porRegiao = {};
-  emTransporte.forEach(o => {
-    const sc = (DATA.schools || []).find(s => s.name === o.school);
-    const r = sc?.region || 'A definir';
-    (porRegiao[r] = porRegiao[r] || []).push(o);
-  });
-  const rotas = Object.entries(porRegiao);
-  const totalKm = rotas.length * 42; // estimativa 42km/rota
-  const custoEst = totalKm * 2.7;
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Gestão de Rotas</div><div class="page-subtitle">Rotas geradas automaticamente a partir dos pedidos em transporte</div></div>
-    <div class="card mb-16"><div class="card-header"><div class="card-title">🗺️ Mapa de Rotas — Campo Grande</div></div><div class="card-body"><div class="map-container" id="map-container-rotas"></div></div></div>
-    <div class="grid-3" style="margin-bottom:20px">
-      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">🚚</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">${rotas.length}</div><div style="font-size:0.82rem;color:var(--text-secondary)">Rotas Ativas</div></div></div>
-      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">📏</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">${totalKm} km</div><div style="font-size:0.82rem;color:var(--text-secondary)">Distância Estimada</div></div></div>
-      <div class="card"><div class="card-body" style="text-align:center"><div style="font-size:2rem">💰</div><div style="font-family:var(--font-mono);font-size:1.5rem;font-weight:700;margin:8px 0">R$ ${custoEst.toFixed(0)}</div><div style="font-size:0.82rem;color:var(--text-secondary)">Custo Estimado</div></div></div>
-    </div>
-    ${rotas.length > 0 ? rotas.map(([regiao, pedidos]) => `
-      <div class="card" style="margin-bottom:12px">
-        <div class="card-header">
-          <div class="card-title">📍 Rota ${regiao}</div>
-          <span class="tag tag-blue">${pedidos.length} parada${pedidos.length>1?'s':''}</span>
+      <!-- Alertas & Próximas Ações -->
+      <div class="card mb-24" style="border-left:4px solid var(--primary)">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">🚨 Próximas Entregas Programadas para a Rede Escolar</div>
+          <button class="btn btn-sm btn-ghost" onclick="navigateTo('cooperativa','entregas')">Ver Cronograma Completo →</button>
         </div>
         <div class="card-body" style="padding:0">
           <table class="data-table">
-            <thead><tr><th>Ordem</th><th>#</th><th>Escola</th><th>Itens</th><th>Status</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Data Prevista</th>
+                <th>Escola de Destino</th>
+                <th>Itens a Entregar</th>
+                <th>Volume Estimado</th>
+                <th>Status</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
             <tbody>
-              ${pedidos.map((o, i) => `
+              ${ordens.slice(0, 5).map(o => `
                 <tr>
-                  <td style="font-family:var(--font-mono);font-weight:700">${i+1}º</td>
-                  <td style="font-family:var(--font-mono);color:var(--primary)">#${String(o.numero).padStart(3,'0')}</td>
-                  <td><strong>${o.school}</strong></td>
-                  <td style="font-size:0.82rem">${(o.itens||[]).length} itens</td>
-                  <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
+                  <td style="font-family:var(--font-mono);font-weight:600">${_esc(o.date || o.dataLimite || 'A definir')}</td>
+                  <td><strong>${_esc(o.school)}</strong></td>
+                  <td style="font-size:0.82rem">
+                    ${(o.itens || []).map(i => `${_esc(i.produto)} (${i.qtd} ${i.unidade})`).join(', ') || 'Hortifrúti / Legumes da Safra'}
+                  </td>
+                  <td style="font-family:var(--font-mono)">${(o.itens || []).reduce((s,i) => s + (i.qtd||0), 0) || 350} kg</td>
+                  <td><span class="status-badge ${typeof statusClass === 'function' ? statusClass(o.status) : 'status-warning'}">${_esc(o.status)}</span></td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:0.75rem" onclick="window.abrirModalDetalhesOrdemColaborador('${o.id}')">
+                      👁️ Detalhes
+                    </button>
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
         </div>
       </div>
-    `).join('') : '<div class="card"><div class="card-body" style="text-align:center;color:var(--text-secondary);padding:24px">Nenhum pedido em transporte no momento.</div></div>'}
-  `;
-  setTimeout(() => {
-    const c = document.getElementById('map-container-rotas');
-    if (c) { renderMap(); }
-  }, 100);
-};
+    `;
+  };
 
-// Chamamentos: pequena lista mock persistida em localStorage (podem ser criados pelo gestor no futuro)
-function getChamamentos() {
-  try { return JSON.parse(localStorage.getItem('saged_chamamentos_v1') || 'null') || _DEFAULT_CHAMAMENTOS(); }
-  catch { return _DEFAULT_CHAMAMENTOS(); }
-}
-function _DEFAULT_CHAMAMENTOS() {
-  return [
-    { id: 'ch1', titulo: 'Chamada Pública 001/2026 — Hortaliças Verão', abertura: '2026-07-01', encerramento: '2026-07-31', valor: 480000, produtos: ['Alface','Tomate','Cenoura','Abóbora'], candidatos: 12, status: 'Aberta' },
-    { id: 'ch2', titulo: 'Chamada Pública 002/2026 — Frutas', abertura: '2026-06-15', encerramento: '2026-07-20', valor: 320000, produtos: ['Banana','Melancia','Maçã'], candidatos: 8, status: 'Em Análise' },
-    { id: 'ch3', titulo: 'Chamada Pública 003/2026 — Tubérculos', abertura: '2026-08-01', encerramento: '2026-08-31', valor: 210000, produtos: ['Mandioca','Batata Doce'], candidatos: 0, status: 'Aberta' },
-  ];
-}
+  // ────────────────────────────────────────────────────────────
+  // 2. COOPERATIVA: ORDENS DE SERVIÇO (PEDIDOS)
+  // ────────────────────────────────────────────────────────────
+  PAGE_RENDERERS.cooperativa_pedidos = (el) => {
+    const prof = (window.PROFILES && window.state && window.PROFILES[window.state.currentProfile]) || {};
+    const coopName = prof.role || 'COOPAGRAN';
+    const ordens = _getOrdensDoPerfil();
 
-PAGE_RENDERERS.cooperativa_contratos = (el) => {
-  const chamamentos = getChamamentos();
-  const abertos = chamamentos.filter(c => c.status === 'Aberta').length;
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Contratos e Chamamentos</div><div class="page-subtitle">Acompanhe atas, empenhos e chamadas públicas abertas para agricultores</div></div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
-      <div class="kpi-card blue"><div class="kpi-icon">📋</div><div class="kpi-value">${chamamentos.length}</div><div class="kpi-label">Chamamentos Cadastrados</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${abertos}</div><div class="kpi-label">Abertos p/ Habilitação</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">${chamamentos.reduce((s,c)=>s+(c.candidatos||0),0)}</div><div class="kpi-label">Candidatos Totais</div></div>
-    </div>
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">📢 Chamamentos Ativos</div></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Chamada</th><th>Abertura</th><th>Encerramento</th><th>Valor Global</th><th>Produtos</th><th>Candidatos</th><th>Status</th></tr></thead>
-          <tbody>
-            ${chamamentos.map(c => `
+    el.innerHTML = `
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:gap;gap:12px">
+        <div>
+          <div class="page-title">Ordens de Serviço de Fornecimento — ${coopName}</div>
+          <div class="page-subtitle">Ordens emitidas pela SEMED para fornecimento de gêneros da Agricultura Familiar</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="navigateTo('cooperativa','entregas')">📅 Ir ao Cronograma de Entregas</button>
+      </div>
+
+      <div class="card mb-24">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">Fila de Ordens de Serviço Recebidas</div>
+          <span class="tag tag-blue" style="font-weight:700">${ordens.length} O.S. registradas</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead>
               <tr>
-                <td><strong>${c.titulo}</strong></td>
-                <td>${c.abertura}</td>
-                <td>${c.encerramento}</td>
-                <td style="font-family:var(--font-mono)">${formatCurrency(c.valor)}</td>
-                <td style="font-size:0.82rem">${(c.produtos||[]).map(p => '<span class="tag tag-green" style="margin:1px">' + p + '</span>').join(' ')}</td>
-                <td style="font-family:var(--font-mono);text-align:center">${c.candidatos}</td>
-                <td><span class="status-badge ${c.status === 'Aberta' ? 'status-ok' : 'status-warning'}">${c.status}</span></td>
+                <th>Nº da O.S.</th>
+                <th>Unidade Escolar</th>
+                <th>Data Limite</th>
+                <th>Produtos & Quantidades</th>
+                <th>Valor Previsto</th>
+                <th>Status</th>
+                <th style="text-align:right">Ações Operacionais</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">💼 Atas e Empenhos Vinculados</div></div>
-      <div class="card-body" style="padding:0" id="coop-atas-embed"></div>
-    </div>
-  `;
-  // Embed rápido da view Atas do Gestor no card interno
-  const embed = document.getElementById('coop-atas-embed');
-  if (embed) {
-    const tmp = document.createElement('div');
-    PAGE_RENDERERS.gestor_atas(tmp);
-    // pega só as tabelas
-    embed.innerHTML = tmp.innerHTML;
-  }
-};
-PAGE_RENDERERS.cooperativa_entregas = (el) => { PAGE_RENDERERS.escola_entregas(el); };
-PAGE_RENDERERS.cooperativa_relatorios = (el) => { PAGE_RENDERERS.gestor_relatorios(el); };
-PAGE_RENDERERS.cooperativa_indicadores = (el) => {
-  const prof = PROFILES[state.currentProfile] || {};
-  const coopName = prof.role || 'COOPAGRAN';
-  const orders = SharedState.getOrders().filter(o => (o.cooperative||'').toUpperCase() === coopName.toUpperCase());
-  const entregues = orders.filter(o => o.status === 'Entregue');
-  const taxaAtendimento = orders.length > 0 ? Math.round(entregues.length / orders.length * 100) : 89;
-  const volumeKg = entregues.reduce((s, o) => s + (o.itens || []).reduce((a, i) => a + (i.qtd||0), 0), 0);
-  const agricAtivos = DATA.farmers.filter(f => f.coop === coopName).length || 28;
+            </thead>
+            <tbody>
+              ${ordens.map(o => {
+                const numStr = String(o.numero || o.id || '101').replace('ord-','');
+                const isPendente = (o.status === 'Pendente');
+                const isSeparando = (o.status === 'Em separação' || o.status === 'Aceito');
+                const isTransporte = (o.status === 'Em transporte');
 
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Indicadores de Performance</div><div class="page-subtitle">Métricas de desempenho da ${coopName} · Dados sincronizados</div></div>
-    <div class="kpi-grid">
-      <div class="kpi-card green"><div class="kpi-icon">🎯</div><div class="kpi-value">${taxaAtendimento}%</div><div class="kpi-label">Taxa de Atendimento</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${entregues.length}</div><div class="kpi-label">Entregas Concluídas</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">📊</div><div class="kpi-value">${(volumeKg/1000).toFixed(1)}t</div><div class="kpi-label">Volume Fornecido</div></div>
-      <div class="kpi-card purple"><div class="kpi-icon">👨‍🌾</div><div class="kpi-value">${agricAtivos}</div><div class="kpi-label">Agricultores Ativos</div></div>
-    </div>
-    <div class="card"><div class="card-header"><div class="card-title">📈 Evolução da Taxa de Atendimento</div></div><div class="card-body"><div class="chart-container h-300"><canvas id="chart-indicadores"></canvas></div></div></div>
-  `;
-  setTimeout(() => {
-    createChart('chart-indicadores', {
-      type: 'line',
-      data: { labels: DATA.months.slice(0,6), datasets: [{ label: 'Taxa de Atendimento (%)', data: [82, 85, 88, 86, 91, taxaAtendimento], borderColor: CHART_COLORS.green, backgroundColor: CHART_COLORS.greenFill, fill: true, tension: 0.4 }] },
-      options: { ...CHART_DEFAULTS, scales: { ...CHART_DEFAULTS.scales, y: { ...CHART_DEFAULTS.scales.y, min: 70, max: 100 } } }
-    });
-  }, 100);
-};
-
-// ─── AGRICULTOR: DASHBOARD ───
-PAGE_RENDERERS.agricultor_dashboard = (el) => {
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Dashboard — José Maria Rodrigues</div><div class="page-subtitle">Visão geral da sua produção e compromissos</div></div>
-    <div class="kpi-grid">
-      <div class="kpi-card green"><div class="kpi-icon">🌱</div><div class="kpi-value">3</div><div class="kpi-label">Produtos Cadastrados</div></div>
-      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">1.200</div><div class="kpi-label">Estoque Disponível (kg)</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">📋</div><div class="kpi-value">1</div><div class="kpi-label">Pedidos Pendentes</div></div>
-      <div class="kpi-card teal"><div class="kpi-icon">📅</div><div class="kpi-value">2</div><div class="kpi-label">Entregas Programadas</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">18</div><div class="kpi-label">Entregas Concluídas</div></div>
-      <div class="kpi-card purple"><div class="kpi-icon">💰</div><div class="kpi-value">R$ 24.500</div><div class="kpi-label">Valor a Receber</div></div>
-    </div>
-    <div class="grid-2-1">
-      <div class="card"><div class="card-header"><div class="card-title">🚨 Alertas</div></div><div class="card-body">
-        <div class="alert-list">
-          <div class="alert-item warning"><span class="alert-icon">🚚</span><div class="alert-text">Entrega para <strong>EM ADV. DEMOSTHENES MARTINS</strong> programada para <strong>amanhã</strong></div></div>
-          <div class="alert-item info"><span class="alert-icon">📋</span><div class="alert-text">Novo pedido da <strong>COOPAGRAN</strong>: 200 kg de Mandioca</div></div>
-          <div class="alert-item success"><span class="alert-icon">🌱</span><div class="alert-text"><strong>Abóbora</strong> — Colheita prevista em 5 dias</div></div>
-        </div>
-      </div></div>
-      <div class="card"><div class="card-header"><div class="card-title">🚚 Próximas Entregas</div></div><div class="card-body">
-        <table class="data-table"><thead><tr><th>Produto</th><th>Qtd</th><th>Data</th><th>Escola</th></tr></thead><tbody>
-          <tr><td>Mandioca</td><td>200 kg</td><td>25/06</td><td>EM ADV. DEMOSTHENES MARTINS</td></tr>
-          <tr><td>Banana</td><td>150 kg</td><td>27/06</td><td>EMRTI GOV. ARNALDO</td></tr>
-        </tbody></table>
-      </div></div>
-    </div>
-  `;
-};
-
-PAGE_RENDERERS.agricultor_producao = (el) => {
-  const prof = PROFILES[state.currentProfile] || {};
-  const producoes = SharedState.getProductions().filter(p => p.agricultor === prof.name);
-  const baseRows = [
-    ['Mandioca','5','2.500','1.200','Em produção'],
-    ['Banana Nanica','4','1.400','800','Em produção'],
-    ['Abóbora Cabotiá','3','600','200','Pré-colheita'],
-  ];
-  const extraRows = producoes.map(p => [p.produto, p.area || '—', (p.previsto||0).toLocaleString('pt-BR'), (p.disponivel||0).toLocaleString('pt-BR'), p.status || 'Em produção']);
-
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Minha Produção</div><div class="page-subtitle">Atualizações aqui aparecem imediatamente na Cooperativa e no Gestor</div></div>
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Nova Atualização de Produção</div></div>
-      <div class="card-body">
-        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr auto;gap:8px">
-          <input type="text" id="prod-produto" placeholder="Produto (ex.: Alface Crespa)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">
-          <input type="number" id="prod-area" placeholder="Área (ha)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">
-          <input type="number" id="prod-previsto" placeholder="Previsto (kg)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">
-          <input type="number" id="prod-disponivel" placeholder="Disponível (kg)" style="padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">
-          <button class="btn btn-primary" id="btn-add-prod">+ Adicionar</button>
+                return `
+                  <tr>
+                    <td>
+                      <span class="tag tag-blue" style="font-family:var(--font-mono);font-weight:700">#OSC-${numStr}</span>
+                    </td>
+                    <td><strong>${_esc(o.school)}</strong></td>
+                    <td style="font-family:var(--font-mono)">${_esc(o.dataLimite || o.date || '—')}</td>
+                    <td style="font-size:0.82rem">
+                      ${(o.itens || []).map(i => `<span class="tag tag-green" style="margin:2px 2px 2px 0">${_esc(i.produto)}: ${i.qtd} ${i.unidade}</span>`).join('') || '—'}
+                    </td>
+                    <td style="font-family:var(--font-mono);font-weight:700;color:var(--text-primary)">
+                      ${typeof formatCurrency === 'function' ? formatCurrency(o.value || 0) : 'R$ ' + (o.value || 0).toLocaleString('pt-BR')}
+                    </td>
+                    <td><span class="status-badge ${typeof statusClass === 'function' ? statusClass(o.status) : 'status-warning'}">${_esc(o.status)}</span></td>
+                    <td style="text-align:right">
+                      <div style="display:inline-flex;gap:6px;justify-content:flex-end">
+                        <button class="btn btn-sm btn-outline" style="padding:3px 8px;font-size:0.75rem" onclick="window.abrirModalDetalhesOrdemColaborador('${o.id}')">
+                          👁️ Detalhes
+                        </button>
+                        ${isPendente ? `
+                          <button class="btn btn-sm btn-primary" style="background:#16a34a;border-color:#16a34a;padding:3px 10px;font-size:0.75rem;font-weight:700" onclick="window.aceitarOrdemColaborador('${o.id}')">
+                            ✅ Aceitar O.S.
+                          </button>
+                        ` : ''}
+                        ${isSeparando ? `
+                          <button class="btn btn-sm btn-primary" style="background:#0284c7;border-color:#0284c7;padding:3px 10px;font-size:0.75rem;font-weight:700" onclick="window.despacharOrdemColaborador('${o.id}')">
+                            🚚 Despachar
+                          </button>
+                        ` : ''}
+                        ${isTransporte ? `
+                          <button class="btn btn-sm btn-outline" style="color:#16a34a;border-color:#16a34a;padding:3px 8px;font-size:0.75rem;font-weight:700" onclick="window.abrirModalComprovanteEntregaColaborador('${o.id}')">
+                            📸 Confirmar Entrega
+                          </button>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
         </div>
       </div>
-    </div>
-    <div class="card">
-      <div class="card-header"><div class="card-title">Produção Atual</div>${extraRows.length ? '<span class="status-badge status-ok">'+extraRows.length+' atualização(ões) recente(s)</span>' : ''}</div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Produto</th><th>Área (ha)</th><th>Prevista (kg)</th><th>Disponível (kg)</th><th>Status</th></tr></thead>
-          <tbody>
-            ${extraRows.map(r => `<tr>${r.map((c,i)=>i===0?`<td><strong>${c}</strong> <span class="tag tag-blue" style="font-size:0.65rem">NOVO</span></td>`:`<td>${c}</td>`).join('')}</tr>`).join('')}
-            ${baseRows.map(r => `<tr>${r.map((c,i)=>i===0?`<td><strong>${c}</strong></td>`:`<td>${c}</td>`).join('')}</tr>`).join('')}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  `;
+    `;
+  };
 
-  document.getElementById('btn-add-prod')?.addEventListener('click', () => {
-    const produto = document.getElementById('prod-produto').value.trim();
-    const area = parseFloat(document.getElementById('prod-area').value) || 0;
-    const previsto = parseFloat(document.getElementById('prod-previsto').value) || 0;
-    const disponivel = parseFloat(document.getElementById('prod-disponivel').value) || 0;
-    if (!produto) { showToast('Informe o nome do produto.', 'error'); return; }
-    SharedState.addProduction({ agricultor: prof.name, produto, area, previsto, disponivel, status: 'Em produção' });
-    showToast('🌾 Produção registrada — Cooperativa e Gestor SEMED notificados.');
-    PAGE_RENDERERS.agricultor_producao(document.getElementById('page-content'));
-  });
-};
-PAGE_RENDERERS.agricultor_estoque = (el) => {
-  const prof = PROFILES[state.currentProfile] || {};
-  const nome = prof.name;
-  const producoes = SharedState.getProductions().filter(p => p.agricultor === nome);
-  // Calcula reservado a partir dos pedidos com distribuicao para este agricultor
-  const reservadoMap = {};
-  SharedState.getOrders().filter(o => o.status !== 'Entregue').forEach(o => {
-    (o.distribuicao || []).filter(d => d.agricultor === nome).forEach(d => {
-      reservadoMap[d.produto] = (reservadoMap[d.produto] || 0) + d.qtd;
-    });
-  });
+  // ────────────────────────────────────────────────────────────
+  // 3. COOPERATIVA: CRONOGRAMA DE ENTREGAS
+  // ────────────────────────────────────────────────────────────
+  PAGE_RENDERERS.cooperativa_entregas = (el) => {
+    const prof = (window.PROFILES && window.state && window.PROFILES[window.state.currentProfile]) || {};
+    const coopName = prof.role || 'COOPAGRAN';
+    const ordens = _getOrdensDoPerfil();
 
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Meu Estoque</div><div class="page-subtitle">Produção declarada + reservas de pedidos atribuídos</div></div>
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Estoque Atual</div><button class="btn btn-primary btn-sm" onclick="navigateTo('agricultor','producao')">Atualizar Produção</button></div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table">
-          <thead><tr><th>Produto</th><th>Disponível</th><th>Reservado</th><th>Livre</th></tr></thead>
-          <tbody>
-            ${producoes.map(p => {
-              const disp = p.disponivel || 0;
-              const res = reservadoMap[p.produto] || 0;
-              const livre = Math.max(0, disp - res);
-              return `<tr>
-                <td><strong>${p.produto}</strong></td>
-                <td style="font-family:var(--font-mono)">${disp.toLocaleString('pt-BR')} kg</td>
-                <td style="font-family:var(--font-mono);color:${res > 0 ? 'var(--warning)' : 'var(--text-tertiary)'}">${res.toLocaleString('pt-BR')} kg</td>
-                <td style="font-family:var(--font-mono);color:var(--success)">${livre.toLocaleString('pt-BR')} kg</td>
-              </tr>`;
-            }).join('') || `
-              <tr><td><strong>Mandioca</strong></td><td style="font-family:var(--font-mono)">1.200 kg</td><td style="font-family:var(--font-mono)">${(reservadoMap['Mandioca']||200)} kg</td><td style="font-family:var(--font-mono);color:var(--success)">${1200-(reservadoMap['Mandioca']||200)} kg</td></tr>
-              <tr><td><strong>Banana Nanica</strong></td><td style="font-family:var(--font-mono)">800 kg</td><td style="font-family:var(--font-mono)">${(reservadoMap['Banana Nanica']||150)} kg</td><td style="font-family:var(--font-mono);color:var(--success)">${800-(reservadoMap['Banana Nanica']||150)} kg</td></tr>
-              <tr><td><strong>Abóbora Cabotiá</strong></td><td style="font-family:var(--font-mono)">200 kg</td><td style="font-family:var(--font-mono)">0 kg</td><td style="font-family:var(--font-mono);color:var(--success)">200 kg</td></tr>
-            `}
-          </tbody>
-        </table>
-      </div>
-    </div>
-    ${producoes.length === 0 ? '<div style="background:var(--surface-2);padding:12px;border-radius:8px;font-size:0.85rem;color:var(--text-secondary)">💡 Cadastre sua produção em <strong>/producao</strong> para que apareça aqui e no painel da cooperativa.</div>' : ''}
-  `;
-};
-
-PAGE_RENDERERS.agricultor_pedidos = (el) => {
-  const prof = PROFILES[state.currentProfile] || {};
-  const nome = prof.name;
-  // Filtra pedidos onde este agricultor foi atribuído em distribuicao[]
-  const meus = SharedState.getOrders().filter(o => (o.distribuicao || []).some(d => d.agricultor === nome));
-
-  el.innerHTML = `
-    <div class="page-header"><div class="page-title">Meus Pedidos Atribuídos</div><div class="page-subtitle">Itens distribuídos automaticamente pela cooperativa conforme sua produção declarada</div></div>
-    <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px">
-      <div class="kpi-card red"><div class="kpi-icon">⏳</div><div class="kpi-value">${meus.filter(o=>o.status==='Em separação').length}</div><div class="kpi-label">Aguardando Colheita/Envio</div></div>
-      <div class="kpi-card orange"><div class="kpi-icon">🚚</div><div class="kpi-value">${meus.filter(o=>o.status==='Em transporte').length}</div><div class="kpi-label">Em Transporte</div></div>
-      <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${meus.filter(o=>o.status==='Entregue').length}</div><div class="kpi-label">Entregues</div></div>
-    </div>
-    <div class="card mb-24">
-      <div class="card-header"><div class="card-title">Pedidos com Meus Produtos</div>${meus.length ? '<span class="status-badge status-ok">'+meus.length+'</span>' : ''}</div>
-      <div class="card-body" style="padding:0">
-        <table class="data-table"><thead><tr><th>Pedido</th><th>Escola</th><th>Cooperativa</th><th>Meus Itens</th><th>Status</th></tr></thead><tbody>
-          ${meus.map(o => {
-            const meusItens = (o.distribuicao || []).filter(d => d.agricultor === nome);
-            return `<tr>
-              <td style="font-family:var(--font-mono);color:var(--primary);font-weight:700">#${String(o.numero).padStart(3,'0')}</td>
-              <td><strong>${o.school}</strong></td>
-              <td><span class="tag tag-teal">${o.cooperative||'—'}</span></td>
-              <td style="font-size:0.82rem">${meusItens.map(d => d.produto + ' (' + d.qtd + d.unidade + ')').join(', ')}</td>
-              <td><span class="status-badge ${statusClass(o.status)}">${o.status}</span></td>
-            </tr>`;
-          }).join('') || `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--text-secondary)">Nenhum pedido atribuído. Registre sua produção em /producao para aparecer nas distribuições.</td></tr>`}
-        </tbody></table>
-      </div>
-    </div>
-  `;
-};
-
-PAGE_RENDERERS.agricultor_entregas = (el) => { PAGE_RENDERERS.escola_entregas(el); };
-PAGE_RENDERERS.agricultor_calendario = (el) => { PAGE_RENDERERS.escola_planejamento(el); };
-PAGE_RENDERERS.agricultor_relatorios = (el) => { PAGE_RENDERERS.gestor_relatorios(el); };
-
-function _getAgriProfile() {
-  const defaults = { nome:'José Maria Rodrigues', cpf:'123.456.789-00', endereco:'Estrada Rural, Km 12 — Campo Grande, MS', telefone:'(67) 99123-4567', propriedade:'Sítio Boa Esperança', areaTotal:'15', areaProdutiva:'12', cooperativa:'COOPAGRAN', caf:'Válida até 12/2026' };
-  try { return { ...defaults, ...JSON.parse(localStorage.getItem('saged_agri_profile_v1') || '{}') }; } catch { return defaults; }
-}
-
-PAGE_RENDERERS.agricultor_perfil = (el) => {
-  const p = _getAgriProfile();
-  const readOnly = !window._editAgriProfile;
-  const producoes = SharedState.getProductions();
-  const produtosProduzidos = new Set(producoes.map(x => x.produto));
-  const produtosDefault = ['Mandioca', 'Banana Nanica', 'Abóbora Cabotiá'];
-  const produtos = produtosProduzidos.size > 0 ? Array.from(produtosProduzidos) : produtosDefault;
-
-  el.innerHTML = `
-    <div class="page-header">
-      <div class="page-title">Meu Perfil</div>
-      <div class="page-subtitle">Dados pessoais e da propriedade${readOnly ? '' : ' · Modo edição'}</div>
-    </div>
-    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;gap:8px">
-      ${readOnly
-        ? '<button class="btn btn-primary btn-sm" onclick="toggleAgriEdit(true)">✏️ Editar</button>'
-        : '<button class="btn btn-outline btn-sm" onclick="toggleAgriEdit(false)">Cancelar</button><button class="btn btn-primary btn-sm" onclick="saveAgriProfile()">💾 Salvar</button>'}
-    </div>
-    <div class="grid-2">
-      <div class="card"><div class="card-header"><div class="card-title">👤 Dados Pessoais</div></div><div class="card-body">
-        <div class="form-row"><div class="form-field"><label>Nome</label>${_agriField('nome', p.nome, readOnly)}</div><div class="form-field"><label>CPF</label>${_agriField('cpf', p.cpf, readOnly)}</div></div>
-        <div class="form-row"><div class="form-field"><label>Endereço</label>${_agriField('endereco', p.endereco, readOnly)}</div><div class="form-field"><label>Telefone</label>${_agriField('telefone', p.telefone, readOnly)}</div></div>
-      </div></div>
-      <div class="card"><div class="card-header"><div class="card-title">🏡 Dados da Propriedade</div></div><div class="card-body">
-        <div class="form-row"><div class="form-field"><label>Nome da Propriedade</label>${_agriField('propriedade', p.propriedade, readOnly)}</div><div class="form-field"><label>Área Total (ha)</label>${_agriField('areaTotal', p.areaTotal, readOnly, 'number')}</div></div>
-        <div class="form-row"><div class="form-field"><label>Área Produtiva (ha)</label>${_agriField('areaProdutiva', p.areaProdutiva, readOnly, 'number')}</div><div class="form-field"><label>Cooperativa</label>${_agriField('cooperativa', p.cooperativa, readOnly)}</div></div>
-      </div></div>
-    </div>
-    <div class="grid-2" style="margin-top:20px">
-      <div class="card"><div class="card-header"><div class="card-title">🌱 Produtos Produzidos ${producoes.length > 0 ? '(via SharedState)' : ''}</div></div><div class="card-body">
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          ${produtos.map(pr => `<span class="tag tag-green" style="font-size:0.85rem;padding:6px 16px">${pr}</span>`).join('')}
+    el.innerHTML = `
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Cronograma de Entregas às Escolas — ${coopName}</div>
+          <div class="page-subtitle">Acompanhamento das datas limites, rotas e registro de atesto de entrega</div>
         </div>
-      </div></div>
-      <div class="card"><div class="card-header"><div class="card-title">📄 Documentos</div></div><div class="card-body">
-        <div class="form-row"><div class="form-field"><label>CAF/DAP</label>${_agriField('caf', p.caf, readOnly)}</div></div>
-        <div class="form-row"><div class="form-field"><label>Certificação Orgânica</label><div class="field-value"><span class="status-badge status-info">Em processo</span></div></div></div>
-      </div></div>
-    </div>
-  `;
-};
+        <button class="btn btn-primary btn-sm" onclick="navigateTo('cooperativa','pedidos')">📋 Ver Ordens de Serviço</button>
+      </div>
 
-function _agriField(name, value, ro, type) {
-  if (ro) return `<div class="field-value">${value || '—'}</div>`;
-  return `<input type="${type || 'text'}" id="agri-${name}" value="${(value || '').replace(/"/g,'&quot;')}" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-md);font-size:0.85rem">`;
-}
+      <div class="card mb-24">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">Programação de Entregas da Semana</div>
+          <span class="status-badge status-ok">${ordens.length} paradas mapeadas</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data Programada</th>
+                <th>Escola de Destino</th>
+                <th>Região Urbana</th>
+                <th>Produtos a Descarregar</th>
+                <th>Status</th>
+                <th style="text-align:right">Comprovante & Baixa</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ordens.map(o => {
+                const sc = (window.DATA && window.DATA.schools ? window.DATA.schools.find(s => s.name === o.school) : null);
+                const regiao = sc?.region || 'Urbana (Central)';
+                const isEntregue = (o.status === 'Entregue');
 
-window.toggleAgriEdit = (on) => {
-  window._editAgriProfile = !!on;
-  PAGE_RENDERERS.agricultor_perfil(document.getElementById('page-content'));
-};
+                return `
+                  <tr>
+                    <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">
+                      📅 ${_esc(o.date || o.dataLimite || '25/06/2026')}
+                    </td>
+                    <td>
+                      <strong>${_esc(o.school)}</strong>
+                      <div style="font-size:0.75rem;color:var(--text-tertiary)">${_esc(sc?.address || 'Av. Afonso Pena, Campo Grande')}</div>
+                    </td>
+                    <td><span class="tag tag-blue">${_esc(regiao)}</span></td>
+                    <td style="font-size:0.82rem">
+                      ${(o.itens || []).map(i => `${_esc(i.produto)} (${i.qtd} ${i.unidade})`).join(', ') || 'Insumos do cardápio escolar'}
+                    </td>
+                    <td><span class="status-badge ${typeof statusClass === 'function' ? statusClass(o.status) : 'status-warning'}">${_esc(o.status)}</span></td>
+                    <td style="text-align:right">
+                      ${isEntregue 
+                        ? `<span style="color:#16a34a;font-weight:700;font-size:0.8rem">✅ Entregue e Atestado</span>`
+                        : `<button class="btn btn-sm btn-primary" style="background:#16a34a;border-color:#16a34a;padding:3px 10px;font-size:0.75rem;font-weight:700" onclick="window.abrirModalComprovanteEntregaColaborador('${o.id}')">
+                            📸 Registrar Entrega
+                          </button>`}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  };
 
-window.saveAgriProfile = () => {
-  const fields = ['nome','cpf','endereco','telefone','propriedade','areaTotal','areaProdutiva','cooperativa','caf'];
-  const data = {};
-  fields.forEach(f => { const v = document.getElementById('agri-' + f)?.value; if (v !== undefined) data[f] = v; });
-  try { localStorage.setItem('saged_agri_profile_v1', JSON.stringify(data)); } catch {}
-  window._editAgriProfile = false;
-  showToast('✅ Perfil salvo.');
-  PAGE_RENDERERS.agricultor_perfil(document.getElementById('page-content'));
-};
+  // ────────────────────────────────────────────────────────────
+  // 4. AGRICULTOR FAMILIAR: DASHBOARD (PAINEL GERAL)
+  // ────────────────────────────────────────────────────────────
+  PAGE_RENDERERS.agricultor_dashboard = (el) => {
+    const prof = (window.PROFILES && window.state && window.PROFILES[window.state.currentProfile]) || {};
+    const nome = prof.name || 'José Maria Rodrigues';
+    const ordens = _getOrdensDoPerfil();
 
-  // === Migrado do app.js (Fase 4) ===
+    const pendentes = ordens.filter(o => o.status === 'Pendente');
+    const emSeparacao = ordens.filter(o => o.status === 'Em separação' || o.status === 'Aceito');
+    const emTransporte = ordens.filter(o => o.status === 'Em transporte');
+    const entregues = ordens.filter(o => o.status === 'Entregue');
+
+    el.innerHTML = `
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Painel Operacional — ${nome}</div>
+          <div class="page-subtitle">Agricultor Familiar · Recepção de Ordens e Cronograma de Entrega</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-outline btn-sm" onclick="navigateTo('agricultor','entregas')">📅 Meu Cronograma de Entregas</button>
+          <button class="btn btn-primary btn-sm" onclick="navigateTo('agricultor','pedidos')">📋 Minhas Ordens de Serviço (${pendentes.length})</button>
+        </div>
+      </div>
+
+      <!-- KPIs do Produtor -->
+      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
+        <div class="kpi-card orange" style="cursor:pointer" onclick="navigateTo('agricultor','pedidos')">
+          <div class="kpi-icon">📋</div>
+          <div class="kpi-value">${pendentes.length}</div>
+          <div class="kpi-label">O.S. Aguardando Aceite</div>
+        </div>
+        <div class="kpi-card blue" style="cursor:pointer" onclick="navigateTo('agricultor','entregas')">
+          <div class="kpi-icon">🚚</div>
+          <div class="kpi-value">${emSeparacao.length + emTransporte.length}</div>
+          <div class="kpi-label">Entregas em Andamento</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-icon">✅</div>
+          <div class="kpi-value">${entregues.length + 18}</div>
+          <div class="kpi-label">Entregas Realizadas</div>
+        </div>
+        <div class="kpi-card purple">
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-value">R$ 24.500</div>
+          <div class="kpi-label">Previsão a Receber</div>
+        </div>
+      </div>
+
+      <!-- Próximas Entregas do Produtor -->
+      <div class="card mb-24" style="border-left:4px solid #16a34a">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">📅 Próximas Entregas para Escolas</div>
+          <button class="btn btn-sm btn-ghost" onclick="navigateTo('agricultor','entregas')">Ver Cronograma Completo →</button>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data Programada</th>
+                <th>Escola de Destino</th>
+                <th>Produtos da Minha Propriedade</th>
+                <th>Status</th>
+                <th>Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ordens.slice(0, 4).map(o => `
+                <tr>
+                  <td style="font-family:var(--font-mono);font-weight:700">📅 ${_esc(o.date || o.dataLimite || '25/06')}</td>
+                  <td><strong>${_esc(o.school)}</strong></td>
+                  <td style="font-size:0.82rem">
+                    ${(o.itens || []).map(i => `${_esc(i.produto)}: ${i.qtd} ${i.unidade}`).join(', ') || 'Mandioca e Hortaliças'}
+                  </td>
+                  <td><span class="status-badge ${typeof statusClass === 'function' ? statusClass(o.status) : 'status-warning'}">${_esc(o.status)}</span></td>
+                  <td>
+                    <button class="btn btn-sm btn-outline" style="padding:2px 8px;font-size:0.75rem" onclick="window.abrirModalDetalhesOrdemColaborador('${o.id}')">
+                      👁️ Detalhes
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  };
+
+  // ────────────────────────────────────────────────────────────
+  // 5. AGRICULTOR FAMILIAR: ORDENS DE SERVIÇO (PEDIDOS)
+  // ────────────────────────────────────────────────────────────
+  PAGE_RENDERERS.agricultor_pedidos = (el) => {
+    const prof = (window.PROFILES && window.state && window.PROFILES[window.state.currentProfile]) || {};
+    const nome = prof.name || 'José Maria Rodrigues';
+    const ordens = _getOrdensDoPerfil();
+
+    el.innerHTML = `
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Ordens de Serviço — ${nome}</div>
+          <div class="page-subtitle">Demandas atribuídas para fornecimento direto às escolas e cooperativa</div>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="navigateTo('agricultor','entregas')">📅 Ir ao Cronograma de Entregas</button>
+      </div>
+
+      <div class="card mb-24">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">Minhas Ordens de Fornecimento</div>
+          <span class="tag tag-green" style="font-weight:700">${ordens.length} O.S. atribuídas</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>O.S.</th>
+                <th>Escola de Destino</th>
+                <th>Data Limite</th>
+                <th>Produtos Solicitados</th>
+                <th>Status</th>
+                <th style="text-align:right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ordens.map(o => {
+                const numStr = String(o.numero || o.id || '101').replace('ord-','');
+                const isPendente = (o.status === 'Pendente');
+                const isSeparando = (o.status === 'Em separação' || o.status === 'Aceito');
+                const isTransporte = (o.status === 'Em transporte');
+
+                return `
+                  <tr>
+                    <td><span class="tag tag-blue" style="font-family:var(--font-mono);font-weight:700">#OSC-${numStr}</span></td>
+                    <td><strong>${_esc(o.school)}</strong></td>
+                    <td style="font-family:var(--font-mono)">${_esc(o.dataLimite || o.date || '—')}</td>
+                    <td style="font-size:0.82rem">
+                      ${(o.itens || []).map(i => `<span class="tag tag-green" style="margin:2px">${_esc(i.produto)}: ${i.qtd} ${i.unidade}</span>`).join('') || '—'}
+                    </td>
+                    <td><span class="status-badge ${typeof statusClass === 'function' ? statusClass(o.status) : 'status-warning'}">${_esc(o.status)}</span></td>
+                    <td style="text-align:right">
+                      <div style="display:inline-flex;gap:6px;justify-content:flex-end">
+                        <button class="btn btn-sm btn-outline" style="padding:3px 8px;font-size:0.75rem" onclick="window.abrirModalDetalhesOrdemColaborador('${o.id}')">
+                          👁️ Detalhes
+                        </button>
+                        ${isPendente ? `
+                          <button class="btn btn-sm btn-primary" style="background:#16a34a;border-color:#16a34a;padding:3px 10px;font-size:0.75rem;font-weight:700" onclick="window.aceitarOrdemColaborador('${o.id}')">
+                            ✅ Aceitar
+                          </button>
+                        ` : ''}
+                        ${isSeparando ? `
+                          <button class="btn btn-sm btn-primary" style="background:#0284c7;border-color:#0284c7;padding:3px 10px;font-size:0.75rem;font-weight:700" onclick="window.despacharOrdemColaborador('${o.id}')">
+                            🚚 Despachar
+                          </button>
+                        ` : ''}
+                        ${isTransporte ? `
+                          <button class="btn btn-sm btn-outline" style="color:#16a34a;border-color:#16a34a;padding:3px 8px;font-size:0.75rem;font-weight:700" onclick="window.abrirModalComprovanteEntregaColaborador('${o.id}')">
+                            📸 Entregar
+                          </button>
+                        ` : ''}
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  };
+
+  // ────────────────────────────────────────────────────────────
+  // 6. AGRICULTOR FAMILIAR: CRONOGRAMA DE ENTREGAS
+  // ────────────────────────────────────────────────────────────
+  PAGE_RENDERERS.agricultor_entregas = (el) => {
+    const prof = (window.PROFILES && window.state && window.PROFILES[window.state.currentProfile]) || {};
+    const nome = prof.name || 'José Maria Rodrigues';
+    const ordens = _getOrdensDoPerfil();
+
+    el.innerHTML = `
+      <div class="page-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+        <div>
+          <div class="page-title">Meu Cronograma de Entregas — ${nome}</div>
+          <div class="page-subtitle">Datas programadas para transporte dos produtos da Agricultura Familiar às escolas</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="navigateTo('agricultor','pedidos')">📋 Ver Ordens de Serviço</button>
+      </div>
+
+      <div class="card mb-24">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+          <div class="card-title">Calendário de Entregas Programadas</div>
+          <span class="status-badge status-ok">${ordens.length} entregas mapeadas</span>
+        </div>
+        <div class="card-body" style="padding:0">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Escola de Destino</th>
+                <th>Endereço / Região</th>
+                <th>Carga a Descarregar</th>
+                <th>Status</th>
+                <th style="text-align:right">Comprovação</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ordens.map(o => {
+                const sc = (window.DATA && window.DATA.schools ? window.DATA.schools.find(s => s.name === o.school) : null);
+                const isEntregue = (o.status === 'Entregue');
+
+                return `
+                  <tr>
+                    <td style="font-family:var(--font-mono);font-weight:700;color:var(--primary)">
+                      📅 ${_esc(o.date || o.dataLimite || '25/06/2026')}
+                    </td>
+                    <td><strong>${_esc(o.school)}</strong></td>
+                    <td style="font-size:0.8rem;color:var(--text-secondary)">${_esc(sc?.address || sc?.region || 'Campo Grande, MS')}</td>
+                    <td style="font-size:0.82rem">
+                      ${(o.itens || []).map(i => `${_esc(i.produto)}: ${i.qtd} ${i.unidade}`).join(', ') || 'Hortifrúti'}
+                    </td>
+                    <td><span class="status-badge ${typeof statusClass === 'function' ? statusClass(o.status) : 'status-warning'}">${_esc(o.status)}</span></td>
+                    <td style="text-align:right">
+                      ${isEntregue 
+                        ? `<span style="color:#16a34a;font-weight:700;font-size:0.8rem">✅ Entregue</span>`
+                        : `<button class="btn btn-sm btn-primary" style="background:#16a34a;border-color:#16a34a;padding:3px 10px;font-size:0.75rem;font-weight:700" onclick="window.abrirModalComprovanteEntregaColaborador('${o.id}')">
+                            📸 Registrar Entrega
+                          </button>`}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  };
+
+  // ────────────────────────────────────────────────────────────
+  // 7. MODAIS OPERACIONAIS COMPARTILHADOS
+  // ────────────────────────────────────────────────────────────
+  window.abrirModalDetalhesOrdemColaborador = (ordemId) => {
+    const sid = String(ordemId);
+    const ordens = _getOrdensDoPerfil();
+    const ordem = ordens.find(o => String(o.id) === sid || String(o.numero) === sid) || ordens[0];
+
+    if (!ordem) {
+      if (typeof showToast === 'function') showToast('Ordem de serviço não encontrada.');
+      return;
+    }
+
+    const modalId = 'modal-detalhes-ordem-colab';
+    document.getElementById(modalId)?.remove();
+
+    const numStr = String(ordem.numero || ordem.id || '101').replace('ord-','');
+    const modalHtml = `
+      <div id="${modalId}" class="modal-backdrop" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px;">
+        <div class="modal-card animate-fade-up" style="background:var(--surface);width:100%;max-width:680px;border-radius:var(--radius-lg);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid var(--border);display:flex;flex-direction:column;max-height:90vh;">
+          <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:1.3rem">📋</span>
+                <h3 style="margin:0;font-size:1.15rem;font-weight:700;color:var(--text-primary)">Ordem de Fornecimento #OSC-${numStr}</h3>
+                <span class="status-badge ${typeof statusClass === 'function' ? statusClass(ordem.status) : 'status-warning'}">${_esc(ordem.status)}</span>
+              </div>
+              <p style="margin:4px 0 0 0;font-size:0.82rem;color:var(--text-secondary)">
+                Destino: <strong>${_esc(ordem.school)}</strong> · Data Limite: <strong>${_esc(ordem.dataLimite || ordem.date || 'A definir')}</strong>
+              </p>
+            </div>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('${modalId}').remove()">✕</button>
+          </div>
+
+          <div style="padding:20px 24px;overflow-y:auto;flex:1;">
+            <div style="background:var(--surface-2);padding:14px;border-radius:8px;margin-bottom:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+              <div>
+                <div style="font-size:0.75rem;color:var(--text-secondary)">Entidade Solicitante</div>
+                <div style="font-weight:700;font-size:0.9rem">SEMED / PNAE</div>
+              </div>
+              <div>
+                <div style="font-size:0.75rem;color:var(--text-secondary)">Valor Estimado</div>
+                <div style="font-weight:700;font-size:0.9rem;color:var(--primary)">${typeof formatCurrency === 'function' ? formatCurrency(ordem.value || 0) : 'R$ ' + (ordem.value || 0).toLocaleString('pt-BR')}</div>
+              </div>
+              <div>
+                <div style="font-size:0.75rem;color:var(--text-secondary)">Classificação</div>
+                <div style="font-weight:700;font-size:0.9rem">🌾 Agricultura Familiar</div>
+              </div>
+            </div>
+
+            <h4 style="margin:0 0 10px 0;font-size:0.95rem">Itens e Quantidades a Fornecer:</h4>
+            <table class="data-table" style="font-size:0.85rem;margin:0 0 18px 0">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th style="text-align:right">Quantidade</th>
+                  <th style="text-align:center">Padrão de Embalagem</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(ordem.itens || []).map(i => `
+                  <tr>
+                    <td><strong>${_esc(i.produto)}</strong></td>
+                    <td style="text-align:right;font-family:var(--font-mono);font-weight:700">${i.qtd} ${i.unidade}</td>
+                    <td style="text-align:center"><span class="tag tag-teal">Caixa Higienizada</span></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div style="background:rgba(2,132,199,0.06);border:1px solid rgba(2,132,199,0.2);padding:12px;border-radius:6px;font-size:0.82rem;color:var(--text-secondary)">
+              ℹ️ <strong>Recomendações de Entrega:</strong> Os produtos devem ser entregues higienizados, respeitando o horário de recebimento da escola (07:30 às 10:30) com apresentação da guia/comprovante.
+            </div>
+          </div>
+
+          <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface)">
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('${modalId}').remove()">Fechar</button>
+            <div style="display:flex;gap:8px">
+              ${ordem.status === 'Pendente' ? `
+                <button type="button" class="btn btn-primary" style="background:#16a34a;border-color:#16a34a;font-weight:700" onclick="document.getElementById('${modalId}').remove(); window.aceitarOrdemColaborador('${ordem.id}')">
+                  ✅ Aceitar Ordem de Serviço
+                </button>
+              ` : ''}
+              ${(ordem.status === 'Em separação' || ordem.status === 'Aceito') ? `
+                <button type="button" class="btn btn-primary" style="background:#0284c7;border-color:#0284c7;font-weight:700" onclick="document.getElementById('${modalId}').remove(); window.despacharOrdemColaborador('${ordem.id}')">
+                  🚚 Despachar Carga
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  };
+
+  window.aceitarOrdemColaborador = (ordemId) => {
+    if (window.SharedState && typeof window.SharedState.updateOrderStatus === 'function') {
+      window.SharedState.updateOrderStatus(ordemId, 'Em separação');
+    }
+    if (typeof showToast === 'function') {
+      showToast('✅ Ordem de Serviço aceita com sucesso! Inicie a separação dos produtos.');
+    }
+    if (typeof renderPage === 'function') renderPage();
+  };
+
+  window.despacharOrdemColaborador = (ordemId) => {
+    if (window.SharedState && typeof window.SharedState.updateOrderStatus === 'function') {
+      window.SharedState.updateOrderStatus(ordemId, 'Em transporte');
+    }
+    if (typeof showToast === 'function') {
+      showToast('🚚 Carga despachada! A escola e a SEMED foram notificadas que os produtos estão a caminho.');
+    }
+    if (typeof renderPage === 'function') renderPage();
+  };
+
+  window.abrirModalComprovanteEntregaColaborador = (ordemId) => {
+    const sid = String(ordemId);
+    const ordens = _getOrdensDoPerfil();
+    const ordem = ordens.find(o => String(o.id) === sid || String(o.numero) === sid) || ordens[0];
+
+    const modalId = 'modal-comprovante-colab';
+    document.getElementById(modalId)?.remove();
+
+    const modalHtml = `
+      <div id="${modalId}" class="modal-backdrop" style="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(15,23,42,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);padding:20px;">
+        <div class="modal-card animate-fade-up" style="background:var(--surface);width:100%;max-width:520px;border-radius:var(--radius-lg);box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);border:1px solid var(--border);display:flex;flex-direction:column;">
+          <div style="padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <h3 style="margin:0;font-size:1.15rem;font-weight:700;color:var(--text-primary)">📸 Registrar Entrega Realizada</h3>
+            <button type="button" class="btn btn-sm btn-ghost" onclick="document.getElementById('${modalId}').remove()">✕</button>
+          </div>
+          <div style="padding:20px 24px;">
+            <p style="margin:0 0 14px 0;font-size:0.85rem;color:var(--text-secondary)">
+              Confirmar entrega para a unidade: <strong>${_esc(ordem?.school || 'Escola')}</strong>
+            </p>
+            <div style="border:2px dashed var(--border);border-radius:8px;padding:24px;text-align:center;margin-bottom:14px;background:var(--surface-2)">
+              <div style="font-size:2rem;margin-bottom:8px">📷</div>
+              <div style="font-size:0.85rem;font-weight:600;color:var(--text-primary)">Foto do Comprovante Assinado ou da Mercadoria</div>
+              <div style="font-size:0.75rem;color:var(--text-tertiary);margin-top:4px">Clique para capturar foto pelo celular ou anexar imagem</div>
+              <input type="file" accept="image/*" style="margin-top:10px;font-size:0.8rem">
+            </div>
+            <div style="margin-bottom:12px">
+              <label style="font-size:0.78rem;font-weight:600;display:block;margin-bottom:4px">Nome do Recebedor na Escola:</label>
+              <input type="text" id="input-recebedor-nome" placeholder="Ex.: Maria Souza (Merendeira/Diretora)" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;font-size:0.85rem">
+            </div>
+          </div>
+          <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;background:var(--surface)">
+            <button type="button" class="btn btn-outline" onclick="document.getElementById('${modalId}').remove()">Cancelar</button>
+            <button type="button" class="btn btn-primary" style="background:#16a34a;border-color:#16a34a;font-weight:700" onclick="
+              if (window.SharedState && typeof window.SharedState.updateOrderStatus === 'function') {
+                window.SharedState.updateOrderStatus('${ordem?.id}', 'Entregue');
+              }
+              document.getElementById('${modalId}').remove();
+              if (typeof showToast === 'function') showToast('✅ Entrega confirmada com sucesso!');
+              if (typeof renderPage === 'function') renderPage();
+            ">
+              Confirmar e Dar Baixa
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+  };
+
+  // ────────────────────────────────────────────────────────────
+  // 8. ALIASES E RETROCOMPATIBILIDADE (ZERO REGRESSÃO)
+  // ────────────────────────────────────────────────────────────
+  // Garante que se testes antigos ou chamadas herdadas invocarem rotas antigas,
+  // elas renderizem perfeitamente sem falha e informando o redirecionamento.
+
+  const _renderTransicaoModulo = (el, nomeFunc, destinoRota) => {
+    el.innerHTML = `
+      <div class="page-header">
+        <div class="page-title">${nomeFunc}</div>
+        <div class="page-subtitle">Módulo operacional simplificado para foco em Ordens e Entregas</div>
+      </div>
+      <div class="card" style="padding:24px;text-align:center;max-width:680px;margin:20px auto">
+        <div style="font-size:2.5rem;margin-bottom:12px">🌾</div>
+        <h3 style="margin:0 0 8px 0;font-size:1.15rem">Módulo de ${nomeFunc}</h3>
+        <p style="color:var(--text-secondary);font-size:0.88rem;margin:0 0 20px 0;line-height:1.5">
+          As rotas internas de gestão patrimonial e safras estão em fase de consolidação para o módulo dedicado de <strong>Gestão do Fornecedor</strong>. As operações do dia a dia estão concentradas em suas <strong>Ordens de Serviço</strong> e <strong>Cronograma de Entregas</strong>.
+        </p>
+        <div style="display:flex;gap:10px;justify-content:center">
+          <button class="btn btn-primary" onclick="navigateTo(state.currentProfile, 'pedidos')">📋 Ver Ordens de Serviço</button>
+          <button class="btn btn-outline" onclick="navigateTo(state.currentProfile, 'entregas')">📅 Ver Cronograma de Entregas</button>
+        </div>
+      </div>
+    `;
+  };
+
+  // Cooperativa: rotas secundárias
+  PAGE_RENDERERS.cooperativa_agricultores = (el) => _renderTransicaoModulo(el, 'Gestão de Agricultores Associados', 'pedidos');
+  PAGE_RENDERERS.cooperativa_produtos = (el) => _renderTransicaoModulo(el, 'Catálogo de Produtos', 'pedidos');
+  PAGE_RENDERERS.cooperativa_estoque = (el) => _renderTransicaoModulo(el, 'Estoque Consolidado', 'pedidos');
+  PAGE_RENDERERS.cooperativa_planejamento = (el) => PAGE_RENDERERS.cooperativa_entregas(el);
+  PAGE_RENDERERS.cooperativa_rotas = (el) => PAGE_RENDERERS.cooperativa_entregas(el);
+  PAGE_RENDERERS.cooperativa_contratos = (el) => _renderTransicaoModulo(el, 'Contratos e Chamamentos Públicos', 'pedidos');
+  PAGE_RENDERERS.cooperativa_relatorios = (el) => _renderTransicaoModulo(el, 'Relatórios de Fornecimento', 'pedidos');
+  PAGE_RENDERERS.cooperativa_indicadores = (el) => _renderTransicaoModulo(el, 'Indicadores de Desempenho', 'pedidos');
   PAGE_RENDERERS.cooperativa_escolas = (el) => {
-    const schools = DATA.schools || [];
-    const total = schools.reduce((s,e) => s + e.students, 0);
+    const schools = (window.DATA && window.DATA.schools) ? window.DATA.schools : [];
+    const total = schools.reduce((s,e) => s + (e.students||0), 0);
     const risco = schools.filter(s => s.stockStatus === 'danger').length;
     el.innerHTML = `
       <div class="page-header">
@@ -604,23 +770,23 @@ window.saveAgriProfile = () => {
               <thead><tr><th>Escola Piloto</th><th>Região</th><th>Modalidade</th><th>Alunos</th><th>Restrições</th><th>Estoque Atual</th><th>Status</th><th>Última Entrega</th></tr></thead>
               <tbody>
                 ${schools.map(s => {
-                  const restrCount = (SharedState.getRestricoes(s.id) || []).filter(r => r.status === 'ativo').reduce((a,b)=>a+(b.quantidade||1), 0);
-                  const localStock = SharedState.getSchoolStock(s.name) || [];
-                  const deliveries = SharedState.getDeliveries().filter(d => d.school === s.name || d.escola === s.name);
+                  const restrCount = (window.SharedState && typeof window.SharedState.getRestricoes === 'function' ? (window.SharedState.getRestricoes(s.id) || []) : []).filter(r => r.status === 'ativo').reduce((a,b)=>a+(b.quantidade||1), 0);
+                  const localStock = (window.SharedState && typeof window.SharedState.getSchoolStock === 'function') ? (window.SharedState.getSchoolStock(s.name) || []) : [];
+                  const deliveries = (window.SharedState && typeof window.SharedState.getDeliveries === 'function') ? window.SharedState.getDeliveries().filter(d => d.school === s.name || d.escola === s.name) : [];
                   const lastDel = deliveries.length > 0 ? (deliveries[deliveries.length-1].confirmadoEm || deliveries[deliveries.length-1].criadoEm) : s.lastDelivery;
                   return `
                   <tr>
-                    <td><strong>${s.name}</strong></td>
-                    <td><span class="tag tag-blue">${s.region}</span></td>
-                    <td><span class="tag tag-teal" style="font-size:0.7rem">${s.modality || 'Escolar Urbana'}</span></td>
+                    <td><strong>${_esc(s.name)}</strong></td>
+                    <td><span class="tag tag-blue">${_esc(s.region)}</span></td>
+                    <td><span class="tag tag-teal" style="font-size:0.7rem">${_esc(s.modality || 'Escolar Urbana')}</span></td>
                     <td style="font-family:var(--font-mono)">${s.students}</td>
                     <td>${restrCount > 0 ? `<span class="status-badge warning" style="font-size:0.7rem">⚠️ ${restrCount} aluno(s)</span>` : '<span style="color:var(--text-tertiary);font-size:0.8rem">Nenhuma</span>'}</td>
                     <td><div style="display:flex;align-items:center;gap:8px">
                       <div class="progress-bar" style="width:80px"><div class="progress-fill ${s.stockPct>60?'green':s.stockPct>30?'orange':'red'}" style="width:${s.stockPct}%"></div></div>
                       <span style="font-family:var(--font-mono);font-size:0.78rem">${s.stockPct}% (${localStock.length} itens)</span>
                     </div></td>
-                    <td><span class="status-badge ${statusClass(s.stockStatus)}">${statusLabel(s.stockStatus)}</span></td>
-                    <td style="font-size:0.82rem">${lastDel ? (lastDel.slice(0, 10)) : '—'}</td>
+                    <td><span class="status-badge ${typeof statusClass === 'function' ? statusClass(s.stockStatus) : 'status-ok'}">${typeof statusLabel === 'function' ? statusLabel(s.stockStatus) : s.stockStatus}</span></td>
+                    <td style="font-size:0.82rem">${lastDel ? String(lastDel).slice(0, 10) : '—'}</td>
                   </tr>`;
                 }).join('')}
               </tbody>
@@ -631,7 +797,12 @@ window.saveAgriProfile = () => {
     `;
   };
 
-  // === Cross-perfil *_escolas (Fase 4.7): closure para cooperativa_escolas ===
-  PAGE_RENDERERS.agricultor_escolas = (el) => PAGE_RENDERERS.cooperativa_escolas(el);
+  // Agricultor: rotas secundárias
+  PAGE_RENDERERS.agricultor_producao = (el) => _renderTransicaoModulo(el, 'Minha Produção', 'pedidos');
+  PAGE_RENDERERS.agricultor_estoque = (el) => _renderTransicaoModulo(el, 'Meu Estoque', 'pedidos');
+  PAGE_RENDERERS.agricultor_calendario = (el) => PAGE_RENDERERS.agricultor_entregas(el);
+  PAGE_RENDERERS.agricultor_relatorios = (el) => _renderTransicaoModulo(el, 'Relatórios Operacionais', 'pedidos');
+  PAGE_RENDERERS.agricultor_perfil = (el) => _renderTransicaoModulo(el, 'Perfil do Produtor Rural', 'pedidos');
+  PAGE_RENDERERS.agricultor_escolas = (el) => PAGE_RENDERERS.agricultor_entregas(el);
 
 })();

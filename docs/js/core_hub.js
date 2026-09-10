@@ -2028,18 +2028,9 @@ const PROFILES = {
     role: 'COOPAGRAN',
     initials: 'CM',
     menu: [
-      { id: 'dashboard', icon: '📊', label: 'Dashboard', badge: null },
-      { id: 'escolas', icon: '🏫', label: 'Escolas Atendidas', badge: null },
-      { id: 'agricultores', icon: '👨‍🌾', label: 'Agricultores', badge: null },
-      { id: 'produtos', icon: '🥕', label: 'Produtos', badge: null },
-      { id: 'estoque', icon: '📦', label: 'Estoque Consolidado', badge: null },
-      { id: 'pedidos', icon: '📋', label: 'Pedidos', badge: '2' },
-      { id: 'planejamento', icon: '📅', label: 'Planejamento de Entregas', badge: null },
-      { id: 'rotas', icon: '🗺️', label: 'Rotas', badge: null },
-      { id: 'contratos', icon: '📄', label: 'Contratos e Chamamentos', badge: null },
-      { id: 'entregas', icon: '🚚', label: 'Entregas', badge: null },
-      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
-      { id: 'indicadores', icon: '🎯', label: 'Indicadores', badge: null },
+      { id: 'dashboard', icon: '📊', label: 'Painel Geral', badge: null },
+      { id: 'pedidos', icon: '📋', label: 'Ordens de Serviço', badge: '2' },
+      { id: 'entregas', icon: '📅', label: 'Cronograma de Entregas', badge: null },
     ]
   },
   agricultor: {
@@ -2048,15 +2039,9 @@ const PROFILES = {
     role: 'Agricultor Familiar',
     initials: 'JR',
     menu: [
-      { id: 'dashboard', icon: '📊', label: 'Dashboard', badge: null },
-      { id: 'escolas', icon: '🏫', label: 'Escolas que Atendo', badge: null },
-      { id: 'producao', icon: '🌱', label: 'Minha Produção', badge: null },
-      { id: 'estoque', icon: '📦', label: 'Estoque', badge: null },
-      { id: 'pedidos', icon: '📋', label: 'Pedidos', badge: '1' },
-      { id: 'entregas', icon: '🚚', label: 'Entregas', badge: null },
-      { id: 'calendario', icon: '📅', label: 'Calendário', badge: null },
-      { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
-      { id: 'perfil', icon: '👤', label: 'Perfil', badge: null },
+      { id: 'dashboard', icon: '📊', label: 'Painel Geral', badge: null },
+      { id: 'pedidos', icon: '📋', label: 'Ordens de Serviço', badge: '1' },
+      { id: 'entregas', icon: '📅', label: 'Cronograma de Entregas', badge: null },
     ]
   },
   compras: {
