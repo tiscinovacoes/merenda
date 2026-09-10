@@ -13,204 +13,169 @@
 
   // === Migrado do app.js (Fase 4) ===
   PAGE_RENDERERS.gestor_dashboard = (el) => {
-    // Basic Data
+    const schoolsOk = DATA.schools.filter(s => s.stockStatus === 'ok').length;
+    const schoolsRisk = DATA.schools.filter(s => s.stockStatus === 'danger').length;
     const totalStudents = DATA.schools.reduce((a, s) => a + s.students, 0);
+    const sharedPending = SharedState.getOrders().filter(o => o.status === 'Pendente').length;
+    const pendingOrders = DATA.orders.filter(o => o.status === 'Pendente').length + sharedPending;
+    const lateOrders = DATA.orders.filter(o => o.status === 'Pendente' || o.status === 'Em separação').length;
+    // Derivado do grafo (ver ataTotais) — muda sozinho a cada empenho gravado.
     const _totAtas = DATA.contracts.map(c => ataTotais(c.id));
     const totalAtas = _totAtas.reduce((a, t) => a + t.global, 0);
     const executedAtas = _totAtas.reduce((a, t) => a + t.empenhado, 0);
-    
-    const shared = SharedState.getOrders();
-    const allOrders = [...DATA.orders, ...shared];
-    
-    // Derived Metrics for the Dashboard
-    const custoPorAluno = executedAtas / (totalStudents || 1);
-    const totalRefeicoesMes = totalStudents * 20 * 2; // Estimativa: 20 dias úteis, 2 refeições/dia
-    const custoLogistico = allOrders.length * 350; // Mock: R$ 350 por entrega/caminhão (Simulação Frota)
-    
-    const escolasSeguras = DATA.schools.filter(s => s.stockStatus === 'ok').length;
-    const pctEscolasSeguras = Math.round((escolasSeguras / DATA.schools.length) * 100) || 0;
-    const escolasRisco = DATA.schools.filter(s => s.stockStatus === 'danger').length;
-
-    const cardapiosAtivos = SharedState.getMenus ? SharedState.getMenus().length : 3; // Fallback
-    
-    // Novas Métricas (Feedback do Usuário)
-    let diasCoberturaGlobal = 15; // fallback
-    let pctDescentralizado = 65; // fallback
-    try {
-      if (typeof estoqueConsolidado === 'function') {
-        const consolidado = estoqueConsolidado();
-        if (consolidado && consolidado.length > 0) {
-          diasCoberturaGlobal = Math.round(consolidado.reduce((acc, p) => acc + (p.diasCobertura || 0), 0) / consolidado.length);
-          const valEscolas = consolidado.reduce((acc, p) => acc + (p.nasEscolas * (p.unitPrice || 0)), 0);
-          const valCentral = consolidado.reduce((acc, p) => acc + (p.central * (p.unitPrice || 0)), 0);
-          if ((valEscolas + valCentral) > 0) {
-            pctDescentralizado = Math.round((valEscolas / (valEscolas + valCentral)) * 100);
-          }
-        }
-      }
-    } catch(e) {}
-    
-    // Mock: Custo por escola (ranking). Reflete o valor investido na escola.
-    const escolasRanking = [...DATA.schools].sort((a,b) => b.students - a.students).map(s => ({
-      name: s.name,
-      custo: (executedAtas / totalStudents) * s.students * (0.8 + Math.random()*0.4) // variabilidade
-    }));
-    const top5 = escolasRanking.slice(0, 5);
-    const bottom5 = [...escolasRanking].reverse().slice(0, 5);
-
-    const totalFornecedores = new Set(DATA.contracts.map(c => c.supplier)).size;
-
+    const incidents = SharedState.getIncidents();
+    const recentIncidents = incidents.slice(0, 3);
+  
     el.innerHTML = `
       <div class="page-header">
         <div>
-          <div class="page-title">Painel de Resultados · Alimentação Escolar</div>
-          <div class="page-subtitle">Indicadores Executivos · Atualizado em ${new Date().toLocaleDateString('pt-BR')}</div>
+          <div class="page-title">Dashboard Executivo</div>
+          <div class="page-subtitle">Visão geral da alimentação escolar · Atualizado em ${new Date().toLocaleDateString('pt-BR')}${state.pilotoAtivo ? ' · <span class="tag tag-blue" style="font-size:0.7rem">🎯 MODO PILOTO (8 escolas)</span>' : ''}</div>
         </div>
-        <button class="btn btn-sm ${state.pilotoAtivo ? 'btn-outline' : 'btn-primary'}" onclick="togglePilotoMode()" style="margin-left:auto">${state.pilotoAtivo ? 'Sair do Piloto' : '🎯 Ativar Modo Piloto (8 Escolas)'}</button>
+        <button class="btn btn-sm ${state.pilotoAtivo ? 'btn-outline' : 'btn-primary'}" onclick="togglePilotoMode()" style="margin-left:auto">${state.pilotoAtivo ? 'Sair do Piloto' : '🎯 Ativar Modo Piloto (8)'}</button>
       </div>
-
-      <!-- VISÃO MACRO DO PROGRAMA -->
-      <div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
-        <div class="kpi-card" style="border-left: 4px solid var(--primary); background: var(--surface-1);">
-          <div class="kpi-icon">🏛️</div>
-          <div class="kpi-value" style="font-size: 1.4rem;">${formatCurrency(executedAtas)}</div>
-          <div class="kpi-label">Investimento Global SEMED</div>
-        </div>
-        <div class="kpi-card" style="border-left: 4px solid var(--primary); background: var(--surface-1);">
+  
+      <div class="kpi-grid">
+        <div class="kpi-card blue animate-fade-up stagger-1">
           <div class="kpi-icon">🏫</div>
-          <div class="kpi-value" style="font-size: 1.4rem;">${DATA.schools.length}</div>
-          <div class="kpi-label">Escolas Atendidas</div>
+          <div class="kpi-value">${DATA.schools.length}</div>
+          <div class="kpi-label">Escolas Ativas</div>
         </div>
-        <div class="kpi-card" style="border-left: 4px solid var(--primary); background: var(--surface-1);">
-          <div class="kpi-icon">🤝</div>
-          <div class="kpi-value" style="font-size: 1.4rem;">${totalFornecedores}</div>
-          <div class="kpi-label">Fornecedores Cadastrados</div>
+        <div class="kpi-card green animate-fade-up stagger-2">
+          <div class="kpi-icon">✅</div>
+          <div class="kpi-value">${Math.round(schoolsOk / DATA.schools.length * 100)}%</div>
+          <div class="kpi-label">Escolas Abastecidas</div>
+          <div class="kpi-trend up">▲ +2,3% vs mês anterior</div>
         </div>
-        <div class="kpi-card" style="border-left: 4px solid var(--primary); background: var(--surface-1);">
+        <div class="kpi-card red animate-fade-up stagger-3">
+          <div class="kpi-icon">⚠️</div>
+          <div class="kpi-value">${schoolsRisk}</div>
+          <div class="kpi-label">Escolas em Risco</div>
+          <div class="kpi-trend down">▲ +1 esta semana</div>
+        </div>
+        <div class="kpi-card orange animate-fade-up stagger-4">
+          <div class="kpi-icon">📦</div>
+          <div class="kpi-value">${pendingOrders}</div>
+          <div class="kpi-label">Pedidos Pendentes</div>
+        </div>
+        <div class="kpi-card purple animate-fade-up stagger-5">
           <div class="kpi-icon">👨‍🎓</div>
-          <div class="kpi-value" style="font-size: 1.4rem;">${totalStudents.toLocaleString('pt-BR')}</div>
-          <div class="kpi-label">Alunos Impactados</div>
+          <div class="kpi-value">${(totalStudents / 1000).toFixed(1)}K</div>
+          <div class="kpi-label">Alunos Atendidos</div>
+        </div>
+        <div class="kpi-card teal animate-fade-up stagger-6">
+          <div class="kpi-icon">💰</div>
+          <div class="kpi-value">${formatCurrency(executedAtas)}</div>
+          <div class="kpi-label">Valor Empenhado das Atas</div>
+          <div class="progress-bar" style="margin-top:8px"><div class="progress-fill blue" style="width:${Math.round(executedAtas/totalAtas*100)}%"></div></div>
+          <div style="font-size:0.68rem;color:var(--text-tertiary);margin-top:4px">${Math.round(executedAtas/totalAtas*100)}% de ${formatCurrency(totalAtas)}</div>
+        </div>
+        <div class="kpi-card blue animate-fade-up stagger-7">
+          <div class="kpi-icon">🌾</div>
+          <div class="kpi-value">47</div>
+          <div class="kpi-label">Cooperativas Ativas</div>
         </div>
       </div>
   
-      <!-- HERO KPIs (O "Outdoor" da Gestão) -->
-      <div class="kpi-grid" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 24px;">
-        <!-- LINHA 1 -->
-        <div class="kpi-card green animate-fade-up stagger-1">
-          <div class="kpi-icon">💰</div>
-          <div class="kpi-value">${formatCurrency(custoPorAluno)}</div>
-          <div class="kpi-label">Investimento por Aluno (Base Escola)</div>
-          <div class="kpi-trend up">✓ Valor injetado diretamente na ponta</div>
+      <!-- FLOW DIAGRAM -->
+      <div class="card mb-24 animate-fade-up">
+        <div class="card-header">
+          <div class="card-title">🔄 Fluxo Principal do Sistema</div>
+          <div class="card-subtitle">Clique em cada etapa para navegar</div>
         </div>
-        <div class="kpi-card blue animate-fade-up stagger-2">
-          <div class="kpi-icon">🍽️</div>
-          <div class="kpi-value">${(totalRefeicoesMes/1000000).toFixed(1)}M</div>
-          <div class="kpi-label">Refeições Garantidas no Mês</div>
-          <div class="kpi-trend up">▲ Cobrindo 100% da rede</div>
+        <div class="card-body">
+          <div class="flow-diagram">
+            <div class="flow-node active" onclick="navigateTo('nutricionista','cardapios')"><div class="flow-icon">🥗</div><div class="flow-label">Nutricionista<br>Cria Cardápio</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node" onclick="navigateTo('escola','cardapios')"><div class="flow-icon">🏫</div><div class="flow-label">Escola<br>Executa</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node" onclick="navigateTo('escola','consumo')"><div class="flow-icon">📝</div><div class="flow-label">Consumo<br>Registrado</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node" onclick="navigateTo('escola','estoque')"><div class="flow-icon">📦</div><div class="flow-label">Estoque<br>Atualizado</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node" onclick="navigateTo('escola','pedidos')"><div class="flow-icon">🛒</div><div class="flow-label">Pedido<br>Gerado</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node" onclick="navigateTo('cooperativa','pedidos')"><div class="flow-icon">🤝</div><div class="flow-label">Cooperativa<br>Recebe</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node" onclick="navigateTo('agricultor','pedidos')"><div class="flow-icon">🌾</div><div class="flow-label">Agricultor<br>Entrega</div></div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-node" onclick="navigateTo('gestor','dashboard')"><div class="flow-icon">📊</div><div class="flow-label">Gestor<br>Monitora</div></div>
+          </div>
         </div>
-        <div class="kpi-card teal animate-fade-up stagger-3">
-          <div class="kpi-icon">🏫</div>
-          <div class="kpi-value">${pctEscolasSeguras}%</div>
-          <div class="kpi-label">Escolas com Estoque Seguro</div>
-          <div class="kpi-trend ${pctEscolasSeguras > 90 ? 'up' : 'down'}">${escolasRisco} escolas em estado de atenção</div>
+      </div>
+  
+      <div class="grid-2-1">
+        <!-- CONSUMO MENSAL -->
+        <div class="card animate-fade-up">
+          <div class="card-header"><div class="card-title">📈 Consumo Mensal de Alimentos (kg)</div></div>
+          <div class="card-body"><div class="chart-container h-300"><canvas id="chart-consumo-mensal"></canvas></div></div>
         </div>
-        
-        <!-- LINHA 2 -->
-        <div class="kpi-card purple animate-fade-up stagger-4">
-          <div class="kpi-icon">🔄</div>
-          <div class="kpi-value">${pctDescentralizado}%</div>
-          <div class="kpi-label">Distribuição de Recursos (Descentralizado)</div>
-          <div class="kpi-trend up">Recursos já posicionados nas escolas</div>
-        </div>
-        <div class="kpi-card orange animate-fade-up stagger-5">
-          <div class="kpi-icon">🚚</div>
-          <div class="kpi-value">${formatCurrency(custoLogistico)}</div>
-          <div class="kpi-label">Simulação de Custo Logístico</div>
-          <div class="kpi-trend down">Preparação para futura Gestão de Frota</div>
-        </div>
-        <div class="kpi-card blue animate-fade-up stagger-6">
-          <div class="kpi-icon">📦</div>
-          <div class="kpi-value">${diasCoberturaGlobal} dias</div>
-          <div class="kpi-label">Orientação do Estoque Consolidado</div>
-          <div class="kpi-trend up">Cobertura Global (Central + Escolas)</div>
+        <!-- IA WIDGET -->
+        <div class="ia-card animate-fade-up">
+          <div class="ia-card-title">🤖 IA de Previsão <span class="ia-badge">AI-POWERED</span></div>
+          <div class="ia-suggestion">📉 <strong>Banana Nanica</strong> com previsão de escassez em <strong>3 dias</strong>. Recomenda-se pedido urgente.</div>
+          <div class="ia-suggestion">📉 <strong>Alface Crespa</strong> estoque para apenas <strong>2 dias</strong>. Acionar COOPAGRAN imediatamente.</div>
+          <div class="ia-suggestion">📊 Demanda prevista para próximos 30 dias: <strong>43.200 kg</strong> de alimentos.</div>
+          <div class="ia-suggestion">💡 Sugestão: Substituir Melancia por <strong>Manga Tommy</strong> (safra atual, menor custo).</div>
+          <div style="margin-top:12px">
+            <button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:white;width:100%" onclick="navigateTo('gestor','ia')">Ver Módulo IA Completo →</button>
+          </div>
         </div>
       </div>
   
       <div class="grid-2">
-        <!-- RANKING DE CUSTO POR ESCOLA -->
-        <div class="card animate-fade-up stagger-5">
-          <div class="card-header">
-            <div class="card-title">🏆 Top 5 Escolas por Investimento</div>
-          </div>
-          <div class="card-body">
-            <div class="chart-container h-250">
-              <canvas id="chart-escolas-ranking"></canvas>
-            </div>
-          </div>
+        <!-- PRODUTOS MAIS CONSUMIDOS -->
+        <div class="card animate-fade-up">
+          <div class="card-header"><div class="card-title">🥇 Produtos Mais Consumidos</div></div>
+          <div class="card-body"><div class="chart-container h-250"><canvas id="chart-top-produtos"></canvas></div></div>
         </div>
-        
-        <!-- PAINEL DE QUALIDADE E SEGURANÇA -->
-        <div class="card animate-fade-up stagger-6">
-          <div class="card-header">
-            <div class="card-title">🛡️ Qualidade e Segurança Alimentar</div>
-          </div>
-          <div class="card-body" style="display:flex; flex-direction:column; gap:20px;">
-            <div style="display:flex; align-items:center; gap:24px;">
-              <div class="chart-container" style="width:140px;height:140px;position:relative">
-                <canvas id="chart-estoque-termometro"></canvas>
-                <div class="chart-center"><div class="chart-center-value">${pctEscolasSeguras}%</div><div class="chart-center-label" style="font-size:0.6rem">Em Dia</div></div>
+        <!-- AGRICULTURA FAMILIAR -->
+        <div class="card animate-fade-up">
+          <div class="card-header"><div class="card-title">🌾 Participação da Agricultura Familiar</div></div>
+          <div class="card-body">
+            <div style="display:flex;align-items:center;gap:24px">
+              <div class="chart-container" style="width:180px;height:180px;position:relative">
+                <canvas id="chart-agri-familiar"></canvas>
+                <div class="chart-center"><div class="chart-center-value">38%</div><div class="chart-center-label">Agric. Familiar</div></div>
               </div>
               <div style="flex:1">
-                <div class="ia-metric" style="border-color:var(--border)"><span class="ia-metric-label">Cardápios Vigentes</span><span class="ia-metric-value" style="color:var(--primary)">${cardapiosAtivos} ativos</span></div>
-                <div class="ia-metric" style="border-color:var(--border)"><span class="ia-metric-label">Adequação Nutricional</span><span class="ia-metric-value" style="color:var(--success)">✓ 100% Kcal atendidas</span></div>
-                <div class="ia-metric" style="border-color:var(--border)"><span class="ia-metric-label">Agricultura Familiar</span><span class="ia-metric-value" style="color:var(--success)">✓ Meta (38%) Atingida</span></div>
+                <div class="ia-metric" style="border-color:var(--border)"><span class="ia-metric-label" style="color:var(--text-secondary)">Cooperativas Ativas</span><span class="ia-metric-value" style="color:var(--text-primary)">5</span></div>
+                <div class="ia-metric" style="border-color:var(--border)"><span class="ia-metric-label" style="color:var(--text-secondary)">Agricultores</span><span class="ia-metric-value" style="color:var(--text-primary)">${DATA.farmers.length}</span></div>
+                <div class="ia-metric" style="border-color:var(--border)"><span class="ia-metric-label" style="color:var(--text-secondary)">Produtos da AF</span><span class="ia-metric-value" style="color:var(--text-primary)">${DATA.products.filter(p=>p.familyFarm).length}</span></div>
+                <div class="ia-metric" style="border-color:var(--border)"><span class="ia-metric-label" style="color:var(--text-secondary)">Meta PNAE (30%)</span><span class="ia-metric-value" style="color:var(--success)">✓ Atingida</span></div>
               </div>
-            </div>
-            <div class="ia-suggestion" style="margin-top:0">
-              🤖 <strong>IA Logística:</strong> Agrupar entregas da região Norte (EM Elízio Reis e EM Arlindo Lima) pouparia R$ 700,00 nesta semana.
             </div>
           </div>
         </div>
       </div>
   
-      <div class="grid-2">
-        <!-- EVOLUÇÃO CUSTO VS ALUNOS -->
-        <div class="card animate-fade-up stagger-7">
-          <div class="card-header">
-            <div class="card-title">📈 Evolução: Custo Total vs Alunos Atendidos</div>
-          </div>
+      <!-- MAP + ALERTS -->
+      <div class="grid-2-1">
+        <div class="card animate-fade-up">
+          <div class="card-header"><div class="card-title">🗺️ Mapa de Abastecimento — Campo Grande</div></div>
           <div class="card-body">
-            <div class="chart-container h-250">
-              <canvas id="chart-custo-evolucao"></canvas>
-            </div>
+            <div class="map-container" id="map-container"></div>
           </div>
         </div>
-
-        <!-- EXECUÇÃO DAS ATAS -->
-        <div class="card animate-fade-up stagger-8">
-          <div class="card-header"><div class="card-title">💼 Execução Financeira (Atas e Contratos)</div></div>
+        <div class="card animate-fade-up">
+          <div class="card-header"><div class="card-title">🚨 Alertas Ativos</div>${recentIncidents.length ? '<span class="status-badge status-danger">'+incidents.length+' ocorrência(s)</span>' : ''}</div>
           <div class="card-body">
-            <div style="margin-bottom:16px;">
-              <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
-                <strong>Total Global: ${formatCurrency(totalAtas)}</strong>
-                <span>Empenhado: ${formatCurrency(executedAtas)} (${Math.round((executedAtas/totalAtas)*100)}%)</span>
-              </div>
-              <div class="progress-bar" style="height:12px;"><div class="progress-fill blue" style="width:${Math.round((executedAtas/totalAtas)*100)}%"></div></div>
+            <div class="alert-list">
+              ${recentIncidents.map(i => `
+                <div class="alert-item danger">
+                  <span class="alert-icon">🚚</span>
+                  <div class="alert-text"><strong>Motorista — ${i.school || 'Sem escola'}</strong> reportou: ${i.tipo}</div>
+                  <span class="alert-time">${new Date(i.criadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
+                </div>
+              `).join('')}
+              <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EMTI PROFª IRACEMA MARIA VICENTE</strong> — Estoque em 15%, risco de desabastecimento</div><span class="alert-time">5min</span></div>
+              <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EM Elízio Ramirez</strong> — Estoque em 8%, situação crítica</div><span class="alert-time">1h</span></div>
+              <div class="alert-item danger"><span class="alert-icon">🔴</span><div class="alert-text"><strong>EMEI ELEODES ESTEVAN</strong> — Estoque em 12%, aguardando entrega</div><span class="alert-time">2h</span></div>
+              <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>Alface Crespa</strong> — Estoque municipal para apenas 2 dias</div><span class="alert-time">3h</span></div>
+              <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>Banana Nanica</strong> — Estoque municipal para apenas 3 dias</div><span class="alert-time">4h</span></div>
+              <div class="alert-item warning"><span class="alert-icon">🟡</span><div class="alert-text"><strong>ATA-2025/018</strong> — Saldo restante de apenas 10%</div><span class="alert-time">6h</span></div>
+              <div class="alert-item info"><span class="alert-icon">🤖</span><div class="alert-text"><strong>IA:</strong> Previsão de aumento de 12% na demanda em Julho</div><span class="alert-time">1d</span></div>
             </div>
-            <table class="data-table" style="font-size:0.85rem">
-              <thead><tr><th>Ata</th><th>Fornecedor</th><th>Saldo %</th></tr></thead>
-              <tbody>
-                ${DATA.contracts.slice(0,3).map(c => {
-                  const t = ataTotais(c.id);
-                  const pct = Math.round((t.saldo / t.global)*100);
-                  return `<tr>
-                    <td>${c.number}</td>
-                    <td>${c.supplier.split(' ')[0]}</td>
-                    <td><div class="progress-bar" style="width:100%;height:6px"><div class="progress-fill ${pct<20?'red':pct<40?'orange':'green'}" style="width:${pct}%"></div></div></td>
-                  </tr>`;
-                }).join('')}
-              </tbody>
-            </table>
           </div>
         </div>
       </div>
@@ -218,65 +183,46 @@
   
     // CHARTS
     setTimeout(() => {
-      // 1. Ranking Escolas
-      createChart('chart-escolas-ranking', {
+      createChart('chart-consumo-mensal', {
         type: 'bar',
         data: {
-          labels: top5.map(s => s.name.replace('EMTI ', '').replace('EM ', '')),
+          labels: DATA.months,
           datasets: [{
-            label: 'Investimento (R$)',
-            data: top5.map(s => s.custo),
-            backgroundColor: CHART_COLORS.teal,
-            borderRadius: 4,
+            label: 'Consumo (kg)',
+            data: DATA.monthlyConsumption,
+            backgroundColor: DATA.months.map((_, i) => i <= 5 ? CHART_COLORS.blue : 'rgba(21,101,192,0.3)'),
+            borderRadius: 6,
+            borderSkipped: false,
+          }]
+        },
+        options: { ...CHART_DEFAULTS, plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } } }
+      });
+  
+      createChart('chart-top-produtos', {
+        type: 'bar',
+        data: {
+          labels: ['Leite', 'Arroz', 'Frango', 'Banana', 'Feijão', 'Tomate', 'Cenoura', 'Carne'],
+          datasets: [{
+            label: 'Consumo Médio/Dia (kg)',
+            data: [1200, 850, 780, 600, 420, 400, 310, 520],
+            backgroundColor: CHART_COLORS.palette.slice(0, 8),
+            borderRadius: 6,
+            borderSkipped: false,
           }]
         },
         options: { ...CHART_DEFAULTS, indexAxis: 'y', plugins: { ...CHART_DEFAULTS.plugins, legend: { display: false } } }
       });
   
-      // 2. Termômetro de Estoque
-      createChart('chart-estoque-termometro', {
+      createChart('chart-agri-familiar', {
         type: 'doughnut',
         data: {
-          labels: ['Estoque Adequado', 'Estoque Crítico/Atenção'],
-          datasets: [{ data: [pctEscolasSeguras, 100 - pctEscolasSeguras], backgroundColor: ['#10B981', '#EF4444'], borderWidth: 0 }]
+          labels: ['Agricultura Familiar', 'Outras Fontes'],
+          datasets: [{ data: [38, 62], backgroundColor: ['#2E7D32', '#E0E0E0'], borderWidth: 0 }]
         },
-        options: { responsive: true, maintainAspectRatio: true, cutout: '75%', plugins: { legend: { display: false } } }
+        options: { responsive: true, maintainAspectRatio: true, cutout: '72%', plugins: { legend: { display: false }, tooltip: { enabled: true } } }
       });
-
-      // 3. Custo Evolução
-      createChart('chart-custo-evolucao', {
-        type: 'line',
-        data: {
-          labels: DATA.months.slice(0, 6), // Jan to Jun
-          datasets: [
-            {
-              label: 'Custo Total (R$)',
-              data: [850000, 840000, 835000, 845000, 820000, 815000],
-              borderColor: CHART_COLORS.blue,
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              fill: true,
-              yAxisID: 'y',
-              tension: 0.4
-            },
-            {
-              label: 'Alunos Atendidos',
-              data: [120000, 120500, 121000, 121000, 121500, 122000],
-              borderColor: CHART_COLORS.green,
-              borderDash: [5, 5],
-              yAxisID: 'y1',
-              tension: 0.4
-            }
-          ]
-        },
-        options: { 
-          ...CHART_DEFAULTS,
-          interaction: { mode: 'index', intersect: false },
-          scales: {
-            y: { type: 'linear', display: true, position: 'left' },
-            y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false } }
-          }
-        }
-      });
+  
+      renderMap();
     }, 100);
   };
 

@@ -87,25 +87,21 @@ SharedState.addLicitacao = (li) => {
 // ─────────────────────────────────────────
 (function () {
   const menu = PROFILES.gestor.menu;
-  const newItems = [
+  // Menu do Gestor enxuto (2026-08-25): só itens de OVERSIGHT executivo entram aqui.
+  // Aquisições/Prestação de Contas/Lista de Compras migraram para o perfil Compras & Contratos.
+  const oversight = [
     { id: 'distribuicao',   icon: '💰', label: 'Distribuição de Recursos', badge: null },
-    { id: 'prestacaocontas',icon: '🧾', label: 'Prestação de Contas',      badge: null },
-    { id: 'listacompras',   icon: '🛒', label: 'Lista de Compras',         badge: null },
-    { id: 'aquisicoes',     icon: '📄', label: 'Aquisições e Contratos',   badge: null },
     { id: 'conformidade',   icon: '🛡️', label: 'Conformidade',            badge: null },
     { id: 'transparencia',  icon: '🌐', label: 'Portal de Transparência',  badge: null },
   ];
-  const pcGroup = menu.find(m => m.type === 'group' && m.label === 'Prestação de Contas');
-  if (pcGroup) {
-    newItems.forEach(item => {
-      if (!pcGroup.children.find(c => c.id === item.id || c.label === item.label)) pcGroup.children.push(item);
-    });
-  } else {
-    const atasIdx = menu.findIndex(m => m.id === 'atas');
-    let insertAt = atasIdx >= 0 ? atasIdx + 1 : menu.length;
-    newItems.forEach(item => {
-      if (!menu.find(m => m.id === item.id || m.label === item.label)) { menu.splice(insertAt, 0, item); insertAt++; }
-    });
+  // Já existe algum? (evita duplicar em reloads/HMR)
+  const jaExiste = (id) => menu.some(m => m.id === id || (m.children && m.children.some(c => c.id === id)));
+  const faltantes = oversight.filter(i => !jaExiste(i.id));
+  if (faltantes.length) {
+    // Insere como grupo próprio, logo antes de "Livro de Ocorrências"
+    const idx = menu.findIndex(m => m.id === 'ocorrencias');
+    const grupo = { type: 'group', label: 'Financeiro & Transparência', children: faltantes };
+    if (idx >= 0) menu.splice(idx, 0, grupo); else menu.push(grupo);
   }
 })();
 
