@@ -123,7 +123,10 @@ PAGE_RENDERERS.estoque_dashboard = (el) => {
   `;
 };
 
-PAGE_RENDERERS.estoque_inventario = (el) => {
+// Unificação do Estoque Consolidado: Gestor, Nutricionista e Central de Distribuição compartilham a mesma tela
+PAGE_RENDERERS.estoque_inventario = (el) => PAGE_RENDERERS.gestor_estoque(el);
+
+const _legacy_estoque_inventario = (el) => {
   const central = SharedState.getCentralStock() || [];
   const now = new Date(2026, 7, 20);
 
@@ -432,8 +435,9 @@ window.confirmarSharedBipagem = (orderId) => {
 window.sharedLiberarCaminhao = (orderId) => {
   const o = SharedState.getOrders().find(x => x.id === orderId);
   if (!o) return;
-  SharedState.updateOrderStatus(orderId, 'Em transporte');
-  showToast('🚚 Caminhão liberado — carga #' + String(o.numero).padStart(3,'0') + ' entregue ao Motorista.');
+  const driverName = (typeof PROFILES !== 'undefined' && PROFILES.motorista) ? PROFILES.motorista.name : 'José Souza';
+  SharedState.updateOrderStatus(orderId, 'Em transporte', { driver: driverName, driver_id: 'user-mot-01' });
+  showToast('🚚 Caminhão liberado — carga #' + String(o.numero).padStart(3,'0') + ' entregue ao Motorista ' + driverName + '.');
   PAGE_RENDERERS.estoque_carregamento(document.getElementById('page-content'));
 };
 
@@ -547,8 +551,10 @@ PAGE_RENDERERS.estoque_lotes = (el) => {
   `;
 };
 
-  // === Cross-perfil *_escolas (Fase 4.7): closure para cooperativa_escolas ===
+  // === Cross-perfil *_escolas e *_estoque: padronização com gestor_estoque ===
   PAGE_RENDERERS.estoque_escolas = (el) => PAGE_RENDERERS.cooperativa_escolas(el);
+  PAGE_RENDERERS.estoque_estoque = (el) => PAGE_RENDERERS.gestor_estoque(el);
+  PAGE_RENDERERS.estoque_consolidado = (el) => PAGE_RENDERERS.gestor_estoque(el);
 
 // ─── TELA DE FROTA / CADASTRO DE CAMINHÕES (A1b) ──────────────────────
 PAGE_RENDERERS.estoque_frota = (el) => {

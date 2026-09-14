@@ -1167,7 +1167,12 @@ const SharedState = {
     const nextNum = ((this._data.orders[0]?.numero) || 100) + 1;
     let finalSchool = order.school || order.escola;
     let finalCoop = order.cooperative || order.coop || 'COOPAGRAN';
-    let finalItens = order.itens || order.items || [];
+    let finalItens = (order.itens || order.items || []).map(i => ({
+      produto: i.produto || i.name || i.nome || '—',
+      qtd: Number(i.qtd || i.quantidade || 0),
+      unidade: i.unidade || i.unit || 'kg',
+      productId: i.productId || null
+    }));
     let finalId = order.schoolId || (typeof DATA !== 'undefined' && DATA.schools ? (DATA.schools.find(s => s.name === finalSchool)?.id || null) : null);
     const o = {
       id: 'ord-' + crypto.randomUUID(),
@@ -1211,8 +1216,11 @@ const SharedState = {
       if (cand.length > 0) {
         distribuicao.push({ agricultor: cand[0].agricultor, produto: item.produto, qtd: item.qtd, unidade: item.unidade });
       } else {
-        // fallback: primeiro agricultor da cooperativa
-        distribuicao.push({ agricultor: 'A definir', produto: item.produto, qtd: item.qtd, unidade: item.unidade });
+        // Fallback: atribui a agricultor cadastrado para não ficar órfão
+        const defaultAgri = (typeof DATA !== 'undefined' && DATA.farmers && DATA.farmers.length > 0)
+          ? DATA.farmers[0].name
+          : ((producoes[0] && producoes[0].agricultor) || 'Carlos Mendes');
+        distribuicao.push({ agricultor: defaultAgri, produto: item.produto, qtd: item.qtd, unidade: item.unidade, status: 'Atribuído' });
       }
     });
     o.distribuicao = distribuicao;
@@ -1430,6 +1438,15 @@ const SharedState = {
         const cur = this._data.schoolStocks[o.school][item.produto] || { qtd: 0, unidade: item.unidade };
         cur.qtd = (cur.qtd || 0) + (item.qtd || 0);
         cur.ultimaEntrada = new Date().toISOString().slice(0,10);
+        cur.lotes = cur.lotes || [];
+        const validadePadrao = new Date();
+        validadePadrao.setDate(validadePadrao.getDate() + 15);
+        cur.lotes.push({
+          lote: 'LT-' + String(o.numero).padStart(3,'0'),
+          qtd: item.qtd,
+          validade: validadePadrao.toISOString().slice(0,10),
+          entrada: new Date().toISOString().slice(0,10)
+        });
         this._data.schoolStocks[o.school][item.produto] = cur;
         // Registra ajuste (audit log)
         (this._data.stockAdjust = this._data.stockAdjust || []).unshift({
@@ -1540,11 +1557,17 @@ const SharedState = {
     const item = this._data.schoolStocks[c.escola][c.produto];
     if (item) {
       item.qtd = Math.max(0, (item.qtd || 0) - (c.qtd || 0));
-      // FEFO: abate do lote mais antigo primeiro
+      // FEFO: abate do lote mais antigo primeiro (desconsiderando lotes vencidos para consumo regular)
       if (item.lotes && item.lotes.length) {
+        const agora = new Date();
+        const vencidos = item.lotes.filter(l => l.validade && new Date(l.validade) < agora);
+        if (vencidos.length > 0) {
+          console.warn(`[FEFO Alerta] ${vencidos.length} lote(s) com validade expirada detectado(s) em ${c.escola} (${c.produto}). Lotes retidos para vistoria.`);
+        }
         item.lotes.sort((a,b) => new Date(a.validade) - new Date(b.validade));
         let restante = c.qtd || 0;
         item.lotes = item.lotes.filter(l => {
+          if (l.validade && new Date(l.validade) < agora) return true; // retido para auditoria/descarte
           if (restante <= 0) return true;
           if (l.qtd <= restante) { restante -= l.qtd; return false; }
           l.qtd -= restante; restante = 0; return true;
@@ -2106,13 +2129,13 @@ const PROFILES = {
     menu: [
       { id: 'dashboard', icon: '📊', label: 'Painel da Escola', badge: null },
       { id: 'planejamento', icon: '📅', label: 'Planejamento Alimentar', badge: null },
-      { id: 'estoque', icon: '📦', label: 'Estoque da Escola', badge: null },
-      { id: 'pedidos', icon: '🛒', label: 'Solicitar Reposição', badge: null },
-      { id: 'entregas', icon: '🚚', label: 'Acompanhar Entregas', badge: null },
-      { id: 'consumo', icon: '📝', label: 'Consumo Registrado', badge: null },
       { id: 'cardapios', icon: '🍽️', label: 'Cardápio Vigente', badge: null },
+      { id: 'estoque', icon: '📦', label: 'Estoque & Validades (FEFO)', badge: null },
+      { id: 'consumo', icon: '📝', label: 'Lançar Consumo / Merenda', badge: null },
+      { id: 'pedidos', icon: '🛒', label: 'Solicitar Reposição', badge: null },
+      { id: 'entregas', icon: '🚚', label: 'Recebimento & Entregas', badge: null },
       { id: 'restricoes', icon: '⚠️', label: 'Restrições Alimentares', badge: null },
-      { id: 'historico', icon: '📜', label: 'Histórico', badge: null },
+      { id: 'historico', icon: '📜', label: 'Histórico da Unidade', badge: null },
       { id: 'relatorios', icon: '📈', label: 'Relatórios', badge: null },
     ]
   },
@@ -2424,6 +2447,13 @@ async function login(profile, schoolId) {
   app.hidden = false;
   app.removeAttribute('hidden');
   app.classList.add('active');
+
+  const sidebar = document.getElementById('sidebar');
+  const appHeader = document.querySelector('.app-header');
+  const mainWrapper = document.querySelector('.main-wrapper');
+  if (sidebar) sidebar.style.display = '';
+  if (appHeader) appHeader.style.display = '';
+  if (mainWrapper) { mainWrapper.style.marginLeft = ''; mainWrapper.style.width = ''; }
 
   // Mostra loading enquanto hidrata do Supabase
   const pageContent = $('#page-content');
@@ -7103,38 +7133,17 @@ function initAppEvents() {
       const profile = btn.dataset.profile;
 
       const schoolPicker = $('#school-picker-row');
-      const subrolePicker = $('#subrole-picker-row');
       const colabPicker = $('#colab-subrole-picker-row');
 
       const isEscola = profile === 'escola';
       const isColab = profile === 'colaboradores';
 
       if (schoolPicker) schoolPicker.style.display = isEscola ? 'block' : 'none';
-      if (subrolePicker) subrolePicker.style.display = isEscola ? 'block' : 'none';
       if (colabPicker) colabPicker.style.display = isColab ? 'block' : 'none';
 
       const lbl = $('#school-picker-label');
       if (lbl && isEscola) {
-        const activeSub = $('.subrole-btn.active');
-        const sub = activeSub ? activeSub.dataset.subrole : 'diretor';
-        if (sub === 'diretor') lbl.textContent = 'Escola (Diretor)';
-        else if (sub === 'resp_estoque') lbl.textContent = 'Escola (Resp. Estoque)';
-        else if (sub === 'merendeira') lbl.textContent = 'Escola (Merendeira)';
-      }
-    });
-  });
-
-  // Sub-perfil da Escola (Diretor / Merendeira / Resp. Estoque)
-  $$('.subrole-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      $$('.subrole-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      const lbl = $('#school-picker-label');
-      const sub = btn.dataset.subrole;
-      if (lbl) {
-        if (sub === 'diretor') lbl.textContent = 'Escola (Diretor)';
-        else if (sub === 'resp_estoque') lbl.textContent = 'Escola (Resp. Estoque)';
-        else if (sub === 'merendeira') lbl.textContent = 'Escola (Merendeira)';
+        lbl.textContent = 'Unidade Escolar (Direção Unificada)';
       }
     });
   });
@@ -7178,8 +7187,8 @@ function initAppEvents() {
       let schoolId = null;
 
       if (topProfile === 'escola') {
-        const activeSub = $('.subrole-btn.active');
-        profile = activeSub ? activeSub.dataset.subrole : 'diretor';
+        // Unificação do perfil da escola: Diretor único com todas as funcionalidades
+        profile = 'diretor';
         const sel = $('#school-picker-select');
         if (sel && sel.value) schoolId = parseInt(sel.value, 10);
         else if (window.AUTH_ENABLED) {
@@ -10399,3 +10408,290 @@ if (typeof PAGE_RENDERERS !== 'undefined') {
   PAGE_RENDERERS['estoque_separacao'] = PAGE_RENDERERS['gestor_expedicao-os'];
   PAGE_RENDERERS['estoque_carregamento'] = PAGE_RENDERERS['gestor_ordens-entrega'];
 }
+
+/* ==========================================================================
+   CÍVICO IPÊ — SUPORTE AO PORTAL PÚBLICO, MODO APRESENTAÇÃO E CARDÁPIO ESCOLAR
+   ========================================================================== */
+
+window.toggleModoApresentacao = function() {
+  const wrapper = document.querySelector('.main-wrapper') || document.body;
+  wrapper.classList.toggle('modo-apresentacao');
+  const isAct = wrapper.classList.contains('modo-apresentacao');
+  if (window.showToast) {
+    window.showToast(isAct ? '🎭 Modo Apresentação Ativado! Pressione Esc para sair.' : '🖥️ Modo Apresentação Desativado.', 'info');
+  }
+};
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') {
+    const wrapper = document.querySelector('.main-wrapper');
+    if (wrapper && wrapper.classList.contains('modo-apresentacao')) {
+      wrapper.classList.remove('modo-apresentacao');
+      if (window.showToast) window.showToast('🖥️ Modo Apresentação Desativado.', 'info');
+    }
+  }
+});
+
+window.hidePublicPortal = function() {
+  const loginScreen = document.getElementById('screen-login');
+  const appScreen = document.getElementById('screen-app');
+  const sidebar = document.getElementById('sidebar');
+  const appHeader = document.querySelector('.app-header');
+  const mainWrapper = document.querySelector('.main-wrapper');
+
+  if (appScreen) {
+    appScreen.classList.remove('active');
+    appScreen.setAttribute('hidden', '');
+  }
+  if (loginScreen) {
+    loginScreen.classList.add('active');
+    loginScreen.removeAttribute('hidden');
+  }
+  if (sidebar) sidebar.style.display = '';
+  if (appHeader) appHeader.style.display = '';
+  if (mainWrapper) {
+    mainWrapper.style.marginLeft = '';
+    mainWrapper.style.width = '';
+  }
+};
+
+window.showPublicPortal = function() {
+  const loginScreen = document.getElementById('screen-login');
+  const appScreen = document.getElementById('screen-app');
+  const sidebar = document.getElementById('sidebar');
+  const appHeader = document.querySelector('.app-header');
+  const mainWrapper = document.querySelector('.main-wrapper');
+
+  if (loginScreen) {
+    loginScreen.classList.remove('active');
+    loginScreen.setAttribute('hidden', '');
+  }
+  if (appScreen) {
+    appScreen.removeAttribute('hidden');
+    appScreen.classList.add('active');
+  }
+  if (sidebar) sidebar.style.display = 'none';
+  if (appHeader) appHeader.style.display = 'none';
+  if (mainWrapper) {
+    mainWrapper.style.marginLeft = '0';
+    mainWrapper.style.width = '100%';
+  }
+
+  const mainContent = document.getElementById('page-content');
+  if (!mainContent) return;
+
+  const escolasCount = 8;
+  const totalAlunosPiloto = "3.992";
+  const refeicoesDiaTotal = "11.664";
+  const percentAgriFam = "42,8%";
+
+  mainContent.innerHTML = `
+    <div class="public-portal-container">
+      <header class="public-portal-header">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:1.8rem">🏛️</div>
+          <div>
+            <h2 style="color:#ffffff !important;margin:0;font-size:1.2rem">PREFEITURA DE CAMPO GRANDE</h2>
+            <div style="font-size:0.8rem;opacity:0.85">SEMED · SUALE Transparência Pública</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-outline btn-sm" onclick="window.hidePublicPortal()" style="color:#fff;border-color:#fff">🔒 Acesso Restrito</button>
+        </div>
+      </header>
+
+      <div class="public-hero">
+        <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(247,181,0,0.2);color:var(--amarelo-ipe,#F7B500);font-weight:700;font-size:0.82rem;margin-bottom:8px">TRANSPARÊNCIA EM TEMPO REAL · TESTE PILOTO DAS 8 ESCOLAS</div>
+        <h1 style="color:#ffffff !important;font-size:2.4rem;margin:4px 0">Alimentação Escolar Servida com Transparência</h1>
+        <div class="public-hero-number">${totalAlunosPiloto}</div>
+        <p style="font-size:1.1rem;opacity:0.9;max-width:700px;margin:0 auto">Alunos matriculados atendidos diariamente nas 8 unidades piloto de Campo Grande - MS.</p>
+      </div>
+
+      <div class="public-stats-grid">
+        <div class="stat-card-ipe">
+          <div class="num">${escolasCount}</div>
+          <div class="lbl">🏫 Unidades no Teste Piloto</div>
+          <div style="font-size:0.75rem;color:var(--verde-abastece);margin-top:6px">4 Escolas + 4 EMEIs</div>
+        </div>
+        <div class="stat-card-ipe">
+          <div class="num">${totalAlunosPiloto}</div>
+          <div class="lbl">👥 Alunos no Piloto</div>
+          <div style="font-size:0.75rem;color:var(--verde-abastece);margin-top:6px">100% com frequência monitorada</div>
+        </div>
+        <div class="stat-card-ipe">
+          <div class="num">${refeicoesDiaTotal}</div>
+          <div class="lbl">🥗 Refeições/Dia no Piloto</div>
+          <div style="font-size:0.75rem;color:var(--azul-institucional);margin-top:6px">2 a 4 refeições diárias</div>
+        </div>
+        <div class="stat-card-ipe">
+          <div class="num">47</div>
+          <div class="lbl">🌾 Cooperativas Parceiras</div>
+          <div style="font-size:0.75rem;color:var(--verde-abastece);margin-top:6px">Agricultura Familiar (PNAE)</div>
+        </div>
+      </div>
+
+      <div class="civic-pnae-badge">
+        <div>
+          <span style="font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;opacity:0.9">Conformidade Legal · Lei 11.947/2009</span>
+          <h3 style="font-size:1.5rem;margin-top:4px">Agricultura Familiar: ${percentAgriFam} das Compras Diretas</h3>
+          <p style="margin:4px 0 0;font-size:0.9rem;opacity:0.95">Campo Grande supera a exigência legal mínima de 30% investindo direto nos produtores locais de MS.</p>
+        </div>
+        <div style="background:#ffffff;color:var(--verde-abastece);padding:12px 20px;border-radius:12px;font-weight:800;font-size:1.4rem">
+          SELO VERDE PNAE
+        </div>
+      </div>
+
+      <div class="school-search-box">
+        <h3 style="margin-top:0">🔍 Consulte o Cardápio das Escolas Piloto</h3>
+        <input type="text" id="public-school-search" placeholder="Digite o nome da EMEI ou Escola..." oninput="window.filterPublicSchools(this.value)" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid var(--border,#cbd5e1);font-size:1rem;box-sizing:border-box">
+        <div class="region-chips">
+          <button class="chip-region active" onclick="window.filterRegion('')">Todas as Regiões</button>
+          <button class="chip-region" onclick="window.filterRegion('Anhanduizinho')">Anhanduizinho</button>
+          <button class="chip-region" onclick="window.filterRegion('Bandeira')">Bandeira</button>
+          <button class="chip-region" onclick="window.filterRegion('Centro')">Centro</button>
+          <button class="chip-region" onclick="window.filterRegion('Imbirussu')">Imbirussú</button>
+          <button class="chip-region" onclick="window.filterRegion('Lagoa')">Lagoa</button>
+          <button class="chip-region" onclick="window.filterRegion('Prosa')">Prosa</button>
+          <button class="chip-region" onclick="window.filterRegion('Rural')">Rural</button>
+          <button class="chip-region" onclick="window.filterRegion('Segredo')">Segredo</button>
+        </div>
+      </div>
+
+      <div id="public-schools-list" style="max-width:1200px;margin:0 auto 40px;padding:0 24px;display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:16px">
+      </div>
+    </div>
+  `;
+
+  window.renderPublicSchoolsList('');
+};
+
+window.renderPublicSchoolsList = function(filtro, reg) {
+  const container = document.getElementById('public-schools-list');
+  if (!container) return;
+
+  const escolasList = (window._PILOT_SCHOOLS && window._PILOT_SCHOOLS.length)
+    ? window._PILOT_SCHOOLS
+    : (typeof DATA !== 'undefined' && DATA.schools ? DATA.schools : []);
+
+  const filtradas = escolasList.filter(e => {
+    const nome = e.name || e.nome || '';
+    const regEsc = e.region || e.reg || 'Campo Grande';
+    const mNome = !filtro || nome.toLowerCase().includes(filtro.toLowerCase());
+    const mReg = !reg || regEsc === reg;
+    return mNome && mReg;
+  });
+
+  if (!filtradas.length) {
+    container.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--cinza-texto)">Nenhuma escola piloto encontrada para o filtro.</div>`;
+    return;
+  }
+
+  container.innerHTML = filtradas.map(e => {
+    const isDanger = e.stockStatus === 'danger';
+    const badgeColor = isDanger ? 'color:#c62828;background:#ffebee' : 'color:var(--verde-abastece);background:rgba(46,158,91,0.15)';
+    const badgeText = isDanger ? '🔴 Em Atenção' : '🟢 Abastecida';
+    const dirNome = e.diretor ? (e.diretor.name || e.diretor) : 'Direção SEMED';
+    const totalAlunos = e.students || e.alunos || 0;
+
+    return `
+      <div class="stat-card-ipe" style="cursor:pointer" onclick="window.showPublicSchoolMenu(${e.id})">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+          <span style="font-size:0.75rem;padding:3px 8px;border-radius:10px;background:rgba(14,58,126,0.1);color:var(--azul-institucional);font-weight:700">${e.region || 'Campo Grande'}</span>
+          <span style="font-size:0.72rem;padding:3px 8px;border-radius:10px;font-weight:700;${badgeColor}">${badgeText}</span>
+        </div>
+        <h4 style="margin:10px 0 6px;color:var(--azul-tinta);font-size:0.95rem;line-height:1.3">${e.name}</h4>
+        <div style="font-size:0.8rem;color:var(--cinza-texto);margin-bottom:4px">👥 <strong>${totalAlunos}</strong> Alunos Matriculados</div>
+        <div style="font-size:0.75rem;color:var(--text-secondary,#64748b)">👤 ${dirNome}</div>
+        <button class="btn btn-primary btn-sm" style="width:100%;margin-top:12px">📅 Ver Cardápio da Semana</button>
+      </div>
+    `;
+  }).join('');
+};
+
+window.filterPublicSchools = function(val) {
+  window.renderPublicSchoolsList(val);
+};
+
+window.filterRegion = function(reg) {
+  document.querySelectorAll('.chip-region').forEach(btn => btn.classList.remove('active'));
+  if (typeof event !== 'undefined' && event && event.target) event.target.classList.add('active');
+  window.renderPublicSchoolsList('', reg);
+};
+
+window.showPublicSchoolMenu = function(schoolId) {
+  const mainContent = document.getElementById('page-content');
+  if (!mainContent) return;
+
+  const escolasList = (window._PILOT_SCHOOLS && window._PILOT_SCHOOLS.length)
+    ? window._PILOT_SCHOOLS
+    : (typeof DATA !== 'undefined' && DATA.schools ? DATA.schools : []);
+
+  const school = escolasList.find(s => s.id === schoolId || String(s.id) === String(schoolId)) || escolasList[0] || {};
+  const nomeEscola = school.name || school.nome || 'Escola Municipal';
+  const regEscola = school.region || school.reg || 'Campo Grande';
+  const totalAlunos = school.students || school.alunos || 0;
+  const dirNome = school.diretor ? (school.diretor.name || school.diretor) : 'Direção SEMED';
+
+  mainContent.innerHTML = `
+    <div style="background:var(--papel,#FAF7F0);min-height:100vh;padding:24px;max-width:900px;margin:0 auto;font-family:var(--font-body)">
+      <button class="btn btn-outline btn-sm" onclick="window.showPublicPortal()" style="margin-bottom:16px">⬅️ Voltar ao Portal Público</button>
+      <div class="stat-card-ipe" style="border-left:6px solid var(--azul-institucional);margin-bottom:20px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <span style="font-size:0.75rem;padding:3px 8px;border-radius:10px;background:rgba(14,58,126,0.1);color:var(--azul-institucional);font-weight:700">${regEscola}</span>
+            <h2 style="margin:6px 0 2px;color:var(--azul-tinta)">${nomeEscola}</h2>
+            <div style="color:var(--cinza-texto);font-size:0.85rem;font-weight:600">👤 Direção: ${dirNome} · 👥 ${totalAlunos} Alunos Matriculados · Semana 12</div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button class="btn btn-outline btn-sm" onclick="window.print()">📄 Baixar PDF</button>
+            <button class="btn btn-primary btn-sm" onclick="alert('Link de compartilhamento copiado!')">🔗 Compartilhar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="menu-day-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="color:var(--azul-tinta);font-size:1.1rem">Segunda-Feira</strong>
+          <span class="tag-agri-fam">🌾 40% Agricultura Familiar</span>
+        </div>
+        <p><strong>Desjejum:</strong> Leite com Cacau + Pão Francês com Manteiga</p>
+        <p><strong>Almoço:</strong> Arroz Integral, Feijão Carioca, Carne Moída Ensopada com Cenoura local, Salada de Alface Orgânica.</p>
+        <p><strong>Lanche:</strong> Banana da Terra assada com canela.</p>
+      </div>
+
+      <div class="menu-day-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="color:var(--azul-tinta);font-size:1.1rem">Terça-Feira</strong>
+          <span class="tag-agri-fam">🌾 50% Agricultura Familiar</span>
+        </div>
+        <p><strong>Desjejum:</strong> Suco Natural de Laranja da Cooperativa + Biscoito Integral</p>
+        <p><strong>Almoço:</strong> Arroz Branco, Feijão Preto, Frango Xadrez com Pimentão e Mandioca cozida.</p>
+        <p><strong>Lanche:</strong> Maçã Fuji fresca.</p>
+      </div>
+
+      <div class="menu-day-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <strong style="color:var(--azul-tinta);font-size:1.1rem">Quarta-Feira</strong>
+          <span class="tag-agri-fam">🌾 35% Agricultura Familiar</span>
+        </div>
+        <p><strong>Desjejum:</strong> Vitamina de Mamão com Aveia</p>
+        <p><strong>Almoço:</strong> Galinhada com Guariroba/Milho, Feijão Carioca, Salada de Tomate e Pepino.</p>
+        <p><strong>Lanche:</strong> Melancia fatiada.</p>
+      </div>
+
+      <div style="background:#FFF3CD;color:#856404;padding:14px 18px;border-radius:12px;margin-top:24px;font-size:0.85rem;display:flex;align-items:center;gap:10px">
+        <span style="font-size:1.2rem">⚠️</span>
+        <div>Cardápios sujeitos a pequenas alterações de acordo com a disponibilidade de hortifrúti fresco da Agricultura Familiar local. Alunos com laudo médico possuem cardápio adaptado individualizado.</div>
+      </div>
+    </div>
+  `;
+};
+
+// ABERTURA AUTOMÁTICA DO PORTAL PÚBLICO AO ACESSAR O SISTEMA
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(function() {
+    if (typeof window.showPublicPortal === 'function' && !window.currentUser) {
+      window.showPublicPortal();
+    }
+  }, 100);
+});

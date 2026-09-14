@@ -32,7 +32,10 @@
           <div class="page-title">Dashboard Executivo</div>
           <div class="page-subtitle">Visão geral da alimentação escolar · Atualizado em ${new Date().toLocaleDateString('pt-BR')}${state.pilotoAtivo ? ' · <span class="tag tag-blue" style="font-size:0.7rem">🎯 MODO PILOTO (8 escolas)</span>' : ''}</div>
         </div>
-        <button class="btn btn-sm ${state.pilotoAtivo ? 'btn-outline' : 'btn-primary'}" onclick="togglePilotoMode()" style="margin-left:auto">${state.pilotoAtivo ? 'Sair do Piloto' : '🎯 Ativar Modo Piloto (8)'}</button>
+        <div style="display:flex;gap:8px;margin-left:auto;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-sm btn-outline" onclick="window.toggleModoApresentacao()" style="font-weight:700;border-color:var(--amarelo-ipe,#F7B500);color:var(--azul-tinta,#082554)">🎭 Modo Apresentação</button>
+          <button class="btn btn-sm ${state.pilotoAtivo ? 'btn-outline' : 'btn-primary'}" onclick="togglePilotoMode()">${state.pilotoAtivo ? 'Sair do Piloto' : '🎯 Ativar Modo Piloto (8)'}</button>
+        </div>
       </div>
   
       <div class="kpi-grid">

@@ -79,7 +79,7 @@
 
   function renderMotoristaEntregas(el) {
     const prof = window.PROFILES ? window.PROFILES[window.state?.currentProfile] : null;
-    const emTransporteList = SharedState.getOrders().filter(o => o.status === 'Em transporte' && (!prof || o.driver === prof.name));
+    const emTransporteList = SharedState.getOrders().filter(o => o.status === 'Em transporte' && (!prof || !o.driver || o.driver === prof.name));
     const alvo = window._selectedDeliveryOrderId
       ? emTransporteList.find(o => o.id === window._selectedDeliveryOrderId)
       : emTransporteList[0];
@@ -185,7 +185,6 @@
               <select class="btn btn-outline" style="width:100%;text-align:left;padding:10px" id="incident-school" required>
                 <option value="">Selecione a escola...</option>
                 ${((window.DATA && window.DATA.schools) || []).map(s => `<option value="${s.name}">${s.name}</option>`).join('')}
-                <option value="EM Elpídio Reis">EM Elpídio Reis</option>
                 <option value="Outra">Outro incidente (Trânsito / Veículo)</option>
               </select>
             </div>

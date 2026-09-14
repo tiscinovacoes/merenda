@@ -650,7 +650,7 @@ PAGE_RENDERERS.escola_pedidos = (el) => {
       value,
     });
 
-    // Tenta gravar também no Supabase (best-effort)
+    let syncSuccess = true;
     try {
       if (typeof _sb !== 'undefined') {
         const { error } = await _sb.from('orders').insert([{
@@ -662,15 +662,28 @@ PAGE_RENDERERS.escola_pedidos = (el) => {
           total_value: value,
           date: newOrder.date
         }]);
-        if (error) console.warn('Supabase insert orders notice:', error.message);
+        if (error) {
+          console.warn('Supabase insert orders notice:', error.message);
+          syncSuccess = false;
+        }
       }
     } catch(err) { 
       console.warn('Supabase insert orders exception:', err);
+      syncSuccess = false;
+    }
+
+    if (!syncSuccess) {
+      newOrder.sincronizado = false;
     }
 
     fb.style.display='block';
-    fb.innerHTML = `<span style="color:var(--success)">✅ Pedido <strong>#${String(newOrder.numero).padStart(3,'0')}</strong> enviado! Já visível para <strong>${coopSel}</strong>, Almoxarifado e Gestor.</span>`;
-    showToast('📤 Pedido #' + String(newOrder.numero).padStart(3,'0') + ' enviado para ' + coopSel);
+    if (syncSuccess) {
+      fb.innerHTML = `<span style="color:var(--success)">✅ Pedido <strong>#${String(newOrder.numero).padStart(3,'0')}</strong> enviado! Já visível para <strong>${coopSel}</strong>, Almoxarifado e Gestor.</span>`;
+      showToast('📤 Pedido #' + String(newOrder.numero).padStart(3,'0') + ' enviado para ' + coopSel);
+    } else {
+      fb.innerHTML = `<span style="color:var(--warning,#F59E0B)">💾 Pedido <strong>#${String(newOrder.numero).padStart(3,'0')}</strong> salvo localmente (sincronização em nuvem pendente). Já visível para <strong>${coopSel}</strong> e Gestor.</span>`;
+      showToast('💾 Pedido #' + String(newOrder.numero).padStart(3,'0') + ' salvo localmente.');
+    }
     btn.disabled=false; btn.textContent='📤 Enviar Pedido';
     setTimeout(() => PAGE_RENDERERS.escola_pedidos(document.getElementById('page-content')), 900);
   });
@@ -1064,36 +1077,75 @@ PAGE_RENDERERS.diretor_estoque = (el) => {
   const critical = rows.filter(r => r.daysLeft <= 3).length;
   const warning = rows.filter(r => r.daysLeft > 3 && r.daysLeft <= 7).length;
 
+  const nfs = SharedState.getNFs ? SharedState.getNFs() : [];
+  const hoje = new Date();
+  const validades = nfs.map(nf => {
+    const dias = nf.validade ? Math.round((new Date(nf.validade) - hoje) / 86400000) : 999;
+    return { ...nf, diasVencimento: dias };
+  }).sort((a, b) => a.diasVencimento - b.diasVencimento);
+
   el.innerHTML = `
     <div class="page-header">
-      <div class="page-title">Estoque — ${sc.name}</div>
-      <div class="page-subtitle">Visão gerencial · atualizado automaticamente por entregas e consumo</div>
+      <div class="page-title">Estoque & Validades (FEFO) — ${sc.name}</div>
+      <div class="page-subtitle">Gestão unificada: contagem física, ajustes manuais e controle de validade</div>
       <button class="btn btn-primary" onclick="navigateTo('diretor','pedidos')">🛒 Solicitar Reposição</button>
     </div>
     <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:20px">
-      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${rows.length}</div><div class="kpi-label">Produtos</div></div>
+      <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${rows.length}</div><div class="kpi-label">Produtos em Estoque</div></div>
       <div class="kpi-card green"><div class="kpi-icon">✅</div><div class="kpi-value">${rows.length-critical-warning}</div><div class="kpi-label">Estoque Normal</div></div>
       <div class="kpi-card orange"><div class="kpi-icon">⚡</div><div class="kpi-value">${warning}</div><div class="kpi-label">Em Atenção</div></div>
-      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${critical}</div><div class="kpi-label">Crítico</div></div>
+      <div class="kpi-card red"><div class="kpi-icon">🚨</div><div class="kpi-value">${critical}</div><div class="kpi-label">Crítico (≤ 3 dias)</div></div>
     </div>
-    <div class="card">
+    <div class="card mb-24">
+      <div class="card-header">
+        <div class="card-title">📦 Posição de Estoque & Inventário Físico</div>
+        <div style="font-size:0.8rem;color:var(--text-secondary)">Clique em <strong>Ajustar</strong> para retificar saldo real</div>
+      </div>
       <div class="card-body" style="padding:0">
         <table class="data-table">
-          <thead><tr><th>Produto</th><th>Categoria</th><th style="text-align:right">Qtd. Escola</th><th>Un.</th><th style="text-align:right">Dias Restantes</th><th>Status</th></tr></thead>
+          <thead><tr><th>Produto</th><th>Categoria</th><th style="text-align:right">Qtd. Escola</th><th>Un.</th><th style="text-align:right">Dias Restantes</th><th>Status</th><th>Ações</th></tr></thead>
           <tbody>
             ${rows.map(r => {
               const [cls, label] = r.daysLeft<=3 ? ['status-danger','Crítico'] : r.daysLeft<=7 ? ['status-warning','Atenção'] : ['status-ok','Normal'];
               return `<tr>
                 <td><strong>${r.name}</strong>${r.isReal ? ' <span class="tag tag-blue" style="font-size:0.65rem">REAL</span>' : ''}</td>
                 <td><span class="status-badge status-info" style="font-size:0.72rem">${r.category||'—'}</span></td>
-                <td style="text-align:right;font-family:var(--font-mono)">${r.qty.toLocaleString('pt-BR')}</td>
+                <td style="text-align:right;font-family:var(--font-mono);font-weight:700">${r.qty.toLocaleString('pt-BR')}</td>
                 <td>${r.unidade||'kg'}</td>
                 <td style="text-align:right;font-weight:700;color:${r.daysLeft<=3?'var(--danger)':r.daysLeft<=7?'var(--warning)':'var(--success)'}">${r.daysLeft}d</td>
                 <td><span class="status-badge ${cls}">${label}</span></td>
+                <td><button class="table-action" onclick="respAjusteEstoque('${r.name}','${r.unidade||'kg'}',${r.qty})">Ajustar</button></td>
               </tr>`;
             }).join('')}
           </tbody>
         </table>
+      </div>
+    </div>
+    
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">⏳ Lotes da Unidade por Validade (FEFO)</div>
+        <span class="status-badge status-info">${validades.length} lote(s) monitorado(s)</span>
+      </div>
+      <div class="card-body" style="padding:0">
+        ${validades.length > 0 ? `
+        <table class="data-table">
+          <thead><tr><th>Lote</th><th>NF Origem</th><th>Qtd</th><th>Validade</th><th>Dias Restantes</th><th>Status</th></tr></thead>
+          <tbody>
+            ${validades.map(v => {
+              const [cls, label] = v.diasVencimento<=7 ? ['status-danger','Crítico'] : v.diasVencimento<=30 ? ['status-warning','Atenção'] : ['status-ok','OK'];
+              return `<tr>
+                <td><strong>${v.lote||'—'}</strong></td>
+                <td>${v.numero||'—'}</td>
+                <td style="font-family:var(--font-mono)">${v.qtd||0}</td>
+                <td>${v.validade ? new Date(v.validade).toLocaleDateString('pt-BR') : '—'}</td>
+                <td style="font-weight:700;color:${v.diasVencimento<=7?'var(--danger)':v.diasVencimento<=30?'var(--warning)':'var(--success)'}">${v.diasVencimento}d</td>
+                <td><span class="status-badge ${cls}">${label}</span></td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>` :
+        `<div class="empty-state"><div class="empty-icon">📅</div><div class="empty-text">Nenhum lote com validade pendente nesta unidade.</div></div>`}
       </div>
     </div>`;
 };
@@ -1204,7 +1256,9 @@ window.dirSubmitPedido = (schoolName) => {
 
   SharedState.addOrder({
     school: schoolName, date: new Date().toISOString().split('T')[0],
-    status: 'Pendente', coop, obs, items,
+    status: 'Pendente', cooperative: coop, coop, obs,
+    itens: items.map(i => ({ produto: i.name, qtd: i.qtd, unidade: i.unit, productId: i.productId })),
+    items,
     value: Math.round(value || items.length * 500),
     solicitante: PROFILES.diretor.name,
   });

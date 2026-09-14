@@ -8,7 +8,7 @@
   <meta name="description" content="Plataforma integrada de gestão da alimentação escolar da Secretaria Municipal de Educação de Campo Grande - MS">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Public+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
   <link rel="stylesheet" href="styles.css?v=3.2.8">
@@ -63,12 +63,16 @@
     </div>
     <div class="login-right">
       <div class="login-card">
-        <div class="login-card-header">
-          <h2>Acesso ao Sistema</h2>
-          <p>Selecione o perfil e entre com suas credenciais institucionais</p>
+        <div class="login-card-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px">
+          <div>
+            <h2>Acesso ao Sistema</h2>
+            <p>Selecione o perfil e entre com suas credenciais institucionais</p>
+          </div>
+          <button type="button" class="btn-portal-pub" onclick="window.showPublicPortal()" style="background:var(--papel,#FAF7F0);border:1px solid var(--amarelo-ipe,#F7B500);color:var(--azul-tinta,#082554);padding:6px 12px;border-radius:20px;font-size:0.78rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+            <span>🌐 Portal Público</span>
+          </button>
         </div>
         <div class="profile-selector" role="radiogroup" aria-label="Selecionar perfil">
-          <!-- SEMED -->
           <button class="profile-btn active" data-profile="gestor" id="btn-profile-gestor" type="button" role="radio" aria-checked="true">
             <div class="profile-icon">🏛️</div>
             <span>Gestor SEMED</span>
@@ -77,17 +81,14 @@
             <div class="profile-icon">🥗</div>
             <span>Nutricionista</span>
           </button>
-          <!-- ESCOLA (perfil unificado) -->
           <button class="profile-btn" data-profile="escola" id="btn-profile-escola" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">🏫</div>
             <span>Escola</span>
           </button>
-          <!-- FORNECEDORES (perfil unificado) -->
           <button class="profile-btn" data-profile="colaboradores" id="btn-profile-colaboradores" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">🤝</div>
             <span>Colaboradores</span>
           </button>
-          <!-- LOGÍSTICA -->
           <button class="profile-btn" data-profile="estoque" id="btn-profile-estoque" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">📦</div>
             <span>Estoque Central</span>
@@ -96,7 +97,6 @@
             <div class="profile-icon">🚚</div>
             <span>Motorista</span>
           </button>
-          <!-- COMPRAS & CONTRATOS -->
           <button class="profile-btn" data-profile="compras" id="btn-profile-compras" type="button" role="radio" aria-checked="false">
             <div class="profile-icon">📄</div>
             <span>Compras &amp; Contratos</span>
@@ -118,21 +118,7 @@
             <option value="8">EMEI ELEODES ESTEVAN (Centro · 354 alunos)</option>
           </select>
         </div>
-        <!-- Seletor de função — aparece junto com o school picker -->
-        <div id="subrole-picker-row" style="display:none;margin-bottom:16px">
-          <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--text-secondary)">Função na escola</label>
-          <div style="display:flex;gap:8px" role="radiogroup" aria-label="Função na escola">
-            <button class="subrole-btn active" data-subrole="diretor" type="button" role="radio" aria-checked="true">
-              <span class="subrole-icon">🎓</span>Diretor(a)
-            </button>
-            <button class="subrole-btn" data-subrole="merendeira" type="button" role="radio" aria-checked="false">
-              <span class="subrole-icon">👩‍🍳</span>Merendeira
-            </button>
-            <button class="subrole-btn" data-subrole="resp_estoque" type="button" role="radio" aria-checked="false">
-              <span class="subrole-icon">📋</span>Resp. Estoque
-            </button>
-          </div>
-        </div>
+
         <!-- Seletor de função — aparece para perfil Colaboradores -->
         <div id="colab-subrole-picker-row" style="display:none;margin-bottom:16px">
           <label style="display:block;font-size:0.82rem;font-weight:600;margin-bottom:8px;color:var(--text-secondary)">Tipo de colaborador</label>

@@ -655,10 +655,11 @@
 
   window.despacharOrdemColaborador = (ordemId) => {
     if (window.SharedState && typeof window.SharedState.updateOrderStatus === 'function') {
-      window.SharedState.updateOrderStatus(ordemId, 'Em transporte');
+      const driverName = (typeof PROFILES !== 'undefined' && PROFILES.motorista) ? PROFILES.motorista.name : 'José Souza';
+      window.SharedState.updateOrderStatus(ordemId, 'Em transporte', { driver: driverName, driver_id: 'user-mot-01' });
     }
     if (typeof showToast === 'function') {
-      showToast('🚚 Carga despachada! A escola e a SEMED foram notificadas que os produtos estão a caminho.');
+      showToast('🚚 Carga despachada! O motorista, a escola e a SEMED foram notificados que os produtos estão a caminho.');
     }
     if (typeof renderPage === 'function') renderPage();
   };
@@ -741,7 +742,10 @@
   // Cooperativa: rotas secundárias
   PAGE_RENDERERS.cooperativa_agricultores = (el) => _renderTransicaoModulo(el, 'Gestão de Agricultores Associados', 'pedidos');
   PAGE_RENDERERS.cooperativa_produtos = (el) => _renderTransicaoModulo(el, 'Catálogo de Produtos', 'pedidos');
-  PAGE_RENDERERS.cooperativa_estoque = (el) => _renderTransicaoModulo(el, 'Estoque Consolidado', 'pedidos');
+  PAGE_RENDERERS.cooperativa_estoque = (el) => {
+    if (PAGE_RENDERERS.gestor_estoque) PAGE_RENDERERS.gestor_estoque(el);
+    else _renderTransicaoModulo(el, 'Estoque Consolidado', 'pedidos');
+  };
   PAGE_RENDERERS.cooperativa_planejamento = (el) => PAGE_RENDERERS.cooperativa_entregas(el);
   PAGE_RENDERERS.cooperativa_rotas = (el) => PAGE_RENDERERS.cooperativa_entregas(el);
   PAGE_RENDERERS.cooperativa_contratos = (el) => _renderTransicaoModulo(el, 'Contratos e Chamamentos Públicos', 'pedidos');

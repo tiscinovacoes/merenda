@@ -1074,76 +1074,11 @@
   };
 
   PAGE_RENDERERS.nutricionista_estoquesual = (el) => {
-    const products = DATA.products || [];
-    const zerados = products.filter(p => (p.stock || 0) === 0);
-    const emRisco = products.filter(p => (p.daysLeft || 0) > 0 && (p.daysLeft || 0) <= 5);
-    const afItens = products.filter(p => p.familyFarm);
-  
-    el.innerHTML = `
-      <div class="page-header">
-        <div class="page-title">📦 Estoque Consolidado SUAL (Modo Leitura — Nutrição)</div>
-        <div class="page-subtitle">Acompanhamento dos níveis de estoque central, risco de desabastecimento e itens zerados sem movimentação física</div>
-      </div>
-  
-      <div class="kpi-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:24px">
-        <div class="kpi-card blue"><div class="kpi-icon">📦</div><div class="kpi-value">${products.length}</div><div class="kpi-label">Itens no Catálogo SUAL</div></div>
-        <div class="kpi-card red"><div class="kpi-icon">🚫</div><div class="kpi-value">${zerados.length}</div><div class="kpi-label">Itens Zerados</div></div>
-        <div class="kpi-card orange"><div class="kpi-icon">⚠️</div><div class="kpi-value">${emRisco.length}</div><div class="kpi-label">Em Risco (< 5 dias)</div></div>
-        <div class="kpi-card green"><div class="kpi-icon">🌽</div><div class="kpi-value">${afItens.length}</div><div class="kpi-label">Agricultura Familiar</div></div>
-      </div>
-  
-      <div class="card mb-24">
-        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
-          <div class="card-title">🔍 Consulta de Insumos da Central SUAL</div>
-          <div style="font-size:0.82rem;color:var(--text-secondary);background:#f1f5f9;padding:4px 12px;border-radius:20px">
-            🔒 Perfil Nutricionista: Visualização em tempo real (Sem permissão de baixa)
-          </div>
-        </div>
-        <div class="card-body" style="padding:0">
-          <div style="overflow-x:auto">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Produto / Insumo</th>
-                  <th>Categoria</th>
-                  <th>Origem</th>
-                  <th>Estoque Atual</th>
-                  <th>Consumo Médio/Dia</th>
-                  <th>Autonomia Estimada</th>
-                  <th>Status SUAL</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${products.map(p => {
-                  const isZero = (p.stock || 0) === 0;
-                  const isLow = (p.daysLeft || 0) <= 5 && !isZero;
-                  const statusBadge = isZero
-                    ? '<span class="status-badge status-danger">Zerado</span>'
-                    : isLow
-                    ? '<span class="status-badge status-warning">Risco (< 5 dias)</span>'
-                    : '<span class="status-badge status-ok">OK</span>';
-  
-                  return `
-                    <tr style="${isZero ? 'background:#fef2f2' : isLow ? 'background:#fffbe6' : ''}">
-                      <td><strong>${p.name}</strong></td>
-                      <td><span class="tag tag-blue">${p.category}</span></td>
-                      <td>${p.familyFarm ? '<span style="color:#2E7D32;font-weight:700">🌽 Agric. Familiar</span>' : 'Pregão Central'}</td>
-                      <td style="font-family:var(--font-mono);font-weight:700">${(p.stock || 0).toLocaleString('pt-BR')} ${p.unit}</td>
-                      <td style="font-family:var(--font-mono)">${p.avgConsume || 0} ${p.unit}/dia</td>
-                      <td style="font-family:var(--font-mono);font-weight:700;color:${isZero ? 'var(--danger)' : isLow ? '#c2410c' : '#1565C0'}">
-                        ${isZero ? '0 dias (Esgotado)' : `${p.daysLeft} dias`}
-                      </td>
-                      <td>${statusBadge}</td>
-                    </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    `;
+    if (PAGE_RENDERERS.gestor_estoque) {
+      PAGE_RENDERERS.gestor_estoque(el);
+    }
   };
+  PAGE_RENDERERS.nutricionista_estoque = PAGE_RENDERERS.nutricionista_estoquesual;
 
   PAGE_RENDERERS.nutricionista_planejamento = (el) => {
     PAGE_RENDERERS.gestor_planejamento(el);

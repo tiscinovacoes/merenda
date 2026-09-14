@@ -6,9 +6,23 @@
 
 /* === CSS CUSTOM PROPERTIES === */
 :root {
+  /* Design System "Cívico Ipê" — SEMED Campo Grande */
+  --azul-institucional: #0E3A7E;   /* dominante - confiança/governo */
+  --azul-tinta:         #082554;   /* títulos e texto forte */
+  --amarelo-ipe:        #F7B500;   /* ACENTO - números/CTAs de destaque */
+  --rosa-ipe:           #E5457F;   /* dado secundário (gráficos) */
+  --roxo-ipe:           #7A3E9D;   /* dado secundário (gráficos) */
+  --verde-abastece:     #2E9E5B;   /* status OK / abastecido / agricultura familiar */
+  --papel:              #FAF7F0;   /* fundo quente */
+  --branco:             #FFFFFF;
+  --cinza-texto:        #5B6472;   /* texto secundário */
+
+  --font-display: 'Bricolage Grotesque', sans-serif;
+  --font-body: 'Public Sans', system-ui, -apple-system, sans-serif;
+
   /* Primary */
-  --primary: #1565C0;
-  --primary-dark: #0D47A1;
+  --primary: #0E3A7E;
+  --primary-dark: #082554;
   --primary-darker: #0A3A84;
   --primary-light: #E3F2FD;
   --primary-50: #E3F2FD;
@@ -102,9 +116,9 @@ h1,h2,h3,h4,h5,h6 { line-height: 1.3; font-weight: 600; }
 .login-grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px); background-size: 40px 40px; }
 @keyframes orbFloat { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(30px,-30px) scale(1.05); } 66% { transform: translate(-20px,20px) scale(0.95); } }
 
-.login-container { position: relative; z-index: 1; display: flex; min-height: 100vh; width: 100%; max-width: 1440px; margin: 0 auto; }
-.login-left { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 60px 80px; color: white; }
-.login-right { width: 480px; display: flex; align-items: center; padding: 40px; }
+.login-container { position: relative; z-index: 1; display: flex; justify-content: center; align-items: center; min-height: 100vh; width: 100%; padding: 20px; box-sizing: border-box; }
+.login-left { display: none !important; }
+.login-right { width: 100%; max-width: 500px; display: flex; align-items: center; justify-content: center; padding: 20px 0; }
 .login-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
 .login-logo svg { filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15)); }
 .login-system-name { font-size: 1.7rem; font-weight: 800; letter-spacing: -0.02em; }
@@ -894,4 +908,238 @@ h1,h2,h3,h4,h5,h6 { line-height: 1.3; font-weight: 600; }
     border: 1px solid #cbd5e1 !important;
   }
 }
+
+/* ==========================================================================
+   CÍVICO IPÊ — ESTILOS COMPLEMENTARES
+   SEMED / Campo Grande - MS
+   ========================================================================== */
+
+/* Tipografia Cívico Ipê */
+h1, h2, h3, .page-title, .login-hero-text h1, .bricolage-title {
+  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif) !important;
+  color: var(--azul-tinta, #082554);
+}
+
+.hero-number, .stat-value-gigante, .kpi-value-ipe {
+  font-family: var(--font-display, 'Bricolage Grotesque', sans-serif);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Portal Público */
+.public-portal-container {
+  background-color: var(--papel, #FAF7F0);
+  min-height: 100vh;
+  color: var(--azul-tinta, #082554);
+  font-family: var(--font-body, 'Public Sans', sans-serif);
+}
+
+.public-portal-header {
+  background: var(--azul-institucional, #0E3A7E);
+  color: #ffffff;
+  padding: 14px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 3px solid var(--amarelo-ipe, #F7B500);
+}
+
+.public-hero {
+  background: linear-gradient(135deg, #0E3A7E 0%, #082554 100%);
+  color: #ffffff;
+  padding: 48px 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0 0 24px 24px;
+}
+
+.public-hero::before {
+  content: "🌸";
+  position: absolute;
+  top: -20px;
+  right: -20px;
+  font-size: 140px;
+  opacity: 0.08;
+  pointer-events: none;
+}
+
+.public-hero-number {
+  font-size: 4rem;
+  color: var(--amarelo-ipe, #F7B500);
+  line-height: 1;
+  margin: 12px 0;
+  text-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.public-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  padding: 24px;
+  max-width: 1200px;
+  margin: -30px auto 0;
+  position: relative;
+  z-index: 10;
+}
+
+.stat-card-ipe {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 8px 20px rgba(8, 37, 84, 0.08);
+  border: 1px solid rgba(14, 58, 126, 0.08);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card-ipe:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(8, 37, 84, 0.14);
+}
+
+.stat-card-ipe .num {
+  font-size: 2.2rem;
+  color: var(--amarelo-ipe, #F7B500);
+  font-family: var(--font-display);
+  font-weight: 800;
+}
+
+.stat-card-ipe .lbl {
+  font-size: 0.85rem;
+  color: var(--cinza-texto, #5B6472);
+  font-weight: 600;
+  margin-top: 4px;
+}
+
+/* Selo Cívico Agricultura Familiar (PNAE) */
+.civic-pnae-badge {
+  background: linear-gradient(135deg, #2E9E5B 0%, #1e6b3d 100%);
+  color: #ffffff;
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 1200px;
+  margin: 24px auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 8px 24px rgba(46, 158, 91, 0.25);
+}
+
+.civic-pnae-badge h3 {
+  color: #ffffff !important;
+  margin: 0;
+}
+
+/* Busca e Filtros de Escola */
+.school-search-box {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 24px auto;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+
+.region-chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.chip-region {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid var(--azul-institucional);
+  background: transparent;
+  color: var(--azul-institucional);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chip-region.active, .chip-region:hover {
+  background: var(--azul-institucional);
+  color: #ffffff;
+}
+
+/* Cardápio Semanal Mobile First */
+.menu-day-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border-left: 6px solid var(--amarelo-ipe, #F7B500);
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.tag-agri-fam {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(46, 158, 91, 0.12);
+  color: var(--verde-abastece, #2E9E5B);
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* Modo Apresentação Gestor */
+.modo-apresentacao {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  background: var(--azul-tinta, #082554) !important;
+  color: #ffffff !important;
+  z-index: 99999 !important;
+  padding: 40px !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+}
+
+.modo-apresentacao h1, .modo-apresentacao h2, .modo-apresentacao h3, .modo-apresentacao .page-title {
+  color: #ffffff !important;
+}
+
+.modo-apresentacao .kpi-card {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 20px !important;
+  padding: 28px !important;
+}
+
+.modo-apresentacao .kpi-value {
+  font-size: 3.5rem !important;
+  color: var(--amarelo-ipe, #F7B500) !important;
+  font-family: var(--font-display) !important;
+}
+
+.modo-apresentacao .kpi-label {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-size: 1.1rem !important;
+}
+
+/* Timeline Admin por Perfil */
+.timeline-item-ipe {
+  display: flex;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--border, #e2e8f0);
+  align-items: flex-start;
+}
+
+.timeline-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
 
