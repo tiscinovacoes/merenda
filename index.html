@@ -11,7 +11,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Public+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-  <link rel="stylesheet" href="styles.css?v=3.2.8">
+  <script src="https://cdn.jsdelivr.net/npm/dexie@4.0.11/dist/dexie.min.js"></script>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0E3A7E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="styles.css?v=3.2.9">
 </head>
 <body>
 
@@ -267,6 +272,7 @@
 </div>
 
   <script src="alimentos.js?v=3.2.8"></script>
+  <script src="js/offline_sync.js?v=3.2.9"></script>
   <script src="db.js?v=3.2.8"></script>
   <script src="ai_cardapio_engine.js?v=3.2.8"></script>
   <script src="js/core_hub.js?v=3.2.8"></script>
@@ -280,6 +286,15 @@
   <script src="js/modules/gestor.js?v=3.2.8"></script>
   <script src="js/modules/compras.js?v=3.2.8"></script>
   <script src="js/modules/admin.js?v=3.2.8"></script>
-  <script src="sprint_abc.js?v=3.2.8"></script>
+  <script src="sprint_abc.js?v=3.2.9"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then((reg) => console.log('[PWA] Service Worker registrado com sucesso:', reg.scope))
+          .catch((err) => console.warn('[PWA] Falha ao registrar Service Worker:', err));
+      });
+    }
+  </script>
 </body>
 </html>

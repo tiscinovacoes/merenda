@@ -778,6 +778,108 @@ window.DB = {
     return all.filter(a => a.name.toLowerCase().includes(q) || a.code.toLowerCase().includes(q)).slice(0, 50);
   },
 
+  // -------------------------
+  // AUTENTICAÇÃO REAL SUPABASE AUTH (Sprint 1)
+  // -------------------------
+  async signInWithPassword(email, password) {
+    try {
+      const client = initClient();
+      if (!client) throw new Error('Cliente Supabase não inicializado');
+      const { data, error } = await client.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      console.log('[DB Auth] Login realizado com sucesso via Supabase Auth:', data.user ? data.user.email : '');
+      return { user: data.user, session: data.session, error: null };
+    } catch (err) {
+      console.warn('[DB Auth] Erro ao autenticar no Supabase:', err.message);
+      return { user: null, session: null, error: err.message };
+    }
+  },
+
+  async signOut() {
+    try {
+      const client = initClient();
+      if (client) await client.auth.signOut();
+      return true;
+    } catch (err) {
+      console.warn('[DB Auth] Erro no logout:', err.message);
+      return false;
+    }
+  },
+
+  async getCurrentUser() {
+    try {
+      const client = initClient();
+      if (!client) return null;
+      const { data: { user } } = await client.auth.getUser();
+      return user;
+    } catch {
+      return null;
+    }
+  },
+
+  // -------------------------
+  // INVERSÃO DA AUTORIDADE DE DADOS & MUTADORES COM IDEMPOTÊNCIA (Sprint 2 & 3)
+  // -------------------------
+  async saveOrder(orderPayload) {
+    if (!orderPayload.school && !orderPayload.school_name) {
+      console.warn('[DB] Rejeitado: Pedido sem escola válida');
+      return null;
+    }
+    const idempotencyKey = orderPayload.idempotency_key || (window.OfflineSync ? window.OfflineSync.generateUUID() : null);
+    const dbPayload = {
+      school: orderPayload.school || orderPayload.school_name,
+      school_id: orderPayload.schoolId || orderPayload.school_id || 1,
+      date: orderPayload.date || new Date().toISOString().split('T')[0],
+      status: orderPayload.status || 'pendente',
+      cooperative: orderPayload.coop || orderPayload.cooperative || 'COOPAGRAN',
+      value: orderPayload.value || 0,
+      items: orderPayload.items || [],
+      idempotency_key: idempotencyKey,
+      criado_por_user_id: orderPayload.criadoPorUserId || null
+    };
+
+    try {
+      const client = initClient();
+      if (!client) throw new Error('Offline');
+      const { data, error } = await client.from('orders').insert([dbPayload]).select();
+      if (error) throw error;
+      return data ? data[0] : null;
+    } catch (err) {
+      console.warn('[DB] Erro/Offline ao gravar ordem no Supabase — salvando na fila offline IndexedDB:', err.message);
+      if (window.OfflineSync) {
+        await window.OfflineSync.enqueueMutation({
+          table: 'orders',
+          action: 'INSERT',
+          payload: dbPayload,
+          idempotencyKey: idempotencyKey
+        });
+      }
+      return null;
+    }
+  },
+
+  async executeRawMutation(item) {
+    const client = initClient();
+    if (!client) return false;
+    try {
+      const { table, action, payload, id } = item;
+      let res;
+      if (action === 'INSERT') {
+        const payloadWithKey = Object.assign({}, payload, { idempotency_key: id });
+        res = await client.from(table).upsert([payloadWithKey], { onConflict: 'idempotency_key' });
+      } else if (action === 'UPDATE') {
+        res = await client.from(table).update(payload).eq('id', payload.id);
+      } else if (action === 'DELETE') {
+        res = await client.from(table).delete().eq('id', payload.id);
+      }
+      if (res && res.error) throw res.error;
+      return true;
+    } catch (err) {
+      console.warn(`[DB RawMutation] Falha na sincronização da mutação ID=${item.id}:`, err.message);
+      return false;
+    }
+  },
+
   // ============================
   // HIDRATAÇÃO PRINCIPAL
   // Busca todos os dados e sobrescreve DATA.*

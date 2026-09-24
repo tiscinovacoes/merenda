@@ -1,0 +1,27 @@
+{
+  "name": "SUALE — Sistema de Gestão da Alimentação Escolar",
+  "short_name": "SUALE PNAE",
+  "description": "Plataforma integrada de gestão da alimentação escolar da Secretaria Municipal de Educação (SEMED Campo Grande - MS)",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0E3A7E",
+  "theme_color": "#0E3A7E",
+  "orientation": "any",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "government", "productivity"]
+}

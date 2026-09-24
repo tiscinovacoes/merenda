@@ -5,8 +5,8 @@
    ============================================ */
 
 // VERSÃO
-var APP_VERSION = '3.0.0-hub';
-var APP_BUILD_DATE = '2026-08-18';
+var APP_VERSION = '3.2.0';
+var APP_BUILD_DATE = '2026-09-24';
 window.APP_VERSION = APP_VERSION;
 window.APP_BUILD_DATE = APP_BUILD_DATE;
 
@@ -661,9 +661,11 @@ const SharedState = {
   _persist() {
     try {
       this._data.lastEventAt = new Date().toISOString();
+      // O localStorage atua estritamente como Réplica de Leitura Secundária (Cache Hydration)
+      // e Write-Ahead Log (WAL) local. A autoridade primária é 100% o Supabase Postgres via RLS.
       localStorage.setItem(SHARED_STATE_KEY, JSON.stringify(this._data));
     } catch (e) {
-      console.warn('[SharedState] Falha ao persistir.', e);
+      console.warn('[SharedState] Falha ao persistir réplica local.', e);
     }
   },
 
