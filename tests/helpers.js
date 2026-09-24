@@ -11,6 +11,11 @@
 async function login(page, profile) {
   let p = profile === 'almoxarifado' ? 'estoque' : profile;
   await page.goto('/index.html');
+  await page.waitForTimeout(300);
+  const btnRestrito = page.locator('button:has-text("Acesso Restrito")');
+  if (await btnRestrito.isVisible()) {
+    await btnRestrito.click();
+  }
   await page.waitForSelector('#screen-login', { state: 'visible' });
 
   if (p === 'cooperativa' || p === 'agricultor') {

@@ -1142,4 +1142,36 @@ h1, h2, h3, .page-title, .login-hero-text h1, .bricolage-title {
   color: #ffffff;
 }
 
+/* ============================================
+   A11Y (WCAG 2.2 AA) — Focus & Motion Support
+   ============================================ */
+:focus-visible {
+  outline: 2px solid var(--azul-institucional, #0E3A7E) !important;
+  outline-offset: 2px !important;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.profile-btn:focus-visible,
+.btn-portal-pub:focus-visible {
+  outline: 2px solid var(--azul-institucional, #0E3A7E) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(14, 58, 126, 0.25) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+
 

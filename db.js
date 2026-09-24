@@ -4,31 +4,45 @@
    Fallback automático para mock se offline/erro
    ============================================ */
 
-const SUPABASE_URL = 'https://xszqqqyvdzoyxokkuqix.supabase.co';
-const SUPABASE_KEY = 'sb_publishable_qwKVO7DURZT5jY0FlJs03Q_EYNKoH4L';
+// ============================================
+// CONFIGURAÇÃO DE AMBIENTE & CHAVES (cred-omega & secrets-management)
+// ============================================
+const _env = (typeof window !== 'undefined' && (window.__ENV__ || window.ENV)) || {};
+const SUPABASE_URL = _env.VITE_SUPABASE_URL || _env.SUPABASE_URL || (typeof localStorage !== 'undefined' && localStorage.getItem('SUALE_SUPABASE_URL')) || 'https://xszqqqyvdzoyxokkuqix.supabase.co';
+const SUPABASE_KEY = _env.VITE_SUPABASE_ANON_KEY || _env.SUPABASE_ANON_KEY || (typeof localStorage !== 'undefined' && localStorage.getItem('SUALE_SUPABASE_ANON_KEY')) || 'sb_publishable_qwKVO7DURZT5jY0FlJs03Q_EYNKoH4L';
 
-// Projeto único (xszqqqyvdzoyxokkuqix)
-//
-// ⚠️ O CDN do Supabase é carregado com `defer` no index.html, então a global
-// `supabase` ainda NÃO existe quando este arquivo executa (db.js roda durante o
-// parse do body). Sem a guarda abaixo, esta linha lançava `ReferenceError:
-// supabase is not defined` e **todo o restante do db.js deixava de ser definido**
-// — inclusive `window.DB` —, fazendo o app operar só com dados locais de forma
-// silenciosa, com um erro não tratado no console a cada carregamento.
-//
-// A guarda mantém exatamente o comportamento atual (fallback para mock: cada
-// `_fetch()` cai no catch e devolve null), mas sem exceção não tratada e com o
-// motivo explícito em `DB_STATUS`. Ativar a camada real do Supabase é uma decisão
-// separada — exigiria remover o `defer` do script e revisar o `hydrateData()`,
-// que sobrescreve coleções de `DATA` (ver notas no topo do app.js).
-const _sbLib = (typeof supabase !== 'undefined') ? supabase
-             : (typeof window !== 'undefined' && window.supabase) ? window.supabase
-             : null;
-const _sb = _sbLib ? _sbLib.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-const _sb2 = _sb;
+function getSupabaseLib() {
+  if (typeof supabase !== 'undefined') return supabase;
+  if (typeof window !== 'undefined' && window.supabase) return window.supabase;
+  return null;
+}
+
+let _sb = null;
+let _sb2 = null;
+
+function initClient() {
+  if (_sb) return _sb;
+  const lib = getSupabaseLib();
+  if (lib) {
+    try {
+      _sb = lib.createClient(SUPABASE_URL, SUPABASE_KEY);
+      _sb2 = _sb;
+      if (window.DB_STATUS) {
+        window.DB_STATUS.initialized = true;
+        window.DB_STATUS.error = null;
+      }
+    } catch (e) {
+      console.warn('[DB] Erro ao inicializar cliente Supabase:', e.message);
+    }
+  }
+  return _sb;
+}
+
+// Inicialização imediata se a biblioteca já estiver no DOM
+initClient();
 
 if (!_sb) {
-  console.info('[DB] Biblioteca do Supabase ainda não carregada (script com `defer`). Operando com dados locais — sem erro.');
+  console.info('[DB] Cliente Supabase aguardando carregamento da biblioteca. Operando com dados locais — sem erro.');
 }
 
 // ============================
@@ -36,16 +50,21 @@ if (!_sb) {
 // ============================
 window.DB_STATUS = {
   connected: false,
+  initialized: !!_sb,
   lastSync: null,
-  error: _sb ? null : 'Biblioteca do Supabase indisponível na carga (script com `defer`) — usando dados locais.',
+  error: _sb ? null : 'Aguardando inicialização do Supabase SDK — usando fallback de dados locais.',
 };
 
 // ============================
 // HELPERS
 // ============================
 async function _fetch(table, options = {}) {
+  const client = initClient();
+  if (!client) {
+    return null;
+  }
   try {
-    let query = _sb.from(table).select(options.select || '*');
+    let query = client.from(table).select(options.select || '*');
     if (options.order) query = query.order(options.order, { ascending: options.asc !== false });
     if (options.limit) query = query.limit(options.limit);
     const res = await Promise.race([

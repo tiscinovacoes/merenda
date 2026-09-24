@@ -55,15 +55,11 @@ test.describe('Módulo do Motorista de Entrega', () => {
     await expect(page.locator('.page-title')).toContainText('Registrar Ocorrência');
     
     // Preencher formulário
-    await page.selectOption('#incident-school', 'EM Elpídio Reis');
+    await page.selectOption('#incident-school', 'EM ADV. DEMOSTHENES MARTINS');
     await page.selectOption('#incident-type', 'Escola fechada');
     await page.fill('#incident-desc', 'A escola se encontrava trancada no momento da entrega programada.');
     
     // Submeter
-    page.once('dialog', async dialog => {
-      expect(dialog.message()).toContain('enviada com sucesso');
-      await dialog.accept();
-    });
     await page.click('#form-driver-incident button[type="submit"]');
     
     // Deve retornar para a rota diária

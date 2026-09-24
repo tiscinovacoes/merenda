@@ -25,3 +25,12 @@ Thumbs.db
 # Playwright
 playwright-report/
 test-results/
+
+# Secrets & Environment (cred-omega / secrets-management)
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+

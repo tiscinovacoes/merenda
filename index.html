@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Public+Sans:wght@300;400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js" defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <link rel="stylesheet" href="styles.css?v=3.2.8">
 </head>
 <body>
@@ -68,7 +68,7 @@
             <h2>Acesso ao Sistema</h2>
             <p>Selecione o perfil e entre com suas credenciais institucionais</p>
           </div>
-          <button type="button" class="btn-portal-pub" onclick="window.showPublicPortal()" style="background:var(--papel,#FAF7F0);border:1px solid var(--amarelo-ipe,#F7B500);color:var(--azul-tinta,#082554);padding:6px 12px;border-radius:20px;font-size:0.78rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
+          <button type="button" class="btn-portal-pub" onclick="window.showPublicPortal()" aria-label="Acessar Portal Público de Transparência" style="background:var(--papel,#FAF7F0);border:1px solid var(--amarelo-ipe,#F7B500);color:var(--azul-tinta,#082554);padding:6px 12px;border-radius:20px;font-size:0.78rem;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px">
             <span>🌐 Portal Público</span>
           </button>
         </div>
@@ -270,6 +270,8 @@
   <script src="db.js?v=3.2.8"></script>
   <script src="ai_cardapio_engine.js?v=3.2.8"></script>
   <script src="js/core_hub.js?v=3.2.8"></script>
+  <script src="js/modules/rbac.js?v=3.2.8"></script>
+  <script src="js/modules/messaging_evolution.js?v=3.2.8"></script>
   <script src="js/modules/motorista.js?v=3.2.8"></script>
   <script src="js/modules/nutricao.js?v=3.2.8"></script>
   <script src="js/modules/estoque.js?v=3.2.8"></script>

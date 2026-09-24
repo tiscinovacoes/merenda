@@ -10496,7 +10496,7 @@ window.showPublicPortal = function() {
           </div>
         </div>
         <div style="display:flex;gap:10px">
-          <button class="btn btn-outline btn-sm" onclick="window.hidePublicPortal()" style="color:#fff;border-color:#fff">🔒 Acesso Restrito</button>
+          <button class="btn btn-outline btn-sm" onclick="window.hidePublicPortal()" aria-label="Acessar área restrita de login institucional" style="color:#fff;border-color:#fff">🔒 Acesso Restrito</button>
         </div>
       </header>
 
@@ -10543,7 +10543,7 @@ window.showPublicPortal = function() {
 
       <div class="school-search-box">
         <h3 style="margin-top:0">🔍 Consulte o Cardápio das Escolas Piloto</h3>
-        <input type="text" id="public-school-search" placeholder="Digite o nome da EMEI ou Escola..." oninput="window.filterPublicSchools(this.value)" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid var(--border,#cbd5e1);font-size:1rem;box-sizing:border-box">
+        <input type="text" id="public-school-search" placeholder="Digite o nome da EMEI ou Escola..." aria-label="Pesquisar unidade escolar piloto por nome" oninput="window.filterPublicSchools(this.value)" style="width:100%;padding:12px 16px;border-radius:10px;border:1px solid var(--border,#cbd5e1);font-size:1rem;box-sizing:border-box">
         <div class="region-chips">
           <button class="chip-region active" onclick="window.filterRegion('')">Todas as Regiões</button>
           <button class="chip-region" onclick="window.filterRegion('Anhanduizinho')">Anhanduizinho</button>
